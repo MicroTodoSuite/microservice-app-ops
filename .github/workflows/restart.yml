@@ -1,4 +1,4 @@
-name: Restart Pipeline
+name: Restart Pipeline 
 
 # =======================================================
 # REINICIO DE LOS CONTENEDORES
@@ -69,15 +69,7 @@ jobs:
           echo "🚀 Iniciando despliegue ordenado de Azure Container Apps..."
 
           for app in "${apps[@]}"; do
-            echo "🔄 Actualizando Container App: $app"
-            
-            # Comando de redeploy
-            az containerapp update \
-              --name $app \
-              --resource-group $RESOURCE_GROUP \
-              --subscription $AZURE_SUBSCRIPTION_ID
-
-            echo "🚀 Desplegando $app en Azure..."
+            echo "🔄 Procesando Container App: $app"
             
             # Determinar qué imagen usar
             if [[ -n "${special_images[$app]}" ]]; then
@@ -85,15 +77,18 @@ jobs:
               echo "ℹ️ Usando imagen especial para $app: $image"
             else
               image="$ACR_NAME/$app:latest"
+              echo "ℹ️ Usando imagen del ACR para $app: $image"
             fi
 
-            # Comando normal para otros servicios
+            # Actualizar la Container App con la imagen correcta
+            echo "🚀 Actualizando $app..."
             az containerapp update \
               --name $app \
               --resource-group $RESOURCE_GROUP \
               --image "$image" \
               --subscription $AZURE_SUBSCRIPTION_ID
 
+            # Reiniciar la revisión
             echo "🔄 Reiniciando container de $app..."
             revision=$(az containerapp show \
               --name $app \
@@ -102,12 +97,18 @@ jobs:
               --query "properties.latestReadyRevisionName" \
               --output tsv)
 
-            az containerapp revision restart \
-              --name $app \
-              --resource-group $RESOURCE_GROUP \
-              --revision $revision \
-              --subscription $AZURE_SUBSCRIPTION_ID
+            if [[ -n "$revision" ]]; then
+              az containerapp revision restart \
+                --name $app \
+                --resource-group $RESOURCE_GROUP \
+                --revision $revision \
+                --subscription $AZURE_SUBSCRIPTION_ID
+            else
+              echo "⚠️ No se encontró revisión lista para $app, omitiendo reinicio"
+            fi
 
-            echo "✅ $app actualizado y reiniciado"
+            echo "✅ $app actualizado correctamente"
             echo "-------------------------------------------"
           done
+
+          echo "🎉 Todos los servicios han sido actualizados exitosamente"
