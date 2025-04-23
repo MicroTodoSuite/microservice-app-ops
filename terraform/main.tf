@@ -93,7 +93,7 @@ module "users_api" {
   location                   = module.resource_group.location
   container_app_name         = "users-api"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/users-api:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
@@ -123,7 +123,7 @@ module "auth_api" {
   location                   = module.resource_group.location
   container_app_name         = "auth-api"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/auth-api:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
@@ -152,7 +152,7 @@ module "todos_api" {
   location                   = module.resource_group.location
   container_app_name         = "todos-api"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/todos-api:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
@@ -184,7 +184,7 @@ module "log_message_processor" {
   location                   = module.resource_group.location
   container_app_name         = "log-message-processor"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/log-message-processor:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
@@ -212,7 +212,7 @@ module "frontend" {
   location                   = module.resource_group.location
   container_app_name         = "frontend"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/frontend:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
