@@ -20,24 +20,28 @@ jobs:
   # ETAPA 1: DESPLEGAR DE NUEVO LOS CONTENEDORES
   # ==============================================
   deploy_apps_in_order:
-    name: '5. Despliegue ordenado de Container Apps'
+    name: 'Despliegue ordenado de Container Apps'
     runs-on: ubuntu-latest
 
     steps:
-      # Paso 1: Login en Azure
+      # Paso 1: Checkout del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Login en Azure
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
-      # Paso 2: Instalar extensión containerapp
+      # Paso 3: Instalar extensión containerapp
       - name: Setup Azure CLI extensions
         run: |
           az config set extension.use_dynamic_install=yes_without_prompt
           az config set extension.dynamic_install_allow_preview=true
           az extension add --name containerapp --upgrade --yes
 
-      # Paso 3: Despliegue ordenado de los servicios
+      # Paso 4: Despliegue ordenado de los servicios
       - name: Deploy apps in order
         run: |
           # Lista de apps en orden
@@ -63,7 +67,7 @@ jobs:
             az containerapp update \
               --name $app \
               --resource-group $RESOURCE_GROUP \
-              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+              --subscription $AZURE_SUBSCRIPTION_ID
 
             echo "🚀 Desplegando $app en Azure..."
             # Comando normal para otros servicios
