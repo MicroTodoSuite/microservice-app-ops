@@ -1,0 +1,92 @@
+name: Restart Pipeline
+
+# =======================================================
+# REINICIO DE LOS CONTENEDORES
+# =======================================================
+
+# Este pipeline se ejecuta manualmente desde la pestaña 'Actions' en GitHub
+on:
+  workflow_dispatch: # Activación manual
+
+# Variables reutilizables a lo largo del workflow
+env:
+  RESOURCE_GROUP: 'microservice-app-rg' # Grupo de recursos de Azure donde están desplegadas las Container Apps
+  ACR_NAME: 'gacomicroserviceappacr.azurecr.io' # Nombre completo del Azure Container Registry (ACR)
+  AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # ID de la suscripción de Azure configuradas en GitHub Secrets
+
+jobs:
+  # ==============================================
+  # ETAPA 1: DESPLEGAR DE NUEVO LOS CONTENEDORES
+  # ==============================================
+  deploy_apps_in_order:
+    name: '5. Despliegue ordenado de Container Apps'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Login en Azure
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 2: Instalar extensión containerapp
+      - name: Setup Azure CLI extensions
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az config set extension.dynamic_install_allow_preview=true
+          az extension add --name containerapp --upgrade --yes
+
+      # Paso 3: Despliegue ordenado de los servicios
+      - name: Deploy apps in order
+        run: |
+          # Lista de apps en orden
+          apps=(
+            "zipkin"
+            "redis"
+            "users-api"
+            "auth-api"
+            "todos-api"
+            "log-message-processor"
+            "frontend"
+            "frontend-exporter"
+            "prometheus"
+            "grafana"
+          )
+
+          echo "🚀 Iniciando despliegue ordenado de Azure Container Apps..."
+
+          for app in "${apps[@]}"; do
+            echo "🔄 Actualizando Container App: $app"
+            
+            # Comando de redeploy
+            az containerapp update \
+              --name $app \
+              --resource-group $RESOURCE_GROUP \
+              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+            echo "🚀 Desplegando $app en Azure..."
+            # Comando normal para otros servicios
+            az containerapp update \
+              --name $app \
+              --resource-group $RESOURCE_GROUP \
+              --image $ACR_NAME/$app:latest \
+              --subscription $AZURE_SUBSCRIPTION_ID
+
+            echo "🔄 Reiniciando container de $app..."
+            revision=$(az containerapp show \
+              --name $app \
+              --resource-group $RESOURCE_GROUP \
+              --subscription $AZURE_SUBSCRIPTION_ID \
+              --query "properties.latestReadyRevisionName" \
+              --output tsv)
+
+            az containerapp revision restart \
+              --name $app \
+              --resource-group $RESOURCE_GROUP \
+              --revision $revision \
+              --subscription $AZURE_SUBSCRIPTION_ID
+
+            echo "✅ $app actualizado y reiniciado"
+            echo "-------------------------------------------"
+          done
