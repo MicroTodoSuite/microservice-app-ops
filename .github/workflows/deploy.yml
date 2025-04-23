@@ -245,7 +245,7 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               https://api.github.com/repos/$repo/dispatches \
-              -d '{"event_type":"run-development-pipeline"}'
+              -d '{"event_type":"infra-completed"}'
           done
 
   # ==============================================
