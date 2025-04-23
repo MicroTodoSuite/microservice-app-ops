@@ -160,60 +160,60 @@ jobs:
           # Verificar versión instalada
           az version
 
-  #     # Paso 4: Configurar políticas de resiliencia para cada servicio
-  #     - name: Configure resiliency policies for all Container Apps
-  #       run: |
-  #         echo "🔍 Obteniendo todos los Container Apps del grupo $RESOURCE_GROUP..."
-  #         SERVICES=$(az containerapp list --resource-group $RESOURCE_GROUP --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} --query "[].name" -o tsv)
+      # Paso 4: Configurar políticas de resiliencia para cada servicio
+      - name: Configure resiliency policies for all Container Apps
+        run: |
+          echo "🔍 Obteniendo todos los Container Apps del grupo $RESOURCE_GROUP..."
+          SERVICES=$(az containerapp list --resource-group $RESOURCE_GROUP --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} --query "[].name" -o tsv)
 
-  #         for SERVICE in $SERVICES; do
-  #           echo "🔧 Configurando resiliencia para $SERVICE..."
+          for SERVICE in $SERVICES; do
+            echo "🔧 Configurando resiliencia para $SERVICE..."
 
-  #           # Limpiar y generar nombre base
-  #           CLEAN_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
-  #           BASE_NAME="${CLEAN_NAME}-resiliency"
+            # Limpiar y generar nombre base
+            CLEAN_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+            BASE_NAME="${CLEAN_NAME}-resiliency"
 
-  #           # Asegurar que el nombre tenga máximo 30 caracteres
-  #           POLICY_NAME=$(echo "$BASE_NAME" | cut -c1-30 | sed 's/-$//')
+            # Asegurar que el nombre tenga máximo 30 caracteres
+            POLICY_NAME=$(echo "$BASE_NAME" | cut -c1-30 | sed 's/-$//')
 
-  #           echo "📛 Nombre de política generado: $POLICY_NAME"
+            echo "📛 Nombre de política generado: $POLICY_NAME"
 
-  #           # Verificar si la política ya existe
-  #           if az containerapp resiliency show \
-  #             --resource-group $RESOURCE_GROUP \
-  #             --name "$POLICY_NAME" \
-  #             --container-app-name $SERVICE \
-  #             --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} &>/dev/null; then
+            # Verificar si la política ya existe
+            if az containerapp resiliency show \
+              --resource-group $RESOURCE_GROUP \
+              --name "$POLICY_NAME" \
+              --container-app-name $SERVICE \
+              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} &>/dev/null; then
 
-  #             echo "🔄 Actualizando política existente para $SERVICE..."
-  #             az containerapp resiliency update \
-  #               --resource-group $RESOURCE_GROUP \
-  #               --name "$POLICY_NAME" \
-  #               --container-app-name $SERVICE \
-  #               --recommended \
-  #               --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
-  #           else
-  #             echo "🆕 Creando nueva política para $SERVICE..."
-  #             az containerapp resiliency create \
-  #               --resource-group $RESOURCE_GROUP \
-  #               --name "$POLICY_NAME" \
-  #               --container-app-name $SERVICE \
-  #               --recommended \
-  #               --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
-  #           fi
+              echo "🔄 Actualizando política existente para $SERVICE..."
+              az containerapp resiliency update \
+                --resource-group $RESOURCE_GROUP \
+                --name "$POLICY_NAME" \
+                --container-app-name $SERVICE \
+                --recommended \
+                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+            else
+              echo "🆕 Creando nueva política para $SERVICE..."
+              az containerapp resiliency create \
+                --resource-group $RESOURCE_GROUP \
+                --name "$POLICY_NAME" \
+                --container-app-name $SERVICE \
+                --recommended \
+                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+            fi
 
-  #           echo "✅ Configuración aplicada para $SERVICE:"
-  #           az containerapp resiliency show \
-  #             --resource-group $RESOURCE_GROUP \
-  #             --name "$POLICY_NAME" \
-  #             --container-app-name $SERVICE \
-  #             --subscription $AZURE_SUBSCRIPTION_ID \
-  #             --output table
+            echo "✅ Configuración aplicada para $SERVICE:"
+            az containerapp resiliency show \
+              --resource-group $RESOURCE_GROUP \
+              --name "$POLICY_NAME" \
+              --container-app-name $SERVICE \
+              --subscription $AZURE_SUBSCRIPTION_ID \
+              --output table
 
-  #           echo "-------------------------------------------"
-  #         done
+            echo "-------------------------------------------"
+          done
 
-  # # ==============================================
+  # ==============================================
   # ETAPA 4: DESENCADENAR PIPELINES
   # ==============================================
   dispatch_microservices:
