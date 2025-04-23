@@ -1,3 +1,10 @@
+# Backend configuration
+terraform {
+  backend "azurerm" {
+    # Values ​​will be provided via the backend pipeline
+  }
+}
+
 # Configure the Azure Provider
 provider "azurerm" {
   features {}
