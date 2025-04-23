@@ -1,0 +1,56 @@
+name: Infrastructure Destroy
+
+# =======================================================
+# PIPELINE MANUAL PARA DESTRUIR INFRAESTRUCTURA EN AZURE
+# =======================================================
+
+# Este pipeline se ejecuta manualmente desde la pestaña 'Actions' en GitHub
+on:
+  workflow_dispatch:
+
+# Variables reutilizables a lo largo del workflow
+env:
+  TERRAFORM_DIR: 'terraform' # Carpeta donde están los archivos .tf
+  AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # Subscription ID de Azure configuradas en GitHub Secrets
+
+jobs:
+  # ==============================================
+  # ETAPA ÚNICA: DESTRUCCIÓN DE INFRAESTRUCTURA
+  # ==============================================
+  destroy:
+    name: 'Destruir Infraestructura'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Autenticación con Azure
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 3: Instalación de Terraform
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 'latest'
+
+      # Paso 4: Inicializar el backend de Terraform
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
+            -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 5: Destruir la infraestructura
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
