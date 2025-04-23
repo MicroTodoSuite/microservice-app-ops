@@ -58,6 +58,14 @@ jobs:
             "grafana"
           )
 
+          # Imágenes específicas para ciertos servicios
+          declare -A special_images=(
+            ["zipkin"]="openzipkin/zipkin:latest"
+            ["redis"]="redis:7.0-alpine"
+            ["frontend-exporter"]="nginx/nginx-prometheus-exporter:latest"
+            ["grafana"]="grafana/grafana:latest"
+          )
+
           echo "🚀 Iniciando despliegue ordenado de Azure Container Apps..."
 
           for app in "${apps[@]}"; do
@@ -70,11 +78,20 @@ jobs:
               --subscription $AZURE_SUBSCRIPTION_ID
 
             echo "🚀 Desplegando $app en Azure..."
+            
+            # Determinar qué imagen usar
+            if [[ -n "${special_images[$app]}" ]]; then
+              image="${special_images[$app]}"
+              echo "ℹ️ Usando imagen especial para $app: $image"
+            else
+              image="$ACR_NAME/$app:latest"
+            fi
+
             # Comando normal para otros servicios
             az containerapp update \
               --name $app \
               --resource-group $RESOURCE_GROUP \
-              --image $ACR_NAME/$app:latest \
+              --image "$image" \
               --subscription $AZURE_SUBSCRIPTION_ID
 
             echo "🔄 Reiniciando container de $app..."
