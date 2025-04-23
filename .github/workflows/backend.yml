@@ -16,8 +16,8 @@ on:
 
 # Variables reutilizables a lo largo del workflow
 env:
-    AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
-    AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # Subscription ID de Azure configuradas en GitHub Secrets
+  AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # Subscription ID de Azure configuradas en GitHub Secrets
 
 jobs:
   # ==============================================
@@ -26,32 +26,51 @@ jobs:
   setup_backend:
     name: 'Configurar Backend de Terraform'
     runs-on: ubuntu-latest
-    
+    outputs:
+      backend_created: ${{ steps.check.outputs.backend_created }}
+
     steps:
       # Paso 1: Checkout del repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       # Paso 2: Autenticación con Azure
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ env.AZURE_CREDENTIALS }}
-      
+
+      - name: Check if resource group exists
+        id: check
+        run: |
+          RESOURCE_GROUP="terraform-state-rg"
+          RG_EXISTS=$(az group exists --name "$RESOURCE_GROUP")
+          echo "Resource Group Exists: $RG_EXISTS"
+
+          if [ "$RG_EXISTS" == "true" ]; then
+            echo "::notice::El grupo de recursos ya existe. No se requiere configuración del backend."
+            echo "backend_created=false" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "backend_created=true" >> $GITHUB_OUTPUT
+          fi
+
       # Paso 3: Configurar variables
       - name: Set Environment Variables
+        if: steps.check.outputs.backend_created == 'true'
         run: |
           echo "RESOURCE_GROUP=terraform-state-rg" >> $GITHUB_ENV
           echo "STORAGE_ACCOUNT=tfstate$(date +%s | sha256sum | head -c 8)" >> $GITHUB_ENV
           echo "CONTAINER_NAME=tfstate" >> $GITHUB_ENV
           echo "KEY_NAME=terraform.tfstate" >> $GITHUB_ENV
-      
+
       # Paso 4: Crear infraestructura de backend
       - name: Create Backend Infrastructure
+        if: steps.check.outputs.backend_created == 'true'
         run: |
           echo "Creando grupo de recursos $RESOURCE_GROUP en ${{ inputs.location }}..."
           az group create --name $RESOURCE_GROUP --location ${{ inputs.location }}
-          
+
           echo "Creando cuenta de almacenamiento $STORAGE_ACCOUNT..."
           az storage account create \
             --name $STORAGE_ACCOUNT \
@@ -62,26 +81,27 @@ jobs:
             --min-tls-version TLS1_2 \
             --allow-blob-public-access false \
             --tags Purpose=TerraformState
-          
+
           echo "Obteniendo clave de acceso..."
           STORAGE_KEY=$(az storage account keys list \
             --resource-group $RESOURCE_GROUP \
             --account-name $STORAGE_ACCOUNT \
             --query "[0].value" -o tsv)
-          
+
           echo "Creando contenedor de blob $CONTAINER_NAME..."
           az storage container create \
             --name $CONTAINER_NAME \
             --account-name $STORAGE_ACCOUNT \
             --account-key $STORAGE_KEY
-          
+
           # Guardar STORAGE_KEY como variable de entorno temporal
           echo "STORAGE_KEY_TEMP=$STORAGE_KEY" >> $GITHUB_ENV
 
           # Imprimir como aviso visible
           echo "::notice title=TF_STATE_ACCESS_KEY::$STORAGE_KEY"
 
-      - name: Display Backend Configuration Info
+      - name: Output backend configuration
+        if: steps.check.outputs.backend_created == 'true'
         run: |
           echo "✅ Backend configurado correctamente"
           echo "=============================================================="
