@@ -266,7 +266,7 @@ module "prometheus" {
   location                   = module.resource_group.location
   container_app_name         = "prometheus"
   container_apps_environment = module.container_apps_environment.name
-  image                      = "${module.container_registry.login_server}/prometheus:latest"
+  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
   registry_server            = module.container_registry.login_server
   registry_username          = module.container_registry.admin_username
   registry_password          = module.container_registry.admin_password
