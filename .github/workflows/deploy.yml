@@ -212,3 +212,93 @@ jobs:
 
             echo "-------------------------------------------"
           done
+
+  # ==============================================
+  # ETAPA 4: DESENCADENAR PIPELINES
+  # ==============================================
+  dispatch_microservices:
+    name: '4. Desencadenar Pipelines de Microservicios'
+    needs: configure_resiliency
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger pipelines in microservices
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        run: |
+          echo "🚀 Disparando workflows en microservicios..."
+
+          repos=(
+            "MicroTodoSuite/microservice-app-users-api"
+            "MicroTodoSuite/microservice-app-todos-api"
+            "MicroTodoSuite/microservice-app-auth-api"
+            "MicroTodoSuite/microservice-app-log-message-processor"
+            "MicroTodoSuite/microservice-app-prometheus"
+            "MicroTodoSuite/microservice-app-frontend"
+          )
+
+          for repo in "${repos[@]}"; do
+            echo "➡️ Disparando workflow en $repo"
+
+            curl -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              https://api.github.com/repos/$repo/dispatches \
+              -d '{"event_type":"run-development-pipeline"}'
+          done
+
+  # ==============================================
+  # ETAPA 5: DESPLEGAR DE NUEVO LOS CONTENEDORES
+  # ==============================================
+  deploy_apps_in_order:
+    name: '5. Despliegue ordenado de Container Apps'
+    needs: dispatch_microservices
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Login en Azure
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 2: Instalar extensión containerapp
+      - name: Setup Azure CLI extensions
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az config set extension.dynamic_install_allow_preview=true
+          az extension add --name containerapp --upgrade --yes
+
+      # Paso 3: Despliegue ordenado de los servicios
+      - name: Deploy apps in order
+        run: |
+          # Lista de apps en orden
+          apps=(
+            "zipkin"
+            "redis"
+            "users-api"
+            "auth-api"
+            "todos-api"
+            "log-message-processor"
+            "frontend"
+            "frontend-exporter"
+            "prometheus"
+            "grafana"
+          )
+
+          echo "🚀 Iniciando despliegue ordenado de Azure Container Apps..."
+
+          for app in "${apps[@]}"; do
+            echo "🔄 Actualizando Container App: $app"
+            
+            # Comando de redeploy (reemplaza por lo necesario según tu lógica)
+            az containerapp update \
+              --name $app \
+              --resource-group $RESOURCE_GROUP \
+              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+            echo "✅ $app desplegado correctamente"
+            echo "-----------------------------------"
+          done
