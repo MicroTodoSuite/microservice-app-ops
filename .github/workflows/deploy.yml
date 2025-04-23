@@ -1,0 +1,214 @@
+name: Infrastructure Pipeline
+
+# =======================================================
+# CONFIGURACIÓN BÁSICA DEL PIPELINE DE INFRAESTRUCTURA
+# =======================================================
+
+# Este pipeline se ejecutará automáticamente cuando:
+# - Se realicen cambios en la rama 'main'
+# - Y los cambios afecten archivos dentro del directorio 'terraform/'
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+  workflow_dispatch: # Activación manual
+
+# Variables reutilizables a lo largo del workflow
+env:
+  TERRAFORM_DIR: 'terraform' # Carpeta donde están los archivos .tf
+  RESOURCE_GROUP: 'microservice-app-rg' # Grupo de recursos de Azure donde están desplegadas las Container Apps
+  AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # ID de la suscripción de Azure configuradas en GitHub Secrets
+
+jobs:
+  # ==============================================
+  # ETAPA 1: VALIDACIÓN DE INFRAESTRUCTURA
+  # ==============================================
+  validate:
+    name: '1. Validación de Infraestructura'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configurar Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 3: Instalar Terraform
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 'latest'
+
+      # Paso 4: Inicializar Terraform con backend
+      - name: Terraform Init
+        run: |
+          terraform init \
+          -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+          -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+          -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
+          -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 5: Validar la sintaxis de los archivos Terraform
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 6: Generar el plan de ejecución
+      # - Muestra los cambios que se aplicarían sin ejecutarlos
+      # - Guarda el plan como archivo binario `tfplan`
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 7: Subir el archivo tfplan como artefacto
+      # - Esto permite usar el mismo plan en la siguiente etapa
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_DIR }}/tfplan
+
+  # ==============================================
+  # ETAPA 2: APLICACIÓN DE CAMBIOS EN AZURE
+  # ==============================================
+  apply:
+    name: '2. Aplicar Infraestructura'
+    needs: validate
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configurar Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 3: Instalar Terraform
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 'latest'
+
+      # Paso 4: Descargar el artefacto tfplan generado anteriormente
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 5: Inicializar Terraform en esta etapa también con backend
+      - name: Terraform Init
+        run: |
+          terraform init \
+          -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+          -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+          -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
+          -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 6: Aplicar la infraestructura usando el archivo de plan
+      - name: Terraform Apply
+        run: terraform apply -input=false tfplan
+        working-directory: ${{ env.TERRAFORM_DIR }}
+
+  # ==============================================
+  # ETAPA 3: CONFIGURACIÓN DE RESILIENCIA
+  # ==============================================
+  configure_resiliency:
+    name: '3. Configuración de Resiliencia'
+    needs: apply
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configurar Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 3: Instalar/actualizar extensión containerapp
+      - name: Setup Azure CLI extensions
+        run: |
+          # Configurar para permitir extensiones preview
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az config set extension.dynamic_install_allow_preview=true
+
+          # Instalar/actualizar extensión containerapp
+          az extension add --name containerapp --upgrade --yes
+
+          # Verificar versión instalada
+          az version
+
+      # Paso 4: Configurar políticas de resiliencia para cada servicio
+      - name: Configure resiliency policies for all Container Apps
+        run: |
+          echo "🔍 Obteniendo todos los Container Apps del grupo $RESOURCE_GROUP..."
+          SERVICES=$(az containerapp list --resource-group $RESOURCE_GROUP --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} --query "[].name" -o tsv)
+
+          for SERVICE in $SERVICES; do
+            echo "🔧 Configurando resiliencia para $SERVICE..."
+
+            # Limpiar y generar nombre base
+            CLEAN_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+            BASE_NAME="${CLEAN_NAME}-resiliency"
+
+            # Asegurar que el nombre tenga máximo 30 caracteres
+            POLICY_NAME=$(echo "$BASE_NAME" | cut -c1-30 | sed 's/-$//')
+
+            echo "📛 Nombre de política generado: $POLICY_NAME"
+
+            # Verificar si la política ya existe
+            if az containerapp resiliency show \
+              --resource-group $RESOURCE_GROUP \
+              --name "$POLICY_NAME" \
+              --container-app-name $SERVICE \
+              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} &>/dev/null; then
+
+              echo "🔄 Actualizando política existente para $SERVICE..."
+              az containerapp resiliency update \
+                --resource-group $RESOURCE_GROUP \
+                --name "$POLICY_NAME" \
+                --container-app-name $SERVICE \
+                --recommended \
+                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+            else
+              echo "🆕 Creando nueva política para $SERVICE..."
+              az containerapp resiliency create \
+                --resource-group $RESOURCE_GROUP \
+                --name "$POLICY_NAME" \
+                --container-app-name $SERVICE \
+                --recommended \
+                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
+            fi
+
+            echo "✅ Configuración aplicada para $SERVICE:"
+            az containerapp resiliency show \
+              --resource-group $RESOURCE_GROUP \
+              --name "$POLICY_NAME" \
+              --container-app-name $SERVICE \
+              --subscription $AZURE_SUBSCRIPTION_ID \
+              --output table
+
+            echo "-------------------------------------------"
+          done
