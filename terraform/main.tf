@@ -37,8 +37,8 @@ module "container_apps_environment" {
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
   name                = var.container_apps_environment_name
-  tags       = var.tags
-  depends_on = [module.resource_group]
+  tags                = var.tags
+  depends_on          = [module.resource_group]
 }
 
 # Container Apps Modules

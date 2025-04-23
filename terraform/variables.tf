@@ -20,7 +20,7 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default = {
-    Environment = "Development"
+    Environment = "Production"
     Project     = "Microservice App"
   }
 }
@@ -77,5 +77,5 @@ variable "jwt_secret" {
   description = "Secret key for JWT authentication"
   type        = string
   sensitive   = true
-  default     = "PRFT" # For development only. Use a secure method in production.
+  default     = "PRFT"
 }

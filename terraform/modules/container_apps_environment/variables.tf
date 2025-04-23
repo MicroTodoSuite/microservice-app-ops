@@ -16,7 +16,7 @@ variable "location" {
 variable "subnet_id" {
   description = "ID of the subnet for the Container Apps Environment"
   type        = string
-  default     = null  # Hacerla opcional
+  default     = null
 }
 
 variable "tags" {
