@@ -19,6 +19,13 @@ module "resource_group" {
   tags     = var.tags
 }
 
+resource "azurerm_public_ip" "vm_public_ip" {
+  name                = "public_ip"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  allocation_method   = "Static"
+}
+
 # Container Registry Module
 module "container_registry" {
   source              = "./modules/container_registry"
