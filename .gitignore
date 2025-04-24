@@ -38,4 +38,5 @@ override.tf.json
 terraform.rc
 
 .terraform.lock.hcl
+*/backend-local.conf
 # End of https://www.toptal.com/developers/gitignore/api/terraform
