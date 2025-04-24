@@ -6,6 +6,10 @@ terraform {
 }
 
 # Configure the Azure Provider
+provider "azurerm" {
+  features {}
+  subscription_id = var.subscription_id
+}
 
 # Data sources para obtener información de la infraestructura base
 data "terraform_remote_state" "base_infrastructure" {
@@ -21,14 +25,14 @@ data "terraform_remote_state" "base_infrastructure" {
 # Container Apps Modules
 module "zipkin" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "zipkin"
-  container_apps_environment = module.container_apps_environment.name
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
   image                      = "openzipkin/zipkin:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -38,19 +42,19 @@ module "zipkin" {
   environment_variables      = {}
   secrets                    = {}
   tags                       = var.tags
-  depends_on                 = [module.container_apps_environment]
+  depends_on                 = [data.terraform_remote_state.base_infrastructure]
 }
 
 module "redis" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "redis"
-  container_apps_environment = module.container_apps_environment.name
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
   image                      = "redis:7.0-alpine"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 2.0
   memory                     = "4Gi"
   min_replicas               = 1
@@ -61,19 +65,19 @@ module "redis" {
   environment_variables      = {}
   secrets                    = {}
   tags                       = var.tags
-  depends_on                 = [module.container_apps_environment]
+  depends_on                 = [data.terraform_remote_state.base_infrastructure]
 }
 
 module "users_api" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
-  container_app_name         = "users-api"  
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
+  container_app_name         = "users-api"
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/users-api:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -91,19 +95,19 @@ module "users_api" {
     "jwt-secret" = var.jwt_secret
   }
   tags       = var.tags
-  depends_on = [module.container_apps_environment, module.redis, module.zipkin]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.redis, module.zipkin]
 }
 
 module "auth_api" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "auth-api"
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/auth-api:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -120,19 +124,19 @@ module "auth_api" {
     "jwt-secret" = var.jwt_secret
   }
   tags       = var.tags
-  depends_on = [module.container_apps_environment, module.redis, module.users_api]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.redis, module.users_api]
 }
 
 module "todos_api" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "todos-api"
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/todos-api:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -152,19 +156,19 @@ module "todos_api" {
     "jwt-secret" = var.jwt_secret
   }
   tags       = var.tags
-  depends_on = [module.container_apps_environment, module.redis, module.users_api]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.redis, module.users_api]
 }
 
 module "log_message_processor" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "log-message-processor"
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/log-message-processor:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 2.0
   memory                     = "4Gi"
   min_replicas               = 1
@@ -180,19 +184,19 @@ module "log_message_processor" {
   }
   secrets    = {}
   tags       = var.tags
-  depends_on = [module.container_apps_environment, module.redis]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.redis]
 }
 
 module "frontend" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "frontend"
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/frontend:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -210,19 +214,19 @@ module "frontend" {
     "jwt-secret" = var.jwt_secret
   }
   tags       = var.tags
-  depends_on = [module.container_apps_environment, module.auth_api, module.todos_api, module.users_api]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.auth_api, module.todos_api, module.users_api]
 }
 
 module "frontend_exporter" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "frontend-exporter"
-  container_apps_environment = module.container_apps_environment.name
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
   image                      = "nginx/nginx-prometheus-exporter:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -234,19 +238,19 @@ module "frontend_exporter" {
   command                    = ["/usr/bin/nginx-prometheus-exporter"]
   args                       = ["--nginx.scrape-uri=http://frontend/nginx_status"]
   tags                       = var.tags
-  depends_on                 = [module.container_apps_environment, module.frontend]
+  depends_on                 = [data.terraform_remote_state.base_infrastructure, module.frontend]
 }
 
 module "prometheus" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "prometheus"
-  container_apps_environment = module.container_apps_environment.name
-  image                      = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
+  image                      = "${data.terraform_remote_state.base_infrastructure.outputs.acr_login_server}/prometheus:latest"
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -260,20 +264,20 @@ module "prometheus" {
     "LOG_PROCESSOR_TARGET"     = "log-message-processor"
     "FRONTEND_EXPORTER_TARGET" = "frontend-exporter"
   }
-  depends_on = [module.container_apps_environment, module.auth_api, module.users_api, module.todos_api, module.log_message_processor, module.frontend]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.auth_api, module.users_api, module.todos_api, module.log_message_processor, module.frontend]
   tags       = var.tags
 }
 
 module "grafana" {
   source                     = "./modules/container_apps"
-  resource_group_name        = module.resource_group.name
-  location                   = module.resource_group.location
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
   container_app_name         = "grafana"
-  container_apps_environment = module.container_apps_environment.name
+  container_apps_environment = data.terraform_remote_state.base_infrastructure.outputs.container_apps_environment_name
   image                      = "grafana/grafana:latest"
-  registry_server            = module.container_registry.login_server
-  registry_username          = module.container_registry.admin_username
-  registry_password          = module.container_registry.admin_password
+  registry_server            = data.terraform_remote_state.base_infrastructure.outputs.acr_login_server
+  registry_username          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_username
+  registry_password          = data.terraform_remote_state.base_infrastructure.outputs.acr_admin_password
   cpu                        = 1.0
   memory                     = "2Gi"
   min_replicas               = 1
@@ -284,6 +288,6 @@ module "grafana" {
     "GF_SECURITY_ADMIN_PASSWORD" = "12345",
     "GF_PATHS_PROVISIONING"      = "/etc/grafana/provisioning"
   }
-  depends_on = [module.container_apps_environment, module.prometheus]
+  depends_on = [data.terraform_remote_state.base_infrastructure, module.prometheus]
   tags       = var.tags
 }
