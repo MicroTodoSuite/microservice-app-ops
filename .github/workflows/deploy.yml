@@ -78,7 +78,7 @@ jobs:
       # - Guarda el plan como archivo binario `tfplan`
       - name: Terraform Plan
         run: |
-          terraform plan -out=tfplan \
+          terraform -chdir=${{ env.CONTAINERS_TERRAFORM_DIR }} plan -out=tfplan \
           -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}" \
           -var="location=${{ secrets.AZURE_LOCATION }}" \
           -var="resource_group_name=${{ secrets.AZURE_RESOURCE_GROUP_NAME }}" \
@@ -88,8 +88,6 @@ jobs:
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
           -var="tags=${{ secrets.STANDARD_TAGS }}"
-
-        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
       # Paso 8: Subir el archivo tfplan como artefacto
       # - Esto permite usar el mismo plan en la siguiente etapa
@@ -305,7 +303,7 @@ jobs:
       # - Guarda el plan como archivo binario `tfplan`
       - name: Terraform Plan
         run: |
-          terraform plan -out=tfplan \
+          terraform -chdir=${{ env.CONTAINERS_TERRAFORM_DIR }} plan -out=tfplan \
           -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}" \
           -var="location=${{ secrets.AZURE_LOCATION }}" \
           -var="resource_group_name=${{ secrets.AZURE_RESOURCE_GROUP_NAME }}" \
@@ -315,7 +313,6 @@ jobs:
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
           -var="tags=${{ secrets.STANDARD_TAGS }}"
-        working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
       # Paso 8: Subir el archivo tfplan como artefacto
       # - Esto permite usar el mismo plan en la siguiente etapa
