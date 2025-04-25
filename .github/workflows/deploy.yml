@@ -60,20 +60,7 @@ jobs:
           chmod +x ./scripts/setup-azure-secrets.sh
           ./scripts/setup-azure-secrets.sh
 
-      # Paso 5: Obtener la clave de acceso de la cuenta de almacenamiento
-      - name: Get storage account key
-        run: |
-          # Obtener clave de acceso
-          echo "Obteniendo clave de acceso..."
-          STORAGE_KEY=$(az storage account keys list \
-            --resource-group ${{ secrets.TF_STATE_RESOURCE_GROUP }} \
-            --account-name ${{ secrets.TF_STATE_STORAGE_ACCOUNT }} \
-            --query "[0].value" -o tsv)
-
-          # Guardar la key en los secretos
-          gh secret set TF_STATE_ACCESS_KEY -b $STORAGE_KEY --repo ${{ env.GITHUB_REPOSITORY }}
-
-      # Paso 6: Inicializar Terraform con backend
+      # Paso 5: Inicializar Terraform con backend
       - name: Terraform Init
         run: |
           terraform init \
@@ -84,19 +71,19 @@ jobs:
           -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
         working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 7: Validar la sintaxis de los archivos Terraform
+      # Paso 6: Validar la sintaxis de los archivos Terraform
       - name: Terraform Validate
         run: terraform validate
         working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 8: Generar el plan de ejecución
+      # Paso 7: Generar el plan de ejecución
       # - Muestra los cambios que se aplicarían sin ejecutarlos
       # - Guarda el plan como archivo binario `tfplan`
       - name: Terraform Plan
         run: terraform plan -out=tfplan -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}"
         working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 9: Subir el archivo tfplan como artefacto
+      # Paso 8: Subir el archivo tfplan como artefacto
       # - Esto permite usar el mismo plan en la siguiente etapa
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
