@@ -291,3 +291,10 @@ module "grafana" {
   depends_on = [data.terraform_remote_state.base_infrastructure, module.prometheus]
   tags       = var.tags
 }
+
+resource "azurerm_virtual_network" "example" {
+  name                = "example-network"
+  address_space       = ["10.0.0.0/16"]
+  resource_group_name        = data.terraform_remote_state.base_infrastructure.outputs.resource_group_name
+  location                   = data.terraform_remote_state.base_infrastructure.outputs.resource_group_location
+}
