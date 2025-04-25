@@ -305,8 +305,11 @@ jobs:
           -var="acr_admin_enabled=${{ secrets.ACR_ADMIN_ENABLED }}" \
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
-          -var="tfstate_container_name=${{ secrets.TF_STATE_CONTAINER }}" \
           -var='tags=${{ secrets.STANDARD_TAGS }}'
+          -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+          -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+          -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+          -backend-config="key=${{ secrets.TF_STATE_CONTAINER_APPS_KEY }}" \
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
       # Paso 8: Subir el archivo tfplan como artefacto
