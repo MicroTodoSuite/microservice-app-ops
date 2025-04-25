@@ -54,7 +54,7 @@ for REPO in "${REPOS_MICROSERVICES[@]}"; do
   gh secret set AZURE_RESOURCE_GROUP_NAME -b "microservice-app-rg-gaco" --repo $REPO && echo "✓ AZURE_RESOURCE_GROUP_NAME"
   
   # Configurar ACR_NAME (mismo valor que en el repo principal)
-  gh secret set ACR_NAME -b "msappacrgaco" --repo $REPO && echo "✓ ACR_NAME"
+  gh secret set ACR_NAME -b "msappacrgaco.azurecr.io" --repo $REPO && echo "✓ ACR_NAME"
   
   echo "   ✅ $REPO configurado"
   echo "   ──────────────────────────"
