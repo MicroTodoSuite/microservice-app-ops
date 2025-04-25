@@ -375,7 +375,7 @@ jobs:
   configure_resiliency:
     name: '6. Configuración de Resiliencia'
     needs: apply_container
-    if: success() && ${{ github.event_name == 'workflow_run' }}
+    if: success() && github.event_name == 'workflow_run' && github.event.workflow_run.workflow_name == 'Setup Terraform Backend'
     runs-on: ubuntu-latest
 
     steps:
