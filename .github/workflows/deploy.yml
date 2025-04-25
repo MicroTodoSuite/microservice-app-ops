@@ -293,10 +293,10 @@ jobs:
 
       # Paso 7: Generar el plan de ejecución
       # - Muestra los cambios que se aplicarían sin ejecutarlos
-      # - Guarda el plan como archivo binario `tfplan`
+      # - Guarda el plan como archivo binario `tfplan-containers`
       - name: Terraform Plan
         run: |
-          terraform plan -out=tfplan \
+          terraform plan -out=tfplan-containers \
           -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}" \
           -var="location=${{ secrets.AZURE_LOCATION }}" \
           -var="resource_group_name=${{ secrets.AZURE_RESOURCE_GROUP_NAME }}" \
@@ -312,13 +312,13 @@ jobs:
           -var='tags=${{ secrets.STANDARD_TAGS }}'
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
-      # Paso 8: Subir el archivo tfplan como artefacto
+      # Paso 8: Subir el archivo tfplan-containers como artefacto
       # - Esto permite usar el mismo plan en la siguiente etapa
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
-          path: ${{ env.CONTAINERS_TERRAFORM_DIR }}/tfplan
+          path: ${{ env.CONTAINERS_TERRAFORM_DIR }}/tfplan-containers
 
   # ===============================================================================
   # ETAPA 5: APLICACIÓN DE CAMBIOS INFRAESTRUCTURA EN AZURE
@@ -346,7 +346,7 @@ jobs:
         with:
           terraform_version: 'latest'
 
-      # Paso 4: Descargar el artefacto tfplan generado anteriormente
+      # Paso 4: Descargar el artefacto tfplan-containers generado anteriormente
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
@@ -366,7 +366,7 @@ jobs:
 
       # Paso 6: Aplicar la infraestructura usando el archivo de plan
       - name: Terraform Apply
-        run: terraform apply -input=false tfplan
+        run: terraform apply -input=false tfplan-containers
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
   # ===============================================================================
