@@ -375,7 +375,7 @@ jobs:
   configure_resiliency:
     name: '6. Configuración de Resiliencia'
     needs: apply_container
-    if: success()
+    if: success() && ${{ github.event_name == 'workflow_run' }}
     runs-on: ubuntu-latest
 
     steps:
