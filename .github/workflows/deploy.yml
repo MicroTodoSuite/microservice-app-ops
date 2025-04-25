@@ -305,6 +305,7 @@ jobs:
           -var="acr_admin_enabled=${{ secrets.ACR_ADMIN_ENABLED }}" \
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
+          -var="tfstate_container_name=${{ secrets.TF_STATE_CONTAINER }}" \
           -var='tags=${{ secrets.STANDARD_TAGS }}'
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
