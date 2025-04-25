@@ -18,6 +18,8 @@
     },
     "homepage": "https://github.com/MicroTodoSuite/microservice-app-ops.gits",
     "devDependencies": {
+      "@semantic-release/changelog": "^6.0.3",
+      "@semantic-release/git": "^10.0.1",
       "semantic-release": "^24.2.3"
     }
   }
