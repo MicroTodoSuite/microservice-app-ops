@@ -20,15 +20,9 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default = {
-    Environment = "Production"
+    Environment = "Prod"
     Project     = "Microservice App"
   }
-}
-
-variable "vnet_name" {
-  description = "Name of the virtual network"
-  type        = string
-  default     = "microservice-vnet"
 }
 
 variable "acr_name" {

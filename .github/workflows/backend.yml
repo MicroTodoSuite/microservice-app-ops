@@ -139,10 +139,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GITHUB_REPOSITORY: 'MicroTodoSuite/microservice-app-ops'
         run: |
-          gh secret set TF_STATE_RESOURCE_GROUP -b ${{ env.RESOURCE_GROUP }}" --repo $GITHUB_REPOSITORY
-          gh secret set TF_STATE_STORAGE_ACCOUNT -b ${{ env.STORAGE_ACCOUNT }}" --repo $GITHUB_REPOSITORY
-          gh secret set TF_STATE_CONTAINER -b ${{ env.CONTAINER_NAME }}" --repo $GITHUB_REPOSITORY
-          gh secret set TF_STATE_ACCESS_KEY -b ${{ env.STORAGE_KEY }}" --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_RESOURCE_GROUP -b ${{ env.RESOURCE_GROUP }} --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_STORAGE_ACCOUNT -b ${{ env.STORAGE_ACCOUNT }} --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_CONTAINER -b ${{ env.CONTAINER_NAME }} --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_ACCESS_KEY -b ${{ env.STORAGE_KEY }} --repo $GITHUB_REPOSITORY
 
       # Paso 9: Mostrar los Secrets de GitHub
       - name: Output backend configuration
