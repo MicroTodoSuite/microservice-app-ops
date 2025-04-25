@@ -305,10 +305,10 @@ jobs:
           -var="acr_admin_enabled=${{ secrets.ACR_ADMIN_ENABLED }}" \
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
-          -var="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
-          -var="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
-          -var="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
-          -var="key=${{ secrets.TF_STATE_CONTAINER_APPS_KEY }}" \
+          -var="tfstate_resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+          -var="tfstate_storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+          -var="tfstate_container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+          -var="tfstate_key_base_infrastructure=${{ secrets.TF_STATE_BASE_INFRASTRUCTURE_KEY }}" \
           -var='tags=${{ secrets.STANDARD_TAGS }}'
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
