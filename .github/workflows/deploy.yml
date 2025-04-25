@@ -178,7 +178,7 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      # Paso 3: Verificar si ya terminaron los pipelines de desarrollo
+            # Paso 3: Verificar si ya terminaron los pipelines de desarrollo
       - name: Verify completed pipelines in microservices
         run: |
           echo "🔍 Iniciando verificación de workflows..."
@@ -200,6 +200,7 @@ jobs:
           while [ $(date +%s) -lt $end_time ]; do
             all_done=true
             pending_repos=""
+            failed_repos=""
             
             for repo in "${repos[@]}"; do
               echo "📡 Consultando estado para $repo"
@@ -219,6 +220,13 @@ jobs:
               conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion // "unknown"')
               
               printf "   %-45s: Status=%-10s Conclusion=%-10s\n" "$repo" "$status" "$conclusion"
+              
+              # Si el status es 'failed' o la conclusión es 'failure', abortar inmediatamente
+              if [ "$status" = "failed" ] || [ "$conclusion" = "failure" ]; then
+                echo -e "\n❌ Error crítico: El repositorio $repo falló (Status=$status, Conclusion=$conclusion)"
+                echo "🚨 Abortando el pipeline debido a fallo en microservicios..."
+                exit 1
+              fi
               
               if [ "$status" != "completed" ] || [ "$conclusion" != "success" ]; then
                 all_done=false
