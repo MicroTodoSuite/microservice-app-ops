@@ -87,7 +87,7 @@ jobs:
           -var="acr_admin_enabled=${{ secrets.ACR_ADMIN_ENABLED }}" \
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
-          -var='standard_tags=${{ secrets.STANDARD_TAGS }}'
+          -var="tags=${{ secrets.STANDARD_TAGS }}"
 
         working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
@@ -314,7 +314,7 @@ jobs:
           -var="acr_admin_enabled=${{ secrets.ACR_ADMIN_ENABLED }}" \
           -var="container_apps_environment_name=${{ secrets.CONTAINER_APPS_ENVIRONMENT_NAME }}" \
           -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
-          -var='standard_tags=${{ secrets.STANDARD_TAGS }}'
+          -var="tags=${{ secrets.STANDARD_TAGS }}"
         working-directory: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
       # Paso 8: Subir el archivo tfplan como artefacto
