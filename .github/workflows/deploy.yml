@@ -1,32 +1,38 @@
 name: Infrastructure Pipeline
 
-# =======================================================
+# ===============================================================================
 # CONFIGURACIÓN BÁSICA DEL PIPELINE DE INFRAESTRUCTURA
-# =======================================================
+# ===============================================================================
 
 # Este pipeline se ejecutará automáticamente cuando:
 # - Se realicen cambios en la rama 'main'
-# - Y los cambios afecten archivos dentro del directorio 'terraform/'
+# - Y los cambios afecten archivos dentro de los directorios 'base-infrastructure/*', 'container-apps/'
 on:
   pull_request:
     branches:
       - main
     paths:
-      - 'terraform/**'
-  workflow_dispatch: # Activación manual
+      - 'base-infrastructure/**'
+      - 'container-apps/**'
+  workflow_run:
+    workflows: ['Setup Terraform Backend']
+    types:
+      - completed # Se ejecuta cuando se completa el pipeline del backend
 
 # Variables reutilizables a lo largo del workflow
 env:
-  TERRAFORM_DIR: 'terraform' # Carpeta donde están los archivos .tf
-  RESOURCE_GROUP: 'microservice-app-rg' # Grupo de recursos de Azure donde están desplegadas las Container Apps
+  INFRASTRUCTURE_TERRAFORM_DIR: 'base-infrastructure' # Carpeta donde están los archivos .tf de la base de la infraestructrua
+  CONTAINERS_TERRAFORM_DIR: 'container-apps' # Carpeta donde están los archivos .tf de la base de la infraestructrua
   AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
   AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # ID de la suscripción de Azure configuradas en GitHub Secrets
+  GITHUB_REPOSITORY: 'MicroTodoSuite/microservice-app-ops' # Repositorio de operaciones
+  GH_TOKEN: ${{ secrets.GH_TOKEN }} # Github token con los permisos necesarios
 
 jobs:
-  # ==============================================
-  # ETAPA 1: VALIDACIÓN DE INFRAESTRUCTURA
-  # ==============================================
-  validate:
+  # ===============================================================================
+  # ETAPA 1: VALIDACIÓN DE INFRAESTRUCTURA BASE
+  # ===============================================================================
+  validate_base:
     name: '1. Validación de Infraestructura'
     runs-on: ubuntu-latest
 
@@ -43,11 +49,31 @@ jobs:
 
       # Paso 3: Instalar Terraform
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 'latest'
+          terraform_version: 1.5.0
 
-      # Paso 4: Inicializar Terraform con backend
+      # Paso 4: Ejecutar script para configurar secrets (tu requerimiento)
+      - name: Setup Azure Secrets
+        run: |
+          echo "⚙️ Configurando secrets de Azure..."
+          chmod +x ./scripts/setup-azure-secrets.sh
+          ./scripts/setup-azure-secrets.sh
+
+      # Paso 5: Obtener la clave de acceso de la cuenta de almacenamiento
+      - name: Get storage account key
+        run: |
+          # Obtener clave de acceso
+          echo "Obteniendo clave de acceso..."
+          STORAGE_KEY=$(az storage account keys list \
+            --resource-group ${{ secrets.TF_STATE_RESOURCE_GROUP }} \
+            --account-name ${{ secrets.TF_STATE_STORAGE_ACCOUNT }} \
+            --query "[0].value" -o tsv)
+
+          # Guardar la key en los secretos
+          gh secret set TF_STATE_ACCESS_KEY -b $STORAGE_KEY --repo ${{ env.GITHUB_REPOSITORY }}
+
+      # Paso 6: Inicializar Terraform con backend
       - name: Terraform Init
         run: |
           terraform init \
@@ -56,34 +82,34 @@ jobs:
           -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
           -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
           -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
-        working-directory: ${{ env.TERRAFORM_DIR }}
+        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 5: Validar la sintaxis de los archivos Terraform
+      # Paso 7: Validar la sintaxis de los archivos Terraform
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ env.TERRAFORM_DIR }}
+        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 6: Generar el plan de ejecución
+      # Paso 8: Generar el plan de ejecución
       # - Muestra los cambios que se aplicarían sin ejecutarlos
       # - Guarda el plan como archivo binario `tfplan`
       - name: Terraform Plan
         run: terraform plan -out=tfplan -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}"
-        working-directory: ${{ env.TERRAFORM_DIR }}
+        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-      # Paso 7: Subir el archivo tfplan como artefacto
+      # Paso 9: Subir el archivo tfplan como artefacto
       # - Esto permite usar el mismo plan en la siguiente etapa
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
-          path: ${{ env.TERRAFORM_DIR }}/tfplan
+          path: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}/tfplan
 
-  # ==============================================
-  # ETAPA 2: APLICACIÓN DE CAMBIOS EN AZURE
-  # ==============================================
-  apply:
+  # ===============================================================================
+  # ETAPA 2: APLICACIÓN DE CAMBIOS INFRAESTRUCTURA BASE EN AZURE
+  # ===============================================================================
+  apply_base:
     name: '2. Aplicar Infraestructura'
-    needs: validate
+    needs: validate_base
     if: success()
     runs-on: ubuntu-latest
 
@@ -100,16 +126,16 @@ jobs:
 
       # Paso 3: Instalar Terraform
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 'latest'
+          terraform_version: 1.5.0
 
       # Paso 4: Descargar el artefacto tfplan generado anteriormente
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
-          path: ${{ env.TERRAFORM_DIR }}
+          path: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
       # Paso 5: Inicializar Terraform en esta etapa también con backend
       - name: Terraform Init
@@ -120,112 +146,25 @@ jobs:
           -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
           -backend-config="key=${{ secrets.TF_STATE_KEY }}" \
           -backend-config="access_key=${{ secrets.TF_STATE_ACCESS_KEY }}"
-        working-directory: ${{ env.TERRAFORM_DIR }}
+        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
       # Paso 6: Aplicar la infraestructura usando el archivo de plan
       - name: Terraform Apply
         run: terraform apply -input=false tfplan
-        working-directory: ${{ env.TERRAFORM_DIR }}
+        working-directory: ${{ env.INFRASTRUCTURE_TERRAFORM_DIR }}
 
-  # ==============================================
-  # ETAPA 3: CONFIGURACIÓN DE RESILIENCIA
-  # ==============================================
-  configure_resiliency:
-    name: '3. Configuración de Resiliencia'
-    needs: apply
-    if: success()
-    runs-on: ubuntu-latest
-
-    steps:
-      # Paso 1: Checkout del código
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Paso 2: Configurar Azure CLI
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ env.AZURE_CREDENTIALS }}
-
-      # Paso 3: Instalar/actualizar extensión containerapp
-      - name: Setup Azure CLI extensions
-        run: |
-          # Configurar para permitir extensiones preview
-          az config set extension.use_dynamic_install=yes_without_prompt
-          az config set extension.dynamic_install_allow_preview=true
-
-          # Instalar/actualizar extensión containerapp
-          az extension add --name containerapp --upgrade --yes
-
-          # Verificar versión instalada
-          az version
-
-      # Paso 4: Configurar políticas de resiliencia para cada servicio
-      - name: Configure resiliency policies for all Container Apps
-        run: |
-          echo "🔍 Obteniendo todos los Container Apps del grupo $RESOURCE_GROUP..."
-          SERVICES=$(az containerapp list --resource-group $RESOURCE_GROUP --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} --query "[].name" -o tsv)
-
-          for SERVICE in $SERVICES; do
-            echo "🔧 Configurando resiliencia para $SERVICE..."
-
-            # Limpiar y generar nombre base
-            CLEAN_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
-            BASE_NAME="${CLEAN_NAME}-resiliency"
-
-            # Asegurar que el nombre tenga máximo 30 caracteres
-            POLICY_NAME=$(echo "$BASE_NAME" | cut -c1-30 | sed 's/-$//')
-
-            echo "📛 Nombre de política generado: $POLICY_NAME"
-
-            # Verificar si la política ya existe
-            if az containerapp resiliency show \
-              --resource-group $RESOURCE_GROUP \
-              --name "$POLICY_NAME" \
-              --container-app-name $SERVICE \
-              --subscription ${{ env.AZURE_SUBSCRIPTION_ID }} &>/dev/null; then
-
-              echo "🔄 Actualizando política existente para $SERVICE..."
-              az containerapp resiliency update \
-                --resource-group $RESOURCE_GROUP \
-                --name "$POLICY_NAME" \
-                --container-app-name $SERVICE \
-                --recommended \
-                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
-            else
-              echo "🆕 Creando nueva política para $SERVICE..."
-              az containerapp resiliency create \
-                --resource-group $RESOURCE_GROUP \
-                --name "$POLICY_NAME" \
-                --container-app-name $SERVICE \
-                --recommended \
-                --subscription ${{ env.AZURE_SUBSCRIPTION_ID }}
-            fi
-
-            echo "✅ Configuración aplicada para $SERVICE:"
-            az containerapp resiliency show \
-              --resource-group $RESOURCE_GROUP \
-              --name "$POLICY_NAME" \
-              --container-app-name $SERVICE \
-              --subscription $AZURE_SUBSCRIPTION_ID \
-              --output table
-
-            echo "-------------------------------------------"
-          done
-
-  # ==============================================
-  # ETAPA 4: DESENCADENAR PIPELINES
-  # ==============================================
+  # ===============================================================================
+  # ETAPA 3: DESENCADENAR PIPELINES
+  # ===============================================================================
   dispatch_microservices:
-    name: '4. Desencadenar Pipelines de Microservicios'
-    needs: configure_resiliency
+    name: '3. Desencadenar Pipelines de Microservicios'
+    needs: apply_base
     if: success()
     runs-on: ubuntu-latest
 
     steps:
+      # Paso 1: Ejecutar los pipelines de desarrollo
       - name: Trigger pipelines in microservices
-        env:
-          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         run: |
           echo "🚀 Disparando workflows en microservicios..."
 
@@ -243,7 +182,74 @@ jobs:
 
             curl -X POST \
               -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Authorization: Bearer ${{ env.GH_TOKEN }}" \
               https://api.github.com/repos/$repo/dispatches \
               -d '{"event_type":"infra-completed"}'
           done
+
+      # Paso 2: Instalar dependencia para procesar JSON
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      # Paso 3: Verificar si ya terminaron los pipelines de desarrollo
+      - name: Verify completed pipelines in microservices
+        run: |
+          echo "🔍 Iniciando verificación de workflows..."
+          
+          # Lista de repositorios
+          repos=(
+            "MicroTodoSuite/microservice-app-users-api"
+            "MicroTodoSuite/microservice-app-todos-api"
+            "MicroTodoSuite/microservice-app-auth-api"
+            "MicroTodoSuite/microservice-app-log-message-processor"
+            "MicroTodoSuite/microservice-app-prometheus"
+            "MicroTodoSuite/microservice-app-frontend"
+          )
+
+          max_wait_minutes=30
+          interval_seconds=30
+          end_time=$(( $(date +%s) + (max_wait_minutes * 60) ))
+          
+          while [ $(date +%s) -lt $end_time ]; do
+            all_done=true
+            pending_repos=""
+            
+            for repo in "${repos[@]}"; do
+              echo "📡 Consultando estado para $repo"
+              
+              if ! response=$(curl -s -f \
+                -H "Accept: application/vnd.github.v3+json" \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$repo/actions/runs?event=repository_dispatch&event_type=infra-completed&per_page=1"); then
+                
+                echo "⚠️ Error al consultar $repo"
+                all_done=false
+                pending_repos+=" $repo"
+                continue
+              fi
+
+              status=$(echo "$response" | jq -r '.workflow_runs[0].status // "unknown"')
+              conclusion=$(echo "$response" | jq -r '.workflow_runs[0].conclusion // "unknown"')
+              
+              printf "   %-45s: Status=%-10s Conclusion=%-10s\n" "$repo" "$status" "$conclusion"
+              
+              if [ "$status" != "completed" ] || [ "$conclusion" != "success" ]; then
+                all_done=false
+                pending_repos+=" $repo"
+              fi
+            done
+
+            if [ "$all_done" = true ]; then
+              echo -e "\n🎉 Todos los microservicios han completado sus pipelines exitosamente!"
+              exit 0
+            fi
+
+            echo -e "\n⏳ Repositorios pendientes:$pending_repos"
+            echo "⌛ Volviendo a verificar en $interval_seconds segundos..."
+            sleep $interval_seconds
+          done
+
+          echo -e "\n❌ Error: Tiempo de espera agotado ($max_wait_minutes minutos)"
+          echo "Los siguientes repositorios no completaron sus pipelines:"
+          echo "$pending_repos"
+          exit 1
