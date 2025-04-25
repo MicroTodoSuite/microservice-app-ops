@@ -8,107 +8,150 @@ name: Setup Terraform Backend
 on:
   workflow_dispatch: # Activación manual
     inputs:
+      resource_group:
+        description: 'Nombre del grupo de recursos para el backend'
+        required: true
+        default: 'tfstate-rg'
+        type: string
       location:
-        description: 'Azure Region para el backend'
+        description: 'Región de Azure donde crear los recursos'
         required: true
         default: 'eastus'
         type: string
 
 # Variables reutilizables a lo largo del workflow
 env:
+  TERRAFORM_DIR: 'backend' # Carpeta donde están los archivos .tf
   AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS_COLONIA }} # Credenciales de Azure configuradas en GitHub Secrets
   AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_COLONIA }} # Subscription ID de Azure configuradas en GitHub Secrets
 
 jobs:
   # ==============================================
-  # ETAPA ÚNICA: CREACIÓN DEL BACKEND
+  # ETAPA 1: VALIDACIÓN DE INFRAESTRUCTURA
   # ==============================================
-  setup_backend:
-    name: 'Configurar Backend de Terraform'
+  validate:
+    name: '1. Validación de Infraestructura'
     runs-on: ubuntu-latest
-    outputs:
-      backend_created: ${{ steps.check.outputs.backend_created }}
 
     steps:
       # Paso 1: Checkout del repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Paso 2: Autenticación con Azure
+      # Paso 2: Configurar Azure CLI
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
-      - name: Check if resource group exists
-        id: check
+      # Paso 3: Instalar Terraform
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      # Paso 4: Inicializar Terraform con backend
+      - name: Terraform Init
         run: |
-          RESOURCE_GROUP="terraform-state-rg"
-          RG_EXISTS=$(az group exists --name "$RESOURCE_GROUP")
-          echo "Resource Group Exists: $RG_EXISTS"
+          terraform init
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-          if [ "$RG_EXISTS" == "true" ]; then
-            echo "::notice::El grupo de recursos ya existe. No se requiere configuración del backend."
-            echo "backend_created=false" >> $GITHUB_OUTPUT
-            exit 0
-          else
-            echo "backend_created=true" >> $GITHUB_OUTPUT
-          fi
+      # Paso 5: Validar la sintaxis de los archivos Terraform
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-      # Paso 3: Configurar variables
-      - name: Set Environment Variables
-        if: steps.check.outputs.backend_created == 'true'
+      # Paso 6: Generar el plan de ejecución
+      # - Muestra los cambios que se aplicarían sin ejecutarlos
+      # - Guarda el plan como archivo binario `tfplan`
+      - name: Terraform Plan
         run: |
-          echo "RESOURCE_GROUP=terraform-state-rg" >> $GITHUB_ENV
-          echo "STORAGE_ACCOUNT=tfstate$(date +%s | sha256sum | head -c 8)" >> $GITHUB_ENV
-          echo "CONTAINER_NAME=tfstate" >> $GITHUB_ENV
-          echo "KEY_NAME=terraform.tfstate" >> $GITHUB_ENV
+          terraform plan -out=tfplan \
+            -var="subscription_id=${{ env.AZURE_SUBSCRIPTION_ID }}" \
+            -var="resource_group_name=${{ github.event.inputs.resource_group }}" \
+            -var="location=${{ github.event.inputs.location }}"
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-      # Paso 4: Crear infraestructura de backend
-      - name: Create Backend Infrastructure
-        if: steps.check.outputs.backend_created == 'true'
+      # Paso 7: Subir el archivo tfplan como artefacto
+      # - Esto permite usar el mismo plan en la siguiente etapa
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_DIR }}/tfplan
+
+  # ==============================================
+  # ETAPA 2: APLICACIÓN DE CAMBIOS EN AZURE Y CONFIGURACIÓN DEL BACKEND
+  # ==============================================
+  apply:
+    name: '2. Aplicar Infraestructura y Configurar Backend'
+    needs: validate
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configurar Azure CLI
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # Paso 3: Instalar Terraform
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      # Paso 4: Descargar el artefacto tfplan generado anteriormente
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: ${{ env.TERRAFORM_DIR }}
+
+      # Paso 5: Inicializar Terraform en esta etapa también con backend
+      - name: Terraform Init
         run: |
-          echo "Creando grupo de recursos $RESOURCE_GROUP en ${{ inputs.location }}..."
-          az group create --name $RESOURCE_GROUP --location ${{ inputs.location }}
+          terraform init
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-          echo "Creando cuenta de almacenamiento $STORAGE_ACCOUNT..."
-          az storage account create \
-            --name $STORAGE_ACCOUNT \
-            --resource-group $RESOURCE_GROUP \
-            --location ${{ inputs.location }} \
-            --sku Standard_LRS \
-            --encryption-services blob \
-            --min-tls-version TLS1_2 \
-            --allow-blob-public-access false \
-            --tags Purpose=TerraformState
+      # Paso 6: Aplicar la infraestructura usando el archivo de plan
+      - name: Terraform Apply
+        run: terraform apply -input=false tfplan
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-          echo "Obteniendo clave de acceso..."
-          STORAGE_KEY=$(az storage account keys list \
-            --resource-group $RESOURCE_GROUP \
-            --account-name $STORAGE_ACCOUNT \
-            --query "[0].value" -o tsv)
+      # Paso 7: Capturar outputs de Terraform y configurar variables de entorno
+      - name: Capture Terraform Outputs
+        run: |
+          echo "RESOURCE_GROUP=$(terraform output -raw resource_group_name)"  >> $GITHUB_ENV
+          echo "STORAGE_ACCOUNT=$(terraform output -raw storage_account_name)" >> $GITHUB_ENV
+          echo "CONTAINER_NAME=$(terraform output -raw container_name)" >> $GITHUB_ENV
+          echo "STORAGE_KEY=$(terraform output -raw access_key)" >> $GITHUB_ENV
+        working-directory: ${{ env.TERRAFORM_DIR }}
 
-          echo "Creando contenedor de blob $CONTAINER_NAME..."
-          az storage container create \
-            --name $CONTAINER_NAME \
-            --account-name $STORAGE_ACCOUNT \
-            --account-key $STORAGE_KEY
+      # Paso 8: Actualizar Secrets en GitHub
+      - name: Set GitHub Secrets (TF_STATE_*)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_REPOSITORY: 'MicroTodoSuite/microservice-app-ops'
+        run: |
+          gh secret set TF_STATE_RESOURCE_GROUP -b ${{ env.RESOURCE_GROUP }}" --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_STORAGE_ACCOUNT -b ${{ env.STORAGE_ACCOUNT }}" --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_CONTAINER -b ${{ env.CONTAINER_NAME }}" --repo $GITHUB_REPOSITORY
+          gh secret set TF_STATE_ACCESS_KEY -b ${{ env.STORAGE_KEY }}" --repo $GITHUB_REPOSITORY
 
-          # Guardar STORAGE_KEY como variable de entorno temporal
-          echo "STORAGE_KEY_TEMP=$STORAGE_KEY" >> $GITHUB_ENV
-
-          # Imprimir como aviso visible
-          echo "::notice title=TF_STATE_ACCESS_KEY::$STORAGE_KEY"
-
+      # Paso 9: Mostrar los Secrets de GitHub
       - name: Output backend configuration
-        if: steps.check.outputs.backend_created == 'true'
         run: |
           echo "✅ Backend configurado correctamente"
           echo "=============================================================="
-          echo "ℹ️ Información de los GitHub Secrets (copiar estos valores):"
-          echo "TF_STATE_RESOURCE_GROUP: $RESOURCE_GROUP"
-          echo "TF_STATE_STORAGE_ACCOUNT: $STORAGE_ACCOUNT"
-          echo "TF_STATE_CONTAINER: $CONTAINER_NAME"
-          echo "TF_STATE_KEY: $KEY_NAME"
-          echo "⚠️ TF_STATE_ACCESS_KEY (mira el aviso arriba)"
+          echo "ℹ️ Información de los GitHub Secrets:"
+          echo "TF_STATE_RESOURCE_GROUP: ${{ env.RESOURCE_GROUP }}"
+          echo "TF_STATE_STORAGE_ACCOUNT: ${{ env.STORAGE_ACCOUNT }}"
+          echo "TF_STATE_CONTAINER: ${{ env.CONTAINER_NAME }}"
+          echo "⚠️ TF_STATE_ACCESS_KEY: [PROTEGIDO]"
           echo "=============================================================="
