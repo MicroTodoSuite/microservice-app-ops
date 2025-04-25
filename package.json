@@ -1,0 +1,25 @@
+{
+    "name": "microservice-app-ops",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/MicroTodoSuite/microservice-app-ops.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+      "url": "https://github.com/MicroTodoSuite/microservice-app-ops.git"
+    },
+    "homepage": "https://github.com/MicroTodoSuite/microservice-app-ops.gits",
+    "devDependencies": {
+      "@semantic-release/changelog": "^6.0.3",
+      "@semantic-release/git": "^10.0.1",
+      "semantic-release": "^24.2.3"
+    }
+  }
