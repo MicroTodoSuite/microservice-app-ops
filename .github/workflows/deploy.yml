@@ -317,7 +317,7 @@ jobs:
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan
+          name: tfplan-containers
           path: ${{ env.CONTAINERS_TERRAFORM_DIR }}/tfplan-containers
 
   # ===============================================================================
@@ -350,7 +350,7 @@ jobs:
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
-          name: terraform-plan
+          name: tfplan-containers
           path: ${{ env.CONTAINERS_TERRAFORM_DIR }}
 
       # Paso 5: Inicializar Terraform en esta etapa también con backend
