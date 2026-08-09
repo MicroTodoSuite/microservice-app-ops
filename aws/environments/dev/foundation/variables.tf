@@ -121,7 +121,7 @@ variable "cluster_public_access_cidrs" {
 variable "bootstrap_node_instance_types" {
   description = "Approved non-burstable bootstrap node types with at least 2 vCPU and 8 GiB memory."
   type        = list(string)
-  default     = ["m6i.large"]
+  default     = ["m7i-flex.large"]
 }
 
 variable "bootstrap_node_min_size" {

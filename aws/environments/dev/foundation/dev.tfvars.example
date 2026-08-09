@@ -32,7 +32,8 @@ bootstrap_admin_principal_arns = [
   "arn:aws:iam::123456789012:role/microtodosuite-terraform-dev",
 ]
 
-bootstrap_node_instance_types = ["m6i.large"]
+# Keep the reviewed non-burstable x86 baseline of 2 vCPU and 8 GiB memory.
+bootstrap_node_instance_types = ["m7i-flex.large"]
 
 common_tags = {
   CostCenter = "platform-engineering"

@@ -38,9 +38,14 @@ add-on range.
 **Implementation prerequisite discovered**: EKS module 21.24.2 resolves an
 assumed caller's source role through `aws_iam_session_context` during
 provisioning. The current preview profile can call STS but is denied
-`iam:GetRole` on `microtodosuite-terraform-dev`. The review plan therefore
-orders the module behind the fixed input guard, but any separately authorized
-provisioning identity must have `iam:GetRole` on its own execution role. This
+IAM read/list access on its own execution role and on Terraform-managed roles
+and policies. A post-failure refresh specifically confirmed missing
+`iam:GetRole`, `iam:GetPolicy`, `iam:ListRolePolicies`, and
+`iam:ListAttachedRolePolicies`, followed by `iam:GetPolicyVersion` and
+`iam:GetOpenIDConnectProvider` as the refresh progressed. The review plan
+therefore orders the module behind the fixed input guard, but a separately
+authorized account administrator must grant the provisioning identity the
+read/list permissions required to refresh its managed IAM resources. This
 implementation does not mutate that external operator role.
 
 ## Decision 3: Use a resilient three-AZ network
@@ -79,17 +84,29 @@ subnets at this scale.
 
 **Decision**: Create one On-Demand, AL2023 x86-64 managed node group across the
 private subnets with `min=2`, `desired=2`, and `max=4`. The default instance is
-`m6i.large`, configurable only to approved types with at least 2 vCPU and 8 GiB.
-Use encrypted gp3 volumes, no SSH key, IMDSv2, node repair, and multi-AZ
+`m7i-flex.large`, configurable only to approved types with at least 2 vCPU and
+8 GiB. Use encrypted gp3 volumes, no SSH key, IMDSv2, node repair, and multi-AZ
 placement. Enable EKS control-plane logs and managed CoreDNS, kube-proxy, and
-VPC CNI add-ons.
+VPC CNI add-ons. Use a module-generated `bootstrap-` physical-name prefix while
+retaining the stable `Name=bootstrap` tag and capacity-owner label.
 
 **Rationale**: The cluster needs capacity before ArgoCD or Karpenter exists. Two
 On-Demand nodes keep controllers available during one-node/AZ disruption and
-avoid making a cost-driven Spot choice silently.
+avoid making a cost-driven Spot choice silently. A live account query confirmed
+that `m7i-flex.large` is Free Tier eligible, x86-64, current-generation,
+On-Demand, 2 vCPU/8 GiB, and offered in all three selected AZs. The original
+`m6i.large` choice failed at runtime because this account currently rejects EC2
+types that are not Free Tier eligible. The pinned managed-node-group module
+enforces create-before-destroy. A generated suffix therefore allows a healthy
+replacement to be created alongside the old group; a fixed `bootstrap` name
+caused EKS to reject the replacement with `ResourceInUseException`.
 
 **Alternatives rejected**: Spot bootstrap nodes; Fargate; burstable small
-instances; relying on Karpenter or a cluster autoscaler for initial capacity.
+instances; the Free Tier eligible `c7i-flex.large` and T-family types because
+they do not meet the 8-GiB stable-capacity contract; Arm-based T4g types; keeping
+`m6i.large` while the account rejects it; a fixed physical node-group name that
+cannot satisfy create-before-destroy; relying on Karpenter or a cluster
+autoscaler for initial capacity.
 
 **Sources**: [EKS managed node groups](https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html),
 [AL2023 EKS AMIs](https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html).
@@ -103,7 +120,9 @@ instances; relying on Karpenter or a cluster autoscaler for initial capacity.
 Keep the node role limited to worker-node and ECR pull permissions. Represent
 future workload bindings as exact namespace/service-account records; create no
 broad placeholder role. Use EKS access entries rather than new `aws-auth`
-mappings for bootstrap/operator principals.
+mappings for bootstrap/operator principals. Pin EKS secrets-key administrators
+to the reviewed bootstrap role ARNs rather than allowing the module to derive a
+different administrator from whichever caller happens to run Terraform.
 
 **Rationale**: This exercises the complete OIDC-to-service-account path and
 keeps network permissions off every pod on a node. No application AWS resource

@@ -159,14 +159,14 @@ variable "kubernetes_version" {
 variable "bootstrap_node_instance_types" {
   description = "Approved non-burstable bootstrap node types with at least 2 vCPU and 8 GiB memory."
   type        = list(string)
-  default     = ["m6i.large"]
+  default     = ["m7i-flex.large"]
 
   validation {
     condition = (
       length(var.bootstrap_node_instance_types) > 0 &&
       alltrue([
         for instance_type in var.bootstrap_node_instance_types :
-        contains(["m6a.large", "m6i.large", "m7a.large", "m7i.large"], instance_type)
+        contains(["m6a.large", "m6i.large", "m7a.large", "m7i.large", "m7i-flex.large"], instance_type)
       ])
     )
     error_message = "bootstrap_node_instance_types must use the reviewed non-burstable 2-vCPU/8-GiB allowlist."

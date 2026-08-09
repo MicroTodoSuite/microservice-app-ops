@@ -39,6 +39,7 @@ module "eks" {
   enable_kms_key_rotation         = true
   kms_key_deletion_window_in_days = 30
   kms_key_description             = "Encrypts Kubernetes secrets for ${local.cluster_name}"
+  kms_key_administrators          = sort(tolist(var.bootstrap_admin_principal_arns))
   encryption_config = {
     resources = ["secrets"]
   }
@@ -77,8 +78,11 @@ module "bootstrap_node_group" {
   source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
   version = "21.24.2"
 
+  # The pinned module enforces create-before-destroy for node groups. A unique
+  # physical name lets replacements coexist while the logical bootstrap tag and
+  # capacity role remain stable.
   name            = "bootstrap"
-  use_name_prefix = false
+  use_name_prefix = true
 
   cluster_name                      = module.eks.cluster_name
   cluster_endpoint                  = module.eks.cluster_endpoint

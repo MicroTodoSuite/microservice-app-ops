@@ -34,4 +34,6 @@ bootstrap_admin_principal_arns = [
   "arn:aws:iam::995253610162:role/microtodosuite-terraform-dev",
 ]
 
-bootstrap_node_instance_types = ["m6i.large"]
+# This account's Free Tier policy permits m7i-flex.large while preserving the
+# approved non-burstable x86 baseline of 2 vCPU and 8 GiB memory.
+bootstrap_node_instance_types = ["m7i-flex.large"]

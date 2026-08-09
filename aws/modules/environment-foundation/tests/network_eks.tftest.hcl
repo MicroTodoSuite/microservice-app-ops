@@ -65,6 +65,7 @@ run "network_and_eks_contract" {
     private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
     cluster_public_access_cidrs    = ["0.0.0.0/0"]
     bootstrap_admin_principal_arns = ["arn:aws:iam::995253610162:role/platform-admin"]
+    bootstrap_node_instance_types  = ["m7i-flex.large"]
   }
 
   assert {
@@ -106,6 +107,24 @@ run "network_and_eks_contract" {
     condition     = aws_eks_addon.vpc_cni.addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns.addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy.addon_version == "v1.35.3-eksbuild.18"
     error_message = "The three EKS managed add-ons must use the reviewed Kubernetes 1.35 versions."
   }
+}
+
+run "reject_burstable_free_tier_shortcut" {
+  command = plan
+
+  variables {
+    expected_account_id            = "995253610162"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.10.0.0/16"
+    public_subnet_cidrs            = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs    = ["0.0.0.0/0"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::995253610162:role/platform-admin"]
+    bootstrap_node_instance_types  = ["t3.small"]
+  }
+
+  expect_failures = [var.bootstrap_node_instance_types]
 }
 
 run "reject_unapproved_api_narrowing" {

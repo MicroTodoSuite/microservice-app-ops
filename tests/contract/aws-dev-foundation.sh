@@ -59,6 +59,12 @@ require_text "scripts/aws-dev-foundation.sh" -- '-lock-timeout=5m' \
   "plan does not use the required bounded lock timeout"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'cluster_public_access_cidrs[[:space:]]*=[[:space:]]*\["0\.0\.0\.0/0"\]' \
   "committed dev configuration does not preserve the approved global API CIDR"
+require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_instance_types[[:space:]]*=[[:space:]]*\["m7i-flex\.large"\]' \
+  "committed dev configuration does not use the account-compatible 2-vCPU/8-GiB bootstrap type"
+require_text "aws/modules/environment-foundation/eks.tf" 'kms_key_administrators[[:space:]]*=[[:space:]]*sort\(tolist\(var\.bootstrap_admin_principal_arns\)\)' \
+  "EKS secrets-key administrators must be pinned to the approved roles instead of the current caller"
+require_text "aws/modules/environment-foundation/eks.tf" 'use_name_prefix[[:space:]]*=[[:space:]]*true' \
+  "bootstrap node groups must use unique physical names for create-before-destroy replacement"
 
 reject_text "scripts/aws-dev-foundation.sh" '(^|[[:space:]])(apply|destroy|kubectl)([[:space:]]|$)' \
   "entrypoint exposes a forbidden mutation command"

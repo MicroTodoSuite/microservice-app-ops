@@ -40,7 +40,7 @@ uses that state address and owns everything under
 | `private_subnet_cidrs` | list(IPv4 CIDR) | Three distinct, non-overlapping CIDRs, one per AZ and not overlapping public subnets. |
 | `cluster_public_access_cidrs` | list(IPv4 CIDR) | Exactly `0.0.0.0/0` for dev by explicit human approval; future environments require restricted CIDRs. |
 | `bootstrap_admin_principal_arns` | set(IAM ARN) | Approved short-lived human/automation roles; no IAM users. |
-| `node_instance_types` | list(string) | Approved On-Demand x86 types with at least 2 vCPU/8 GiB; example defaults to `m6i.large`. |
+| `node_instance_types` | list(string) | Approved On-Demand x86 types with at least 2 vCPU/8 GiB; dev uses Free Tier eligible `m7i-flex.large`. |
 | `common_tags` | map(string) | Must not override required project/environment/owner/managed-by tags. |
 
 ### Required metadata
@@ -85,6 +85,7 @@ Owner       = Platform
 | --- | --- |
 | Capacity type | `ON_DEMAND` |
 | AMI family | AL2023 x86-64 |
+| Physical name | Generated from `bootstrap-` so create-before-destroy replacements can coexist; stable ownership remains in tags and labels. |
 | Size | minimum 2, desired 2, maximum 4 |
 | Placement | All three private workload subnets |
 | Storage | Encrypted gp3 root volumes |

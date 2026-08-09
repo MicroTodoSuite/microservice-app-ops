@@ -101,7 +101,9 @@ explicit operator permissions. It must not show a DynamoDB lock table.
 | Backend file/bucket/KMS key is missing | Stop; review the backend bootstrap boundary. |
 | State lock is held | Identify the active operator; wait or use the incident-controlled lock procedure. |
 | Region has fewer than three selected AZs or lacks EKS 1.35 | Choose another approved region/AZ set; do not silently downgrade topology/version. |
-| Provisioning identity cannot read its own IAM role | Grant the reviewed execution role `iam:GetRole` on itself before a separately authorized provisioning run; do not broaden workload roles. |
+| Bootstrap instance type is rejected by the account's Free Tier policy | Use the committed `m7i-flex.large` dev value, which preserves the approved non-burstable x86 2-vCPU/8-GiB capacity; do not substitute a smaller T-family type. |
+| EKS reports that the fixed `bootstrap` node group already exists during replacement | Discard the stale saved plan and regenerate it from the replacement-safe `bootstrap-` prefix configuration; do not delete a state-managed node group out of band. |
+| Provisioning identity cannot refresh Terraform-managed IAM roles, policies, or the OIDC provider | Have an account administrator grant the reviewed execution role the required scoped IAM read/list actions, including the observed `iam:GetRole`, `iam:GetPolicy`, `iam:GetPolicyVersion`, `iam:ListRolePolicies`, `iam:ListAttachedRolePolicies`, and `iam:GetOpenIDConnectProvider`; do not broaden workload roles or bypass refresh. |
 | CIDRs overlap or dev API CIDR differs from the approved `0.0.0.0/0` | Stop for a reviewed decision; staging/production must use separate restricted policies. |
 | ECR name already exists unmanaged | Stop for an explicit import-or-rename decision; do not auto-import. |
 | Plan includes another environment or Azure | Treat as a contract failure and do not proceed. |
