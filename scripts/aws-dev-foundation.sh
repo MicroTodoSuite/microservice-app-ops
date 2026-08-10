@@ -32,7 +32,7 @@ check_prerequisites() {
   require_command rg
 
   local terraform_version
-  terraform_version="$(terraform version -json | sed -n 's/.*"terraform_version":"\([^"]*\)".*/\1/p')"
+  terraform_version="$(terraform version -json | sed -n 's/.*"terraform_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
   if [[ "$terraform_version" != "$EXPECTED_TERRAFORM_VERSION" ]]; then
     printf 'Terraform %s is required; found %s.\n' "$EXPECTED_TERRAFORM_VERSION" "${terraform_version:-unknown}" >&2
     exit 1

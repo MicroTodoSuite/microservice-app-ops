@@ -69,6 +69,13 @@ resource "aws_eks_addon" "vpc_cni" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "PRESERVE"
 
+  # The v1.23 managed-add-on schema models this boolean as a string. Enabling
+  # it makes the aws-network-policy-agent enforce GitOps-owned NetworkPolicy
+  # resources while keeping policy manifests outside Terraform ownership.
+  configuration_values = jsonencode({
+    enableNetworkPolicy = "true"
+  })
+
   tags = local.tags
 
   depends_on = [aws_iam_role_policy_attachment.vpc_cni]

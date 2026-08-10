@@ -56,7 +56,9 @@ A valid first plan contains exactly the dev scope represented by the design:
 - One dedicated three-AZ VPC, three public subnets, three private worker
   subnets, zonal NAT egress, routes, required discovery tags, and flow logging.
 - One EKS 1.35 cluster with bounded API access, control-plane logging, API access
-  entries, managed system add-ons, and the bootstrap node group.
+  entries, managed system add-ons, and the bootstrap node group. The VPC CNI
+  add-on configuration explicitly sets `enableNetworkPolicy = "true"` so its
+  node agent can enforce GitOps-owned policy objects.
 - Exactly five named immutable, encrypted, scan-on-push ECR repositories and
   untagged-only lifecycle rules.
 - EKS OIDC provider, exact VPC CNI IRSA role, limited node role, and required

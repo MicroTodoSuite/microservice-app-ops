@@ -185,6 +185,25 @@ stories without provisioning resources.
 
 ---
 
+## Phase 7: Post-Provisioning Security Remediation
+
+**Purpose**: Close the observed gap between GitOps-owned namespace policies and
+the Terraform-owned VPC CNI enforcement switch without mutating the cluster in
+this implementation pass.
+
+- [x] T051 [US1] Add the versioned `enableNetworkPolicy = "true"` VPC CNI
+  managed-add-on configuration, regression assertions, ownership documentation,
+  and the pre-apply runtime baseline in
+  `aws/modules/environment-foundation/eks.tf`, its tests, and the US1 artifacts
+- [ ] T052 [US1] After the approved execution role receives the documented IAM
+  refresh permissions, run a refresh-backed no-apply plan and confirm that it
+  proposes only the expected in-place VPC CNI configuration update
+- [ ] T053 [US1] After a separately authorized apply, use read-only cluster
+  inspection to confirm every ready `aws-node` pod has a ready
+  `aws-eks-nodeagent` container with `--enable-network-policy=true`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -202,6 +221,9 @@ stories without provisioning resources.
   T048-T050 depend on all selected user stories. The live preview in T049 also
   requires an already provisioned conforming backend and explicit account
   authorization, but never runs an apply.
+- **Post-Provisioning Security Remediation (Phase 7)**: T051 depends on the
+  provisioned US1 EKS add-on; T052 depends on the execution-role read permissions,
+  and T053 depends on a separately authorized apply.
 
 ### User Story Dependencies
 

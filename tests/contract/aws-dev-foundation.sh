@@ -65,6 +65,8 @@ require_text "aws/modules/environment-foundation/eks.tf" 'kms_key_administrators
   "EKS secrets-key administrators must be pinned to the approved roles instead of the current caller"
 require_text "aws/modules/environment-foundation/eks.tf" 'use_name_prefix[[:space:]]*=[[:space:]]*true' \
   "bootstrap node groups must use unique physical names for create-before-destroy replacement"
+require_text "aws/modules/environment-foundation/eks.tf" 'enableNetworkPolicy[[:space:]]*=[[:space:]]*"true"' \
+  "the Terraform-owned VPC CNI add-on must enable network-policy enforcement"
 
 reject_text "scripts/aws-dev-foundation.sh" '(^|[[:space:]])(apply|destroy|kubectl)([[:space:]]|$)' \
   "entrypoint exposes a forbidden mutation command"

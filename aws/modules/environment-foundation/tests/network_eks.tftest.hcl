@@ -107,6 +107,11 @@ run "network_and_eks_contract" {
     condition     = aws_eks_addon.vpc_cni.addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns.addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy.addon_version == "v1.35.3-eksbuild.18"
     error_message = "The three EKS managed add-ons must use the reviewed Kubernetes 1.35 versions."
   }
+
+  assert {
+    condition     = try(jsondecode(aws_eks_addon.vpc_cni.configuration_values).enableNetworkPolicy == "true", false)
+    error_message = "The VPC CNI managed add-on must declaratively enable its network-policy node agent."
+  }
 }
 
 run "reject_burstable_free_tier_shortcut" {

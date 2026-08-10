@@ -68,6 +68,15 @@ or Kubernetes application resources.
 The plan is review evidence, not authorization to provision. Do not append a
 Terraform apply command.
 
+For an already provisioned cluster whose VPC CNI add-on was created without
+network-policy configuration, the remediation plan must contain one in-place
+`aws_eks_addon.vpc_cni` update adding
+`enableNetworkPolicy = "true"`; it must not replace the cluster, nodes, or
+GitOps-owned policy objects. Because plan does not mutate the cluster, verify
+the node agent only after a separately authorized apply: every `aws-node` pod
+must have a ready `aws-eks-nodeagent` container whose arguments include
+`--enable-network-policy=true`.
+
 ## 4. Review cost separately
 
 The full profile deliberately includes three NAT gateways and stable On-Demand

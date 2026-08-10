@@ -75,7 +75,7 @@ Owner       = Platform
 | API endpoint | Private enabled; public enabled only for the explicit CIDR allowlist. |
 | Authentication | EKS API access entries; no new `aws-auth` mappings. |
 | Control-plane logs | API, audit, authenticator, controller manager, and scheduler enabled. |
-| Managed add-ons | VPC CNI, CoreDNS, and kube-proxy with compatible AWS-selected versions. |
+| Managed add-ons | VPC CNI, CoreDNS, and kube-proxy with compatible pinned versions; VPC CNI has `enableNetworkPolicy = "true"` so its per-node agent enforces GitOps-owned policies. |
 | Secrets encryption | Uses an environment-owned KMS key or EKS-supported envelope-encryption configuration. |
 | Node placement | Private subnets only. |
 

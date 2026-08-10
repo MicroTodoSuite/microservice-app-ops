@@ -19,6 +19,7 @@
 - Q: Is Karpenter part of this first dev foundation? → A: No. A managed node group supplies bootstrap capacity, while network and identity boundaries preserve a later GitOps-managed Karpenter adoption seam.
 - Q: Which concrete AWS location and network values define dev? → A: Account `995253610162` in `us-east-1`, using `us-east-1a`, `us-east-1b`, and `us-east-1c`; dev reserves `10.10.0.0/16`, with `10.20.0.0/16` and `10.30.0.0/16` reserved for later staging and production specs.
 - Q: How is the dev EKS public API exposed for a team with dynamic source IPs? → A: Dev intentionally uses `0.0.0.0/0`; IAM authentication and exact EKS access entries enforce access. This is a human-approved dev-only tradeoff that MUST NOT be silently narrowed or copied to staging/production, which require restricted network policies.
+- Q: Who owns Kubernetes network-policy enforcement? → A: Terraform owns the EKS VPC CNI managed add-on switch `enableNetworkPolicy = "true"`; GitOps continues to own the `NetworkPolicy` manifests. The VPC CNI node agent enforces those policies on each Linux EC2 worker.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -112,6 +113,8 @@ ApplicationSet or `infrastructure/*` root needs modification.
   account, or approved AWS permissions and would otherwise create broad access.
 - A future GitOps registration tries to activate `prod` or to modify
   `clusters/base` as part of this dev-only feature.
+- GitOps reconciles namespace-isolation `NetworkPolicy` objects while the VPC
+  CNI node agent exists but starts with network-policy enforcement disabled.
 
 ## Requirements *(mandatory)*
 
@@ -199,6 +202,10 @@ ApplicationSet or `infrastructure/*` root needs modification.
   explicit small-team/dynamic-IP tradeoff, with authorization enforced by IAM
   and exact EKS access entries. Changing this dev value requires a reviewed
   decision; staging and production MUST use more restrictive CIDRs.
+- **FR-024**: Terraform MUST declaratively configure the pinned EKS VPC CNI
+  managed add-on with its versioned `enableNetworkPolicy = "true"` setting so
+  the per-node AWS network-policy agent enforces GitOps-owned Kubernetes
+  `NetworkPolicy` resources on Linux EC2 workers.
 
 ### Key Entities
 
@@ -243,6 +250,10 @@ ApplicationSet or `infrastructure/*` root needs modification.
   report no infrastructure drift after the foundation is provisioned.
 - **SC-009**: All repository formatting, initialization, configuration
   validation, and plan-contract checks pass without an apply operation.
+- **SC-010**: A refresh-backed plan shows only the required in-place VPC CNI
+  configuration update; after a separately authorized apply, every ready
+  `aws-node` pod reports a ready network-policy-agent container with enforcement
+  enabled.
 
 ## Assumptions
 

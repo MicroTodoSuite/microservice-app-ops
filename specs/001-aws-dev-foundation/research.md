@@ -296,3 +296,26 @@ dev plan unsafe and violate the requested scope.
 
 **Alternatives rejected**: Converting existing roots in place; reusing Azure
 state naming; fixing unrelated Azure workflow debt during AWS foundation work.
+
+## Decision 13: Make VPC CNI network-policy enforcement Terraform-owned
+
+**Decision**: Configure the pinned `vpc-cni` managed add-on with
+`configuration_values = jsonencode({ enableNetworkPolicy = "true" })`. Retain
+the add-on's standard enforcement mode and default node-agent ports; GitOps
+continues to own all Kubernetes `NetworkPolicy` manifests.
+
+**Rationale**: The installed `v1.23.0-eksbuild.1` add-on schema exposes
+`enableNetworkPolicy` as a string-formatted boolean, and AWS documents the
+literal string `"true"` for managed add-ons. The live DaemonSet already includes
+the `aws-eks-nodeagent` container, but its current argument is
+`--enable-network-policy=false`; declarative add-on configuration removes that
+drift and makes the existing namespace policies enforceable after an authorized
+apply.
+
+**Alternatives rejected**: Editing the DaemonSet directly; setting the flag with
+an imperative AWS CLI command; moving `NetworkPolicy` manifests into Terraform;
+silently opting into strict startup enforcement; overriding node-agent ports
+without a demonstrated conflict.
+
+**Sources**: [Configure VPC CNI network policies](https://docs.aws.amazon.com/eks/latest/userguide/cni-network-policy-configure.html),
+[VPC CNI network-policy requirements](https://docs.aws.amazon.com/eks/latest/userguide/cni-network-policy.html).
