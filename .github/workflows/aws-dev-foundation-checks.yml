@@ -28,6 +28,11 @@ jobs:
         with:
           terraform_version: 1.15.8
 
+      - name: Install shell test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive aws
 
