@@ -1,0 +1,68 @@
+name: AWS Dev Foundation Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'aws/**'
+      - 'scripts/aws-dev-foundation.sh'
+      - 'tests/contract/aws-dev-foundation.sh'
+      - '.terraform-version'
+      - '.github/workflows/aws-dev-foundation-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate AWS dev foundation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive aws
+
+      - name: Initialize foundation without the remote backend
+        run: >-
+          terraform -chdir=aws/environments/dev/foundation init
+          -backend=false
+          -input=false
+          -lockfile=readonly
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data/foundation
+
+      - name: Validate foundation
+        run: terraform -chdir=aws/environments/dev/foundation validate
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data/foundation
+
+      - name: Initialize the reusable module
+        run: >-
+          terraform -chdir=aws/modules/environment-foundation init
+          -backend=false
+          -input=false
+          -lockfile=readonly
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data/module
+
+      - name: Test the reusable module
+        run: terraform -chdir=aws/modules/environment-foundation test
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data/module
+
+      - name: Test the foundation root
+        run: terraform -chdir=aws/environments/dev/foundation test
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data/foundation
+
+      - name: Verify the shell contract
+        run: ./tests/contract/aws-dev-foundation.sh
