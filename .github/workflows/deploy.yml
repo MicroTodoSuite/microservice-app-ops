@@ -11,6 +11,10 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'base-infrastructure/**'
+      - 'container-apps/**'
+      - 'scripts/setup-azure-secrets.sh'
   workflow_run:
     workflows: ['Setup Terraform Backend']
     types:

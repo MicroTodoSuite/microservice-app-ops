@@ -20,6 +20,11 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
+# These two dev configurations are explicitly approved, non-secret, and shared
+# by the team. Every other tfvars file remains ignored by the rules above.
+!aws/environments/dev/backend/dev.tfvars
+!aws/environments/dev/foundation/dev.tfvars
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
@@ -31,14 +36,23 @@ override.tf.json
 # !example_override.tf
 
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
-# example: *tfplan*
+*.tfplan
+tfplan*
 
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
 
-.terraform.lock.hcl
 */backend-local.conf
+*.s3.tfbackend
+
+# Local AWS CLI v2 installer artifacts. The installed CLI lives outside the
+# repository; these downloaded files are not infrastructure source.
+/awscliv2.zip
+/aws/dist/
+/aws/install
+/aws/README.md
+/aws/THIRD_PARTY_LICENSES
 # End of https://www.toptal.com/developers/gitignore/api/terraform
 
 # Created by https://www.toptal.com/developers/gitignore/api/node,linux

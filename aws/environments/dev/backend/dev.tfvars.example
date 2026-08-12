@@ -1,0 +1,8 @@
+# Reference template only. Dev uses the committed dev.tfvars; do not copy this
+# placeholder over it. AWS credentials remain outside Terraform configuration.
+expected_account_id = "123456789012"
+aws_region          = "us-east-1"
+
+common_tags = {
+  CostCenter = "platform-engineering"
+}

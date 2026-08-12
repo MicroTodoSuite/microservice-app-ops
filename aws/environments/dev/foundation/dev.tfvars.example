@@ -1,0 +1,40 @@
+# Reference template only. Dev uses the committed, human-approved dev.tfvars;
+# do not copy these placeholders over it.
+expected_account_id = "123456789012"
+aws_region         = "us-east-1"
+
+availability_zones = [
+  "us-east-1a",
+  "us-east-1b",
+  "us-east-1c",
+]
+
+vpc_cidr = "10.10.0.0/16"
+
+public_subnet_cidrs = [
+  "10.10.0.0/24",
+  "10.10.1.0/24",
+  "10.10.2.0/24",
+]
+
+private_subnet_cidrs = [
+  "10.10.16.0/20",
+  "10.10.32.0/20",
+  "10.10.48.0/20",
+]
+
+# Dev explicitly accepts global network reachability and relies on IAM/EKS
+# authorization. Staging and production must use restricted CIDRs.
+cluster_public_access_cidrs = ["0.0.0.0/0"]
+
+# Use stable IAM role ARNs, never IAM user or STS assumed-role session ARNs.
+bootstrap_admin_principal_arns = [
+  "arn:aws:iam::123456789012:role/microtodosuite-terraform-dev",
+]
+
+# Keep the reviewed non-burstable x86 baseline of 2 vCPU and 8 GiB memory.
+bootstrap_node_instance_types = ["m7i-flex.large"]
+
+common_tags = {
+  CostCenter = "platform-engineering"
+}

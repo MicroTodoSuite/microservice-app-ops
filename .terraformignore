@@ -1,0 +1,13 @@
+.git/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!aws/environments/dev/backend/dev.tfvars
+!aws/environments/dev/foundation/dev.tfvars
+*.tfplan
+tfplan*
+*.s3.tfbackend
+crash.log
+crash.*.log
