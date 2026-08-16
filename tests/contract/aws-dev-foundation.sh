@@ -36,6 +36,10 @@ require_file "aws/modules/environment-foundation/network.tf"
 require_file "aws/modules/environment-foundation/eks.tf"
 require_file "aws/modules/environment-foundation/ecr.tf"
 require_file "aws/modules/environment-foundation/irsa.tf"
+require_file "aws/modules/environment-foundation/managed-secrets.tf"
+require_file "aws/modules/environment-jwt-values/main.tf"
+require_file "aws/modules/environment-foundation/github-oidc.tf"
+require_file "aws/modules/environment-foundation/kyverno-irsa.tf"
 require_file "aws/modules/environment-foundation/outputs.tf"
 require_file "aws/environments/dev/foundation/main.tf"
 require_file "aws/environments/dev/foundation/dev.tfvars"
@@ -61,12 +65,43 @@ require_text "aws/environments/dev/foundation/dev.tfvars" 'cluster_public_access
   "committed dev configuration does not preserve the approved global API CIDR"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_instance_types[[:space:]]*=[[:space:]]*\["m7i-flex\.large"\]' \
   "committed dev configuration does not use the account-compatible 2-vCPU/8-GiB bootstrap type"
+require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_ami_release_version[[:space:]]*=[[:space:]]*"1\.35\.6-20260801"' \
+  "committed dev configuration does not pin the currently running node AMI release"
 require_text "aws/modules/environment-foundation/eks.tf" 'kms_key_administrators[[:space:]]*=[[:space:]]*sort\(tolist\(var\.bootstrap_admin_principal_arns\)\)' \
   "EKS secrets-key administrators must be pinned to the approved roles instead of the current caller"
 require_text "aws/modules/environment-foundation/eks.tf" 'use_name_prefix[[:space:]]*=[[:space:]]*true' \
   "bootstrap node groups must use unique physical names for create-before-destroy replacement"
+require_text "aws/modules/environment-foundation/eks.tf" 'ami_release_version[[:space:]]*=[[:space:]]*var\.bootstrap_node_ami_release_version' \
+  "bootstrap node AMI release is not wired to the reviewed pin"
+require_text "aws/modules/environment-foundation/eks.tf" 'use_latest_ami_release_version[[:space:]]*=[[:space:]]*false' \
+  "bootstrap node groups must not roll during an unrelated foundation apply"
 require_text "aws/modules/environment-foundation/eks.tf" 'enableNetworkPolicy[[:space:]]*=[[:space:]]*"true"' \
   "the Terraform-owned VPC CNI add-on must enable network-policy enforcement"
+require_text "aws/modules/environment-foundation/ecr.tf" 'resource "aws_ecr_repository" "neutral_services"' \
+  "neutral ECR repositories are not declared additively"
+require_text "aws/modules/environment-foundation/ecr.tf" 'name[[:space:]]*=[[:space:]]*"\$\{var\.project\}/\$\{each\.key\}"' \
+  "neutral repositories do not use the exact project/service path"
+require_file "aws/environments/dev/foundation/release-secrets.tf"
+require_text "aws/modules/environment-jwt-values/main.tf" 'ephemeral "random_password" "environment_jwt"' \
+  "JWT values are not generated through the local ephemeral resource"
+require_text "aws/environments/dev/foundation/release-secrets.tf" 'module "environment_jwt_values"' \
+  "foundation root does not compose the independently testable ephemeral boundary"
+require_text "aws/modules/environment-foundation/managed-secrets.tf" 'secret_string_wo[[:space:]]*=' \
+  "JWT values are not supplied through a write-only argument"
+require_text "aws/modules/environment-foundation/managed-secrets.tf" 'resource "aws_secretsmanager_secret_version" "environment_jwt"' \
+  "three write-only JWT secret versions are not declared"
+require_text "aws/modules/environment-foundation/managed-secrets.tf" 'secret_string_wo_version[[:space:]]*=[[:space:]]*var\.environment_jwt_secret_version' \
+  "JWT write-only version changes are not controlled by the rotation input"
+require_text "aws/modules/environment-foundation/managed-secrets.tf" 'system:serviceaccount:microtodo-\$\{environment\}:external-secrets-jwt' \
+  "JWT reader trust does not derive the exact environment ServiceAccount subjects"
+require_text "aws/modules/environment-foundation/github-oidc.tf" 'token\.actions\.githubusercontent\.com' \
+  "GitHub Actions OIDC provider is missing"
+require_text "aws/modules/environment-foundation/github-oidc.tf" 'microtodosuite-github-ecr-publisher' \
+  "the exact GitHub ECR publisher role is missing"
+require_text "aws/modules/environment-foundation/kyverno-irsa.tf" 'microtodosuite-kyverno-ecr-verifier' \
+  "the exact Kyverno ECR verifier role is missing"
+require_text "aws/modules/environment-foundation/variables.tf" 'repo:MicroTodoSuite/microservice-app-auth-api:ref:refs/heads/main' \
+  "GitHub publisher subjects are not constrained to reviewed main"
 
 reject_text "scripts/aws-dev-foundation.sh" '(^|[[:space:]])(apply|destroy|kubectl)([[:space:]]|$)' \
   "entrypoint exposes a forbidden mutation command"
@@ -74,5 +109,9 @@ reject_text "aws/modules/environment-foundation" 'azurerm|azure|aks-dr|environme
   "AWS module contains Azure or future-environment scope"
 reject_text "aws/environments/dev/foundation" 'azurerm|azure|aks-dr|module[[:space:]]+"state_backend"' \
   "dev foundation root couples to Azure, DR, or the US2 backend module"
+reject_text "aws" 'secret_string[[:space:]]*=' \
+  "an ordinary state-persisted Secrets Manager value is forbidden"
+reject_text "aws" '(AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY[[:space:]]*=|JWT_SECRET[[:space:]]*=)' \
+  "static AWS or JWT secret material is forbidden"
 
 printf 'PASS: AWS dev foundation shell contract\n'

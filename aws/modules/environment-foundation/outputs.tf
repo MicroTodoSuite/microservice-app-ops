@@ -139,3 +139,38 @@ output "ecr_repository_urls" {
   description = "ECR repository URLs keyed by the five current service names."
   value       = { for service, repository in aws_ecr_repository.services : service => repository.repository_url }
 }
+
+output "neutral_ecr_repository_urls" {
+  description = "Environment-neutral ECR repository URLs keyed by business service."
+  value       = { for service, repository in aws_ecr_repository.neutral_services : service => repository.repository_url }
+}
+
+output "environment_jwt_secret_names" {
+  description = "Non-secret Secrets Manager source names keyed by environment."
+  value       = { for environment, secret in aws_secretsmanager_secret.environment_jwt : environment => secret.name }
+}
+
+output "environment_jwt_secret_arns" {
+  description = "Non-secret Secrets Manager source ARNs keyed by environment."
+  value       = { for environment, secret in aws_secretsmanager_secret.environment_jwt : environment => secret.arn }
+}
+
+output "environment_jwt_reader_role_arns" {
+  description = "Exact External Secrets reader role ARNs keyed by environment."
+  value       = { for environment, role in aws_iam_role.environment_jwt_reader : environment => role.arn }
+}
+
+output "github_actions_oidc_provider_arn" {
+  description = "GitHub Actions OIDC provider used by the reviewed-main publisher."
+  value       = aws_iam_openid_connect_provider.github_actions.arn
+}
+
+output "github_ecr_publisher_role_arn" {
+  description = "Exact GitHub Actions role allowed to publish neutral release artifacts."
+  value       = aws_iam_role.github_ecr_publisher.arn
+}
+
+output "kyverno_ecr_verifier_role_arn" {
+  description = "Exact Kyverno admission-controller role allowed to read neutral ECR artifacts."
+  value       = aws_iam_role.kyverno_ecr_verifier.arn
+}

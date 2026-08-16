@@ -1,0 +1,64 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadTerraformManagedFoundationRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::995253610162:role/microtodosuite-dev-*",
+        "arn:aws:iam::995253610162:role/vpc-flow-log-role-*"
+      ]
+    },
+    {
+      "Sid": "ManageNamespaceIsolationFeatureRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::995253610162:role/microtodosuite-dev-jwt-reader",
+        "arn:aws:iam::995253610162:role/microtodosuite-staging-jwt-reader",
+        "arn:aws:iam::995253610162:role/microtodosuite-prod-jwt-reader",
+        "arn:aws:iam::995253610162:role/microtodosuite-github-ecr-publisher",
+        "arn:aws:iam::995253610162:role/microtodosuite-kyverno-ecr-verifier"
+      ]
+    },
+    {
+      "Sid": "ListOidcProvidersForTerraformRefresh",
+      "Effect": "Allow",
+      "Action": "iam:ListOpenIDConnectProviders",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageExactGitHubOidcProvider",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UntagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "arn:aws:iam::995253610162:oidc-provider/token.actions.githubusercontent.com"
+    }
+  ]
+}
