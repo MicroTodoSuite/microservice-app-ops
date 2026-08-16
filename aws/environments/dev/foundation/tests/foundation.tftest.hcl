@@ -52,20 +52,6 @@ override_module {
   }
 }
 
-# Terraform's mock-provider implementation does not model ephemeral resources.
-# Override only the value-generation boundary; production still executes the
-# real AWS ephemeral resource in the child module.
-override_module {
-  target = module.environment_jwt_values
-  outputs = {
-    values = {
-      dev     = "mock-dev-jwt-value"
-      staging = "mock-staging-jwt-value"
-      prod    = "mock-prod-jwt-value"
-    }
-  }
-}
-
 run "dev_root_inventory" {
   command = plan
 
