@@ -124,6 +124,12 @@ variable "bootstrap_node_instance_types" {
   default     = ["m7i-flex.large"]
 }
 
+variable "bootstrap_node_ami_release_version" {
+  description = "Explicit AL2023 EKS AMI release for bootstrap nodes; upgrades require a dedicated reviewed change."
+  type        = string
+  default     = "1.35.6-20260801"
+}
+
 variable "bootstrap_node_min_size" {
   description = "Minimum number of stable bootstrap nodes."
   type        = number
@@ -152,6 +158,53 @@ variable "iam_permissions_boundary_arn" {
   description = "Optional IAM permissions boundary applied to foundation-created roles."
   type        = string
   default     = null
+}
+
+variable "shared_environments" {
+  description = "Exact namespace environments sharing this EKS foundation."
+  type        = set(string)
+  default     = ["dev", "staging", "prod"]
+
+  validation {
+    condition     = var.shared_environments == toset(["dev", "staging", "prod"])
+    error_message = "shared_environments must contain exactly dev, staging, and prod."
+  }
+}
+
+variable "neutral_service_names" {
+  description = "Exact services published once to environment-neutral ECR repositories."
+  type        = set(string)
+  default = [
+    "auth-api",
+    "frontend",
+    "log-message-processor",
+    "todos-api",
+    "users-api",
+  ]
+}
+
+variable "github_oidc_subjects" {
+  description = "Exact reviewed-main GitHub Actions subjects allowed to publish release artifacts."
+  type        = set(string)
+  default = [
+    "repo:MicroTodoSuite/microservice-app-auth-api:ref:refs/heads/main",
+    "repo:MicroTodoSuite/microservice-app-frontend:ref:refs/heads/main",
+    "repo:MicroTodoSuite/microservice-app-log-message-processor:ref:refs/heads/main",
+    "repo:MicroTodoSuite/microservice-app-todos-api:ref:refs/heads/main",
+    "repo:MicroTodoSuite/microservice-app-users-api:ref:refs/heads/main",
+  ]
+}
+
+variable "environment_jwt_secret_version" {
+  description = "Monotonic write-only secret version. Increment only for an intentional JWT rotation."
+  type        = number
+  default     = 1
+}
+
+variable "kyverno_service_account_subject" {
+  description = "Exact EKS ServiceAccount subject allowed to read private ECR signatures."
+  type        = string
+  default     = "system:serviceaccount:kyverno:kyverno-admission-controller"
 }
 
 locals {

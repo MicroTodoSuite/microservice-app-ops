@@ -53,6 +53,14 @@ override_module {
   }
 }
 
+variables {
+  environment_jwt_values = {
+    dev     = "mock-dev-jwt-value"
+    staging = "mock-staging-jwt-value"
+    prod    = "mock-prod-jwt-value"
+  }
+}
+
 run "network_and_eks_contract" {
   command = plan
 

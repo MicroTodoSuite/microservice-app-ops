@@ -102,7 +102,8 @@ module "bootstrap_node_group" {
   cluster_primary_security_group_id = module.eks.cluster_primary_security_group_id
 
   ami_type                       = "AL2023_x86_64_STANDARD"
-  use_latest_ami_release_version = true
+  ami_release_version            = var.bootstrap_node_ami_release_version
+  use_latest_ami_release_version = false
   capacity_type                  = "ON_DEMAND"
   instance_types                 = var.bootstrap_node_instance_types
   min_size                       = var.bootstrap_node_min_size

@@ -36,4 +36,25 @@ bootstrap_admin_principal_arns = [
 
 # This account's Free Tier policy permits m7i-flex.large while preserving the
 # approved non-burstable x86 baseline of 2 vCPU and 8 GiB memory.
-bootstrap_node_instance_types = ["m7i-flex.large"]
+bootstrap_node_instance_types      = ["m7i-flex.large"]
+bootstrap_node_ami_release_version = "1.35.6-20260801"
+
+# Shared-cluster release prerequisites. These exact values are validated by the
+# module; changing them requires a separate reviewed design decision.
+shared_environments = ["dev", "staging", "prod"]
+neutral_service_names = [
+  "auth-api",
+  "frontend",
+  "log-message-processor",
+  "todos-api",
+  "users-api",
+]
+github_oidc_subjects = [
+  "repo:MicroTodoSuite/microservice-app-auth-api:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-frontend:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-log-message-processor:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-todos-api:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-users-api:ref:refs/heads/main",
+]
+environment_jwt_secret_version  = 1
+kyverno_service_account_subject = "system:serviceaccount:kyverno:kyverno-admission-controller"

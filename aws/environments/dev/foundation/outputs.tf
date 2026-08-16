@@ -63,6 +63,41 @@ output "ecr_repository_urls" {
   value       = module.foundation.ecr_repository_urls
 }
 
+output "neutral_ecr_repository_urls" {
+  description = "Environment-neutral ECR repository URLs keyed by business service."
+  value       = module.foundation.neutral_ecr_repository_urls
+}
+
+output "environment_jwt_secret_names" {
+  description = "Non-secret Secrets Manager source names keyed by environment."
+  value       = module.foundation.environment_jwt_secret_names
+}
+
+output "environment_jwt_secret_arns" {
+  description = "Non-secret Secrets Manager source ARNs keyed by environment."
+  value       = module.foundation.environment_jwt_secret_arns
+}
+
+output "environment_jwt_reader_role_arns" {
+  description = "Exact External Secrets reader role ARNs keyed by environment."
+  value       = module.foundation.environment_jwt_reader_role_arns
+}
+
+output "github_actions_oidc_provider_arn" {
+  description = "GitHub Actions OIDC provider ARN."
+  value       = module.foundation.github_actions_oidc_provider_arn
+}
+
+output "github_ecr_publisher_role_arn" {
+  description = "Reviewed-main neutral ECR publisher role ARN."
+  value       = module.foundation.github_ecr_publisher_role_arn
+}
+
+output "kyverno_ecr_verifier_role_arn" {
+  description = "Kyverno private-ECR verifier role ARN."
+  value       = module.foundation.kyverno_ecr_verifier_role_arn
+}
+
 output "oidc_provider_arn" {
   description = "IAM OIDC provider ARN used by IRSA."
   value       = module.foundation.oidc_provider_arn

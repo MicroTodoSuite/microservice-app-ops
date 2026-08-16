@@ -13,10 +13,21 @@ module "foundation" {
   cluster_public_access_cidrs    = var.cluster_public_access_cidrs
   bootstrap_admin_principal_arns = var.bootstrap_admin_principal_arns
 
-  bootstrap_node_instance_types = var.bootstrap_node_instance_types
-  bootstrap_node_min_size       = var.bootstrap_node_min_size
-  bootstrap_node_desired_size   = var.bootstrap_node_desired_size
-  bootstrap_node_max_size       = var.bootstrap_node_max_size
-  bootstrap_node_volume_size    = var.bootstrap_node_volume_size
-  iam_permissions_boundary_arn  = var.iam_permissions_boundary_arn
+  bootstrap_node_instance_types      = var.bootstrap_node_instance_types
+  bootstrap_node_ami_release_version = var.bootstrap_node_ami_release_version
+  bootstrap_node_min_size            = var.bootstrap_node_min_size
+  bootstrap_node_desired_size        = var.bootstrap_node_desired_size
+  bootstrap_node_max_size            = var.bootstrap_node_max_size
+  bootstrap_node_volume_size         = var.bootstrap_node_volume_size
+  iam_permissions_boundary_arn       = var.iam_permissions_boundary_arn
+
+  shared_environments            = var.shared_environments
+  neutral_service_names          = var.neutral_service_names
+  github_oidc_subjects           = var.github_oidc_subjects
+  environment_jwt_secret_version = var.environment_jwt_secret_version
+  environment_jwt_values = {
+    for environment, value in ephemeral.aws_secretsmanager_random_password.environment_jwt :
+    environment => value.random_password
+  }
+  kyverno_service_account_subject = var.kyverno_service_account_subject
 }

@@ -53,6 +53,14 @@ override_module {
   }
 }
 
+variables {
+  environment_jwt_values = {
+    dev     = "mock-dev-jwt-value"
+    staging = "mock-staging-jwt-value"
+    prod    = "mock-prod-jwt-value"
+  }
+}
+
 run "ecr_and_irsa_contract" {
   command = plan
 
@@ -69,7 +77,34 @@ run "ecr_and_irsa_contract" {
 
   assert {
     condition     = length(aws_ecr_repository.services) == 5
-    error_message = "Exactly five service repositories must be created."
+    error_message = "Exactly five legacy environment-qualified repositories must remain managed."
+  }
+
+  assert {
+    condition = toset([for repository in aws_ecr_repository.services : repository.name]) == toset([
+      "microtodosuite/dev/auth-api",
+      "microtodosuite/dev/frontend",
+      "microtodosuite/dev/log-message-processor",
+      "microtodosuite/dev/todos-api",
+      "microtodosuite/dev/users-api",
+    ])
+    error_message = "The five legacy repositories must retain their existing names."
+  }
+
+  assert {
+    condition     = length(aws_ecr_repository.neutral_services) == 5
+    error_message = "Exactly five additive environment-neutral repositories must be created."
+  }
+
+  assert {
+    condition = toset([for repository in aws_ecr_repository.neutral_services : repository.name]) == toset([
+      "microtodosuite/auth-api",
+      "microtodosuite/frontend",
+      "microtodosuite/log-message-processor",
+      "microtodosuite/todos-api",
+      "microtodosuite/users-api",
+    ])
+    error_message = "The neutral repositories must use the exact build-once names."
   }
 
   assert {
@@ -78,8 +113,18 @@ run "ecr_and_irsa_contract" {
   }
 
   assert {
+    condition     = alltrue([for repository in aws_ecr_repository.neutral_services : repository.image_tag_mutability == "IMMUTABLE" && repository.encryption_configuration[0].encryption_type == "AES256" && repository.image_scanning_configuration[0].scan_on_push && repository.tags.Environment == "shared"])
+    error_message = "Every neutral repository must be immutable, encrypted, scanned, and tagged as shared."
+  }
+
+  assert {
     condition     = alltrue([for policy in aws_ecr_lifecycle_policy.services : jsondecode(policy.policy).rules[0].selection.tagStatus == "untagged"])
     error_message = "ECR lifecycle policies may expire only untagged images."
+  }
+
+  assert {
+    condition     = alltrue([for policy in aws_ecr_lifecycle_policy.neutral_services : jsondecode(policy.policy).rules[0].selection.tagStatus == "untagged"])
+    error_message = "Neutral ECR lifecycle policies may expire only untagged images."
   }
 
   assert {
