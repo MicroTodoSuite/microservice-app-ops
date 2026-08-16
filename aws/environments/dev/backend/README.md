@@ -53,3 +53,59 @@ Do not run that command before `HeadBucket` confirms the bucket exists. This
 increment deliberately defers operator/automation IAM access policies, the
 backend-root state migration, lock incident and version-recovery procedures,
 and backend tests to the later US2/US3 pass.
+
+## Namespace-isolation Terraform execution policy
+
+Feature 005 extends the existing foundation with five additive neutral ECR
+repositories, three environment JWT secrets and reader roles, one exact GitHub
+OIDC publisher role, and one Kyverno verifier role. Terraform must continue to
+run as `microtodosuite-terraform-dev`; a personal IAM user is not an approved
+substitute.
+
+The refresh-backed plan executed on 2026-08-16 authenticated as
+`arn:aws:sts::995253610162:assumed-role/microtodosuite-terraform-dev/*` and
+failed without producing an applicable plan because the role lacks
+`iam:ListRolePolicies` on
+`arn:aws:iam::995253610162:role/vpc-flow-log-role-*`. A direct read also proved
+that `iam:ListOpenIDConnectProviders` is absent. `PowerUserAccess` intentionally
+does not grant the IAM write operations needed for the five narrowly named
+feature roles or the exact GitHub OIDC provider.
+
+The reviewed bootstrap input is
+`namespace-isolation-terraform-execution-policy.json`. It grants:
+
+- read-only Terraform refresh actions on current `microtodosuite-dev-*` and
+  `vpc-flow-log-role-*` roles;
+- lifecycle and inline-policy management only for the three exact JWT reader
+  roles, the GitHub ECR publisher role, and the Kyverno ECR verifier role; and
+- discovery plus lifecycle management only for
+  `token.actions.githubusercontent.com` as an IAM OIDC provider.
+
+An account IAM administrator must attach it as an inline policy to the intended
+Terraform role through the audited bootstrap path:
+
+```bash
+aws iam put-role-policy \
+  --role-name microtodosuite-terraform-dev \
+  --policy-name namespace-isolation-release-prerequisites \
+  --policy-document file://aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json \
+  --profile <approved-iam-administrator-profile>
+```
+
+The locally configured `esteban-personal` identity is not sufficient evidence:
+as observed on 2026-08-16 it has only `IAMUserChangePassword`. Do not broaden
+that user or attach administrator access merely to bypass this bootstrap.
+
+After the administrator records the policy attachment, verify the intended role
+without applying infrastructure:
+
+```bash
+AWS_PROFILE=microtodosuite-terraform ./scripts/aws-dev-foundation.sh check
+AWS_PROFILE=microtodosuite-terraform ./scripts/aws-dev-foundation.sh init
+AWS_PROFILE=microtodosuite-terraform ./scripts/aws-dev-foundation.sh plan
+```
+
+The final command must complete a refresh-backed plan without `AccessDenied`.
+Any additional IAM denial must be added narrowly to this reviewed policy and
+re-reviewed; it must not be worked around with `-refresh=false` or another
+caller.
