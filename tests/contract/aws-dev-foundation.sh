@@ -37,6 +37,7 @@ require_file "aws/modules/environment-foundation/eks.tf"
 require_file "aws/modules/environment-foundation/ecr.tf"
 require_file "aws/modules/environment-foundation/irsa.tf"
 require_file "aws/modules/environment-foundation/managed-secrets.tf"
+require_file "aws/modules/environment-jwt-values/main.tf"
 require_file "aws/modules/environment-foundation/github-oidc.tf"
 require_file "aws/modules/environment-foundation/kyverno-irsa.tf"
 require_file "aws/modules/environment-foundation/outputs.tf"
@@ -81,8 +82,10 @@ require_text "aws/modules/environment-foundation/ecr.tf" 'resource "aws_ecr_repo
 require_text "aws/modules/environment-foundation/ecr.tf" 'name[[:space:]]*=[[:space:]]*"\$\{var\.project\}/\$\{each\.key\}"' \
   "neutral repositories do not use the exact project/service path"
 require_file "aws/environments/dev/foundation/release-secrets.tf"
-require_text "aws/environments/dev/foundation/release-secrets.tf" 'ephemeral "aws_secretsmanager_random_password" "environment_jwt"' \
+require_text "aws/modules/environment-jwt-values/main.tf" 'ephemeral "aws_secretsmanager_random_password" "environment_jwt"' \
   "JWT values are not generated through the AWS ephemeral resource"
+require_text "aws/environments/dev/foundation/release-secrets.tf" 'module "environment_jwt_values"' \
+  "foundation root does not compose the independently testable ephemeral boundary"
 require_text "aws/modules/environment-foundation/managed-secrets.tf" 'secret_string_wo[[:space:]]*=' \
   "JWT values are not supplied through a write-only argument"
 require_text "aws/modules/environment-foundation/managed-secrets.tf" 'resource "aws_secretsmanager_secret_version" "environment_jwt"' \

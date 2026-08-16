@@ -1,8 +1,5 @@
-ephemeral "aws_secretsmanager_random_password" "environment_jwt" {
-  for_each = var.shared_environments
+module "environment_jwt_values" {
+  source = "../../../modules/environment-jwt-values"
 
-  password_length            = 64
-  exclude_punctuation        = true
-  include_space              = false
-  require_each_included_type = true
+  environments = var.shared_environments
 }

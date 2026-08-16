@@ -21,13 +21,10 @@ module "foundation" {
   bootstrap_node_volume_size         = var.bootstrap_node_volume_size
   iam_permissions_boundary_arn       = var.iam_permissions_boundary_arn
 
-  shared_environments            = var.shared_environments
-  neutral_service_names          = var.neutral_service_names
-  github_oidc_subjects           = var.github_oidc_subjects
-  environment_jwt_secret_version = var.environment_jwt_secret_version
-  environment_jwt_values = {
-    for environment, value in ephemeral.aws_secretsmanager_random_password.environment_jwt :
-    environment => value.random_password
-  }
+  shared_environments             = var.shared_environments
+  neutral_service_names           = var.neutral_service_names
+  github_oidc_subjects            = var.github_oidc_subjects
+  environment_jwt_secret_version  = var.environment_jwt_secret_version
+  environment_jwt_values          = module.environment_jwt_values.values
   kyverno_service_account_subject = var.kyverno_service_account_subject
 }
