@@ -113,6 +113,26 @@ output "kyverno_ecr_verifier_role_arn" {
   value       = module.foundation.kyverno_ecr_verifier_role_arn
 }
 
+output "observability_slack_webhook_secret_name" {
+  description = "Non-secret Secrets Manager source name for the Alertmanager Slack webhook."
+  value       = module.foundation.observability_slack_webhook_secret_name
+}
+
+output "observability_secrets_reader_role_arn" {
+  description = "Observability namespace External Secrets reader role ARN."
+  value       = module.foundation.observability_secrets_reader_role_arn
+}
+
+output "security_slack_webhook_secret_name" {
+  description = "Non-secret Secrets Manager source name for the Falcosidekick Slack webhook."
+  value       = module.foundation.security_slack_webhook_secret_name
+}
+
+output "security_secrets_reader_role_arn" {
+  description = "Security namespace External Secrets reader role ARN."
+  value       = module.foundation.security_secrets_reader_role_arn
+}
+
 output "oidc_provider_arn" {
   description = "IAM OIDC provider ARN used by IRSA."
   value       = module.foundation.oidc_provider_arn
