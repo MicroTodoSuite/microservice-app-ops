@@ -66,7 +66,7 @@ require_text "aws/environments/dev/foundation/dev.tfvars" 'cluster_public_access
   "committed dev configuration does not preserve the approved global API CIDR"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_instance_types[[:space:]]*=[[:space:]]*\["m7i-flex\.large"\]' \
   "committed dev configuration does not use the account-compatible 2-vCPU/8-GiB bootstrap type"
-require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_ami_release_version[[:space:]]*=[[:space:]]*"1\.35\.6-20260801"' \
+require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_ami_release_version[[:space:]]*=[[:space:]]*"1\.35\.6-20260818"' \
   "committed dev configuration does not pin the currently running node AMI release"
 require_text "aws/modules/environment-foundation/eks.tf" 'kms_key_administrators[[:space:]]*=[[:space:]]*sort\(tolist\(var\.bootstrap_admin_principal_arns\)\)' \
   "EKS secrets-key administrators must be pinned to the approved roles instead of the current caller"
