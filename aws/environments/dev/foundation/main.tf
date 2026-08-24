@@ -12,6 +12,7 @@ module "foundation" {
   vpc_cidr                       = var.vpc_cidr
   public_subnet_cidrs            = var.public_subnet_cidrs
   private_subnet_cidrs           = var.private_subnet_cidrs
+  single_nat_gateway             = var.single_nat_gateway
   cluster_public_access_cidrs    = var.cluster_public_access_cidrs
   bootstrap_admin_principal_arns = var.bootstrap_admin_principal_arns
 
@@ -22,6 +23,7 @@ module "foundation" {
   bootstrap_node_max_size            = var.bootstrap_node_max_size
   bootstrap_node_volume_size         = var.bootstrap_node_volume_size
   iam_permissions_boundary_arn       = var.iam_permissions_boundary_arn
+  create_shared_resources            = var.create_shared_resources
 
   shared_environments             = var.shared_environments
   neutral_service_names           = var.neutral_service_names

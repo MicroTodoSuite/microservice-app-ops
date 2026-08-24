@@ -1,12 +1,23 @@
 locals {
-  github_oidc_host = "token.actions.githubusercontent.com"
+  github_oidc_host                 = "token.actions.githubusercontent.com"
+  github_ecr_publisher_role_name   = "microtodosuite-github-ecr-publisher"
+  github_actions_oidc_provider_arn = one(concat(aws_iam_openid_connect_provider.github_actions[*].arn, data.aws_iam_openid_connect_provider.github_actions[*].arn))
+  github_ecr_publisher_role_arn    = one(concat(aws_iam_role.github_ecr_publisher[*].arn, data.aws_iam_role.github_ecr_publisher[*].arn))
   neutral_ecr_repository_arns = sort([
     for service in var.neutral_service_names :
     "arn:${data.aws_partition.current.partition}:ecr:${var.aws_region}:${var.expected_account_id}:repository/${var.project}/${service}"
   ])
 }
 
+data "aws_iam_openid_connect_provider" "github_actions" {
+  count = var.create_shared_resources ? 0 : 1
+
+  url = "https://${local.github_oidc_host}"
+}
+
 resource "aws_iam_openid_connect_provider" "github_actions" {
+  count = var.create_shared_resources ? 1 : 0
+
   url            = "https://${local.github_oidc_host}"
   client_id_list = ["sts.amazonaws.com"]
 
@@ -16,8 +27,21 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   })
 }
 
+moved {
+  from = aws_iam_openid_connect_provider.github_actions
+  to   = aws_iam_openid_connect_provider.github_actions[0]
+}
+
+data "aws_iam_role" "github_ecr_publisher" {
+  count = var.create_shared_resources ? 0 : 1
+
+  name = local.github_ecr_publisher_role_name
+}
+
 resource "aws_iam_role" "github_ecr_publisher" {
-  name                 = "microtodosuite-github-ecr-publisher"
+  count = var.create_shared_resources ? 1 : 0
+
+  name                 = local.github_ecr_publisher_role_name
   description          = "Publish reviewed main artifacts only to neutral MicroTodoSuite ECR repositories"
   permissions_boundary = var.iam_permissions_boundary_arn
   max_session_duration = 3600
@@ -28,7 +52,7 @@ resource "aws_iam_role" "github_ecr_publisher" {
       Sid    = "AllowExactReviewedMainWorkflows"
       Effect = "Allow"
       Principal = {
-        Federated = aws_iam_openid_connect_provider.github_actions.arn
+        Federated = local.github_actions_oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
@@ -45,9 +69,16 @@ resource "aws_iam_role" "github_ecr_publisher" {
   })
 }
 
+moved {
+  from = aws_iam_role.github_ecr_publisher
+  to   = aws_iam_role.github_ecr_publisher[0]
+}
+
 resource "aws_iam_role_policy" "github_ecr_publisher" {
+  count = var.create_shared_resources ? 1 : 0
+
   name = "publish-neutral-ecr-artifacts"
-  role = aws_iam_role.github_ecr_publisher.id
+  role = aws_iam_role.github_ecr_publisher[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -75,4 +106,9 @@ resource "aws_iam_role_policy" "github_ecr_publisher" {
       },
     ]
   })
+}
+
+moved {
+  from = aws_iam_role_policy.github_ecr_publisher
+  to   = aws_iam_role_policy.github_ecr_publisher[0]
 }

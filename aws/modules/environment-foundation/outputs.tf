@@ -69,7 +69,7 @@ output "private_subnet_ids" {
 }
 
 output "nat_gateway_ids" {
-  description = "One zonal NAT gateway identifier per selected availability zone."
+  description = "NAT gateway identifiers for the selected per-AZ or shared topology."
   value       = module.vpc.natgw_ids
 }
 
@@ -160,7 +160,7 @@ output "ecr_repository_urls" {
 
 output "neutral_ecr_repository_urls" {
   description = "Environment-neutral ECR repository URLs keyed by business service."
-  value       = { for service, repository in aws_ecr_repository.neutral_services : service => repository.repository_url }
+  value       = local.neutral_ecr_repository_urls
 }
 
 output "environment_jwt_secret_names" {
@@ -180,45 +180,45 @@ output "environment_jwt_reader_role_arns" {
 
 output "github_actions_oidc_provider_arn" {
   description = "GitHub Actions OIDC provider used by the reviewed-main publisher."
-  value       = aws_iam_openid_connect_provider.github_actions.arn
+  value       = local.github_actions_oidc_provider_arn
 }
 
 output "github_ecr_publisher_role_arn" {
   description = "Exact GitHub Actions role allowed to publish neutral release artifacts."
-  value       = aws_iam_role.github_ecr_publisher.arn
+  value       = local.github_ecr_publisher_role_arn
 }
 
 output "kyverno_ecr_verifier_role_arn" {
   description = "Exact Kyverno admission-controller role allowed to read neutral ECR artifacts."
-  value       = aws_iam_role.kyverno_ecr_verifier.arn
+  value       = local.kyverno_ecr_verifier_role_arn
 }
 
 output "observability_slack_webhook_secret_name" {
   description = "Non-secret Secrets Manager source name for the Alertmanager Slack webhook."
-  value       = aws_secretsmanager_secret.observability_slack_webhook.name
+  value       = local.observability_slack_webhook_secret_name
 }
 
 output "observability_slack_webhook_secret_arn" {
   description = "Non-secret Secrets Manager source ARN for the Alertmanager Slack webhook."
-  value       = aws_secretsmanager_secret.observability_slack_webhook.arn
+  value       = local.observability_slack_webhook_secret_arn
 }
 
 output "observability_secrets_reader_role_arn" {
   description = "Exact External Secrets reader role ARN for the observability namespace."
-  value       = aws_iam_role.observability_secrets_reader.arn
+  value       = local.observability_secrets_reader_role_arn
 }
 
 output "security_slack_webhook_secret_name" {
   description = "Non-secret Secrets Manager source name for the Falcosidekick Slack webhook."
-  value       = aws_secretsmanager_secret.security_slack_webhook.name
+  value       = local.security_slack_webhook_secret_name
 }
 
 output "security_slack_webhook_secret_arn" {
   description = "Non-secret Secrets Manager source ARN for the Falcosidekick Slack webhook."
-  value       = aws_secretsmanager_secret.security_slack_webhook.arn
+  value       = local.security_slack_webhook_secret_arn
 }
 
 output "security_secrets_reader_role_arn" {
   description = "Exact External Secrets reader role ARN for the security namespace."
-  value       = aws_iam_role.security_secrets_reader.arn
+  value       = local.security_secrets_reader_role_arn
 }

@@ -78,27 +78,27 @@ run "kyverno_verifier_contract" {
   }
 
   assert {
-    condition     = aws_iam_role.kyverno_ecr_verifier.name == "microtodosuite-kyverno-ecr-verifier"
+    condition     = aws_iam_role.kyverno_ecr_verifier[0].name == "microtodosuite-kyverno-ecr-verifier"
     error_message = "Kyverno must use the exact verifier role."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.kyverno_ecr_verifier.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kyverno:kyverno-admission-controller"
+    condition     = jsondecode(aws_iam_role.kyverno_ecr_verifier[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kyverno:kyverno-admission-controller"
     error_message = "Kyverno verifier trust must bind only the admission-controller ServiceAccount."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.kyverno_ecr_verifier.policy).Statement[0].Action == "ecr:GetAuthorizationToken" && jsondecode(aws_iam_role_policy.kyverno_ecr_verifier.policy).Statement[0].Resource == "*"
+    condition     = jsondecode(aws_iam_role_policy.kyverno_ecr_verifier[0].policy).Statement[0].Action == "ecr:GetAuthorizationToken" && jsondecode(aws_iam_role_policy.kyverno_ecr_verifier[0].policy).Statement[0].Resource == "*"
     error_message = "Only the read-only ECR authorization call may use a wildcard resource."
   }
 
   assert {
-    condition     = toset(jsondecode(aws_iam_role_policy.kyverno_ecr_verifier.policy).Statement[1].Action) == toset(["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer"])
+    condition     = toset(jsondecode(aws_iam_role_policy.kyverno_ecr_verifier[0].policy).Statement[1].Action) == toset(["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer"])
     error_message = "Kyverno verifier permissions must remain read-only."
   }
 
   assert {
-    condition     = toset(jsondecode(aws_iam_role_policy.kyverno_ecr_verifier.policy).Statement[1].Resource) == toset([for service in var.neutral_service_names : "arn:aws:ecr:us-east-1:123456789012:repository/microtodosuite/${service}"])
+    condition     = toset(jsondecode(aws_iam_role_policy.kyverno_ecr_verifier[0].policy).Statement[1].Resource) == toset([for service in var.neutral_service_names : "arn:aws:ecr:us-east-1:123456789012:repository/microtodosuite/${service}"])
     error_message = "Kyverno verifier permissions must be limited to the five neutral repositories."
   }
 }

@@ -27,6 +27,9 @@ private_subnet_cidrs = [
   "10.10.48.0/20",
 ]
 
+# Dev retains one NAT gateway per availability zone.
+single_nat_gateway = false
+
 # Dev explicitly accepts global network reachability and relies on IAM/EKS
 # authorization. Staging and production must use restricted CIDRs.
 cluster_public_access_cidrs = ["0.0.0.0/0"]

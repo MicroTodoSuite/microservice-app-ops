@@ -1,0 +1,63 @@
+# Reference template only. Replace account-specific placeholders before use.
+environment         = "demo-full"
+expected_account_id = "123456789012"
+aws_region          = "us-east-1"
+
+availability_zones = [
+  "us-east-1a",
+  "us-east-1b",
+  "us-east-1c",
+]
+
+vpc_cidr = "10.20.0.0/16"
+
+public_subnet_cidrs = [
+  "10.20.0.0/24",
+  "10.20.1.0/24",
+  "10.20.2.0/24",
+]
+
+private_subnet_cidrs = [
+  "10.20.16.0/20",
+  "10.20.32.0/20",
+  "10.20.48.0/20",
+]
+
+# Cost-reduced demonstration exception: one shared NAT avoids an EIP quota
+# increase at the cost of zonal egress redundancy.
+single_nat_gateway = true
+
+cluster_public_access_cidrs = [
+  "192.0.2.10/32",
+  "192.0.2.11/32",
+  "192.0.2.12/32",
+]
+
+bootstrap_admin_principal_arns = [
+  "arn:aws:iam::123456789012:role/microtodosuite-terraform-dev",
+]
+
+bootstrap_node_instance_types      = ["m7i-flex.large"]
+bootstrap_node_ami_release_version = "1.35.6-20260801"
+
+create_shared_resources = false
+shared_environments     = []
+
+neutral_service_names = [
+  "auth-api",
+  "frontend",
+  "log-message-processor",
+  "todos-api",
+  "users-api",
+]
+
+github_oidc_subjects = [
+  "repo:MicroTodoSuite/microservice-app-auth-api:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-frontend:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-log-message-processor:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-todos-api:ref:refs/heads/main",
+  "repo:MicroTodoSuite/microservice-app-users-api:ref:refs/heads/main",
+]
+
+environment_jwt_secret_version  = 1
+kyverno_service_account_subject = "system:serviceaccount:kyverno:kyverno-admission-controller"
