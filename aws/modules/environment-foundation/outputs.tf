@@ -245,6 +245,16 @@ output "neutral_ecr_repository_urls" {
   value       = local.neutral_ecr_repository_urls
 }
 
+output "platform_mirror_repository_url" {
+  description = "URL of the single third-party platform image mirror, or null when the mirror is not in use."
+  value       = local.platform_mirror_repository_url
+}
+
+output "platform_mirror_role_arn" {
+  description = "Role assumed by the reviewed mirror workflow, or null when this foundation does not own the mirror."
+  value       = one(aws_iam_role.github_platform_mirror[*].arn)
+}
+
 output "environment_jwt_secret_names" {
   description = "Non-secret Secrets Manager source names keyed by environment."
   value       = { for environment, secret in aws_secretsmanager_secret.environment_jwt : environment => secret.name }

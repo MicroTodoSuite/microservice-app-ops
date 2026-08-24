@@ -390,6 +390,31 @@ variable "create_shared_resources" {
   default     = true
 }
 
+variable "enable_platform_image_mirror" {
+  description = "Whether the single microtodosuite/platform ECR mirror for third-party platform images is in use. The foundation that owns the shared resources creates it; every other foundation reads it. Off by default so no environment gains a repository before the stage that populates it."
+  type        = bool
+  default     = false
+}
+
+variable "github_platform_mirror_job_workflow_refs" {
+  description = "Exact GitHub Actions job_workflow_ref values allowed to assume the platform mirror role, for example \"MicroTodoSuite/.github/.github/workflows/<file>.yml@refs/heads/main\". job_workflow_ref rather than sub binds the trust to one reviewed workflow file, so adding another workflow to the same repository grants nothing. Required when the owning foundation enables the mirror."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for ref in var.github_platform_mirror_job_workflow_refs :
+      can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/.+\\.ya?ml@refs/(heads|tags)/.+$", ref))
+    ])
+    error_message = "Each github_platform_mirror_job_workflow_refs entry must be a fully qualified <owner>/<repo>/<path>.yml@refs/heads/<branch> workflow reference."
+  }
+
+  validation {
+    condition     = !var.enable_platform_image_mirror || !var.create_shared_resources || length(var.github_platform_mirror_job_workflow_refs) > 0
+    error_message = "The foundation that owns the platform mirror must name at least one exact workflow allowed to publish to it; the role must not exist with an unbounded trust."
+  }
+}
+
 variable "shared_environments" {
   description = "Exact namespace environments sharing this EKS foundation. Can be empty for dedicated clusters."
   type        = set(string)
