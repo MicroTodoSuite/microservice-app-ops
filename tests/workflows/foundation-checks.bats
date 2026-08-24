@@ -36,8 +36,34 @@ hcl_value() {
   ' "$file"
 }
 
-mapfile -t backend_files < <(find "$OPS_ROOT/aws/environments" -name '*.tfbackend' | sort)
-mapfile -t foundation_tfvars < <(find "$OPS_ROOT/aws/environments" -path '*/foundation/*.tfvars' | sort)
+# Real .tfbackend and most .tfvars files are gitignored, so this contract reads
+# what is actually committed: the working file when present, otherwise the
+# .example template a new environment is copied from. Exactly one file per
+# foundation is inspected, so a template and its working copy are never counted
+# as two colliding environments.
+pick_committed() {
+  local directory="$1" pattern="$2" candidate
+  for candidate in "$directory"/$pattern; do
+    [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  for candidate in "$directory"/$pattern.example; do
+    [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+backend_files=()
+foundation_tfvars=()
+for foundation in "$OPS_ROOT"/aws/environments/*/foundation; do
+  [[ -d "$foundation" ]] || continue
+  if backend="$(pick_committed "$foundation" '*.tfbackend')"; then
+    backend_files+=("$backend")
+  fi
+  if tfvars="$(pick_committed "$foundation" '*.tfvars')"; then
+    foundation_tfvars+=("$tfvars")
+  fi
+done
+
 mapfile -t workflow_files < <(find "$OPS_ROOT/.github/workflows" -name '*.yml' | sort)
 
 [[ "${#backend_files[@]}" -gt 0 ]] || fail "no Terraform backend configuration was found"
@@ -106,12 +132,17 @@ done
   fail "exactly one foundation must set create_shared_resources = true, found $shared_resource_owners"
 
 # --- Workflow safety -------------------------------------------------------
+# .terraform-version is this repository's own source of truth and is always
+# present. The cross-repository toolchain lock is checked only when the sibling
+# checkout exists, so this contract still runs in a single-repository CI job.
+pinned_terraform="$(tr -d '[:space:]' < "$OPS_ROOT/.terraform-version")"
+[[ -n "$pinned_terraform" ]] || fail ".terraform-version does not pin a Terraform version"
+
 if [[ -f "$TOOLCHAIN_LOCK" ]]; then
-  pinned_terraform="$(jq -er '.tools[] | select(.name == "terraform") | .version' "$TOOLCHAIN_LOCK")" ||
+  locked_terraform="$(jq -er '.tools[] | select(.name == "terraform") | .version' "$TOOLCHAIN_LOCK")" ||
     fail "the toolchain lock does not pin a Terraform version"
-else
-  fail "toolchain lock is missing: $TOOLCHAIN_LOCK"
-  pinned_terraform=""
+  [[ "$locked_terraform" == "$pinned_terraform" ]] ||
+    fail ".terraform-version pins $pinned_terraform but the rollout toolchain lock pins $locked_terraform"
 fi
 
 # Scope: the AWS foundation workflows this specification governs. The legacy
