@@ -163,3 +163,112 @@ run "observability_security_secrets_reader_contract" {
     error_message = "Observability and security must never share a reader role."
   }
 }
+
+# ---------------------------------------------------------------------------
+# Full-dev SonarQube secret reader (spec 009, T012/T019).
+#
+# SonarQube is one shared instance living only in full-dev. Its reader is
+# therefore bound to that one cluster's issuer and to exactly two ARNs; it must
+# never reach the Grafana administrator or any notification secret.
+# ---------------------------------------------------------------------------
+
+run "sonar_reader_is_bound_to_full_dev_and_two_secrets" {
+  command = plan
+
+  variables {
+    expected_account_id                 = "123456789012"
+    aws_region                          = "us-east-1"
+    availability_zones                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                            = "10.10.0.0/16"
+    public_subnet_cidrs                 = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs                = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs         = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns      = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources             = true
+    enable_full_profile_tooling_secrets = true
+    full_profile_secret_values = {
+      grafana_admin   = "mock-grafana-admin-value"
+      sonarqube_db    = "mock-sonarqube-db-value"
+      sonarqube_admin = "mock-sonarqube-admin-value"
+    }
+    full_profile_secret_versions = {
+      grafana_admin   = 1
+      sonarqube_db    = 1
+      sonarqube_admin = 1
+    }
+    additional_eks_oidc_issuers = {
+      "eks-full-dev" = {
+        provider_arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLDEV"
+        issuer_host  = "oidc.eks.us-east-1.amazonaws.com/id/FULLDEV"
+      }
+      "eks-full-prod" = {
+        provider_arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLPROD"
+        issuer_host  = "oidc.eks.us-east-1.amazonaws.com/id/FULLPROD"
+      }
+    }
+    sonarqube_reader_issuer_label = "eks-full-dev"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.sonarqube_secrets_reader) == 1
+    error_message = "Naming the full-dev issuer must create the Sonar reader."
+  }
+
+  # Exactly one issuer, not the shared multi-issuer set: SonarQube runs only in
+  # full-dev, so no other cluster may assume this role.
+  assert {
+    condition = jsonencode(jsondecode(aws_iam_role.sonarqube_secrets_reader[0].assume_role_policy).Statement) == jsonencode([{
+      Sid    = "AllowExactSonarQubeExternalSecretsServiceAccount"
+      Effect = "Allow"
+      Principal = {
+        Federated = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLDEV"
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "oidc.eks.us-east-1.amazonaws.com/id/FULLDEV:aud" = "sts.amazonaws.com"
+          "oidc.eks.us-east-1.amazonaws.com/id/FULLDEV:sub" = "system:serviceaccount:sonarqube:sonarqube-external-secrets-jwt"
+        }
+      }
+    }])
+    error_message = "The Sonar reader must trust only full-dev's exact SonarQube ServiceAccount."
+  }
+
+  assert {
+    condition = jsonencode(sort(jsondecode(aws_iam_role_policy.sonarqube_secrets_reader[0].policy).Statement[0].Resource)) == jsonencode([
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/tooling/sonarqube-admin",
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/tooling/sonarqube-db",
+    ])
+    error_message = "The Sonar reader must reach exactly its two tooling secrets and never the Grafana administrator or a notification secret."
+  }
+}
+
+run "reject_sonar_reader_pointing_at_an_unknown_issuer" {
+  command = plan
+
+  variables {
+    expected_account_id                 = "123456789012"
+    aws_region                          = "us-east-1"
+    availability_zones                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                            = "10.10.0.0/16"
+    public_subnet_cidrs                 = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs                = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs         = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns      = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources             = true
+    enable_full_profile_tooling_secrets = true
+    full_profile_secret_values = {
+      grafana_admin   = "mock-grafana-admin-value"
+      sonarqube_db    = "mock-sonarqube-db-value"
+      sonarqube_admin = "mock-sonarqube-admin-value"
+    }
+    full_profile_secret_versions = {
+      grafana_admin   = 1
+      sonarqube_db    = 1
+      sonarqube_admin = 1
+    }
+    sonarqube_reader_issuer_label = "eks-full-dev"
+  }
+
+  expect_failures = [var.sonarqube_reader_issuer_label]
+}
