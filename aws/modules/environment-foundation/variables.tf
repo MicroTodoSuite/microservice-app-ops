@@ -333,6 +333,28 @@ variable "kyverno_service_account_subject" {
   }
 }
 
+variable "observability_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to read the Alertmanager Slack webhook."
+  type        = string
+  default     = "system:serviceaccount:observability:observability-external-secrets-jwt"
+
+  validation {
+    condition     = var.observability_service_account_subject == "system:serviceaccount:observability:observability-external-secrets-jwt"
+    error_message = "observability_service_account_subject must identify only the observability namespace's External Secrets ServiceAccount."
+  }
+}
+
+variable "security_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to read the Falcosidekick Slack webhook."
+  type        = string
+  default     = "system:serviceaccount:security:security-external-secrets-jwt"
+
+  validation {
+    condition     = var.security_service_account_subject == "system:serviceaccount:security:security-external-secrets-jwt"
+    error_message = "security_service_account_subject must identify only the security namespace's External Secrets ServiceAccount."
+  }
+}
+
 locals {
   cluster_name = "${var.project}-${var.environment}"
 
