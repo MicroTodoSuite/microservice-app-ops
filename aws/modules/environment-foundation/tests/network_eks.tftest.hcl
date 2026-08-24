@@ -122,6 +122,11 @@ run "network_and_eks_contract" {
     condition     = try(jsondecode(aws_eks_addon.vpc_cni.configuration_values).enableNetworkPolicy == "true", false)
     error_message = "The VPC CNI managed add-on must declaratively enable its network-policy node agent."
   }
+
+  assert {
+    condition     = try(jsondecode(aws_eks_addon.vpc_cni.configuration_values).env.ENABLE_PREFIX_DELEGATION == "true", false)
+    error_message = "The VPC CNI managed add-on must enable prefix delegation to raise max pods per node without additional EC2 spend."
+  }
 }
 
 run "reject_burstable_free_tier_shortcut" {
