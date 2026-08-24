@@ -72,8 +72,18 @@ resource "aws_eks_addon" "vpc_cni" {
   # The v1.23 managed-add-on schema models this boolean as a string. Enabling
   # it makes the aws-network-policy-agent enforce GitOps-owned NetworkPolicy
   # resources while keeping policy manifests outside Terraform ownership.
+  #
+  # ENABLE_PREFIX_DELEGATION raises max pods per m7i-flex.large node from ~29
+  # (one IP per ENI slot) to well over 100 (one /28 prefix per ENI slot). The
+  # two-node bootstrap group was already at 52/58 allocatable pod slots before
+  # any observability/security workload existed; this is a config-only fix
+  # (no additional EC2 spend) instead of raising bootstrap_node_desired_size.
+  # Private subnets are /20s, so prefix reservation has no IP exhaustion risk.
   configuration_values = jsonencode({
     enableNetworkPolicy = "true"
+    env = {
+      ENABLE_PREFIX_DELEGATION = "true"
+    }
   })
 
   tags = local.tags
