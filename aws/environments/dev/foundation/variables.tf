@@ -41,6 +41,11 @@ variable "public_hosted_zone_name" {
     )
     error_message = "public_hosted_zone_name must be a lowercase fully qualified DNS name without a trailing dot."
   }
+
+  validation {
+    condition     = var.public_hosted_zone_name != "microtodosuite.online"
+    error_message = "The canonical microtodosuite.online zone must be created through create_canonical_hosted_zone at its own resource address. Renaming this zone would replace it, destroying every record it holds and invalidating the registrar delegation."
+  }
 }
 
 variable "owner" {
@@ -265,4 +270,72 @@ locals {
   }
 
   tags = merge(var.common_tags, local.required_tags)
+}
+
+# ---------------------------------------------------------------------------
+# Full-profile compatibility pass-throughs (spec 009, T013/T019).
+#
+# Every one of these defaults to the value this environment already uses, so
+# declaring them changes nothing here. They exist so a full-profile root can be
+# created from the same module without forking it.
+# ---------------------------------------------------------------------------
+
+variable "outbound_mode" {
+  description = "direct-nat keeps in-VPC NAT egress; transit-egress routes the private default route to a centrally owned transit gateway and creates no NAT gateway or Elastic IP."
+  type        = string
+  default     = "direct-nat"
+}
+
+variable "transit_gateway_id" {
+  description = "Centrally owned transit gateway used when outbound_mode is transit-egress."
+  type        = string
+  default     = null
+}
+
+variable "enable_full_profile_cluster_prerequisites" {
+  description = "Whether this cluster receives the opt-in Karpenter and AWS Load Balancer Controller IAM/event prerequisites."
+  type        = bool
+  default     = false
+}
+
+variable "aws_load_balancer_controller_policy_arns" {
+  description = "Reviewed IAM policy ARNs attached to the AWS Load Balancer Controller role."
+  type        = set(string)
+  default     = []
+}
+
+variable "create_canonical_hosted_zone" {
+  description = "Whether this foundation owns the canonical microtodosuite.online public hosted zone. Creating it never renames or destroys the legacy zone."
+  type        = bool
+  default     = false
+}
+
+variable "canonical_destination_records" {
+  description = "Alias records published in the canonical zone. Empty by default: routing real traffic requires a separate named traffic-owner approval."
+  type = map(object({
+    dns_name = string
+    zone_id  = string
+  }))
+  default = {}
+}
+
+variable "enable_platform_image_mirror" {
+  description = "Whether the single microtodosuite/platform third-party image mirror is in use."
+  type        = bool
+  default     = false
+}
+
+variable "github_platform_mirror_job_workflow_refs" {
+  description = "Exact GitHub Actions job_workflow_ref values allowed to publish to the platform mirror."
+  type        = set(string)
+  default     = []
+}
+
+variable "additional_eks_oidc_issuers" {
+  description = "Additional reviewed EKS OIDC issuers whose service accounts may assume this foundation's shared reader roles."
+  type = map(object({
+    provider_arn = string
+    issuer_host  = string
+  }))
+  default = {}
 }

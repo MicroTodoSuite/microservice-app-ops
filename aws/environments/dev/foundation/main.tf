@@ -34,4 +34,14 @@ module "foundation" {
 
   observability_service_account_subject = var.observability_service_account_subject
   security_service_account_subject      = var.security_service_account_subject
+
+  outbound_mode                             = var.outbound_mode
+  transit_gateway_id                        = var.transit_gateway_id
+  enable_full_profile_cluster_prerequisites = var.enable_full_profile_cluster_prerequisites
+  aws_load_balancer_controller_policy_arns  = var.aws_load_balancer_controller_policy_arns
+  create_canonical_hosted_zone              = var.create_canonical_hosted_zone
+  canonical_destination_records             = var.canonical_destination_records
+  enable_platform_image_mirror              = var.enable_platform_image_mirror
+  github_platform_mirror_job_workflow_refs  = var.github_platform_mirror_job_workflow_refs
+  additional_eks_oidc_issuers               = var.additional_eks_oidc_issuers
 }

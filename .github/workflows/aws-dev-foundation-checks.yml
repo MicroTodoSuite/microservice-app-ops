@@ -10,6 +10,7 @@ on:
       - 'tests/contract/aws-dev-foundation.sh'
       - '.terraform-version'
       - '.github/workflows/aws-dev-foundation-checks.yml'
+      - 'tests/workflows/foundation-checks.bats'
 
 permissions:
   contents: read
@@ -71,3 +72,6 @@ jobs:
 
       - name: Verify the shell contract
         run: ./tests/contract/aws-dev-foundation.sh
+
+      - name: Verify the root and workflow foundation contract
+        run: ./tests/workflows/foundation-checks.bats
