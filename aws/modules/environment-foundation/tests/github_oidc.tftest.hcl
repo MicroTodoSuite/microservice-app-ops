@@ -191,3 +191,146 @@ run "shared_resource_consumer_contract" {
     error_message = "Consumer mode must look up every account-level shared resource."
   }
 }
+
+# ---------------------------------------------------------------------------
+# Azure DR secret seed role (spec 009, T012/T019).
+#
+# One workflow copies exactly four AWS secrets into Azure Key Vault so a token
+# minted on AWS stays valid after a request moves to Azure. It is the only
+# identity in this account allowed to READ secret values, so its trust and its
+# resource list are both pinned exactly.
+# ---------------------------------------------------------------------------
+
+run "dr_secret_seed_is_off_by_default" {
+  command = plan
+
+  variables {
+    expected_account_id            = "123456789012"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.10.0.0/16"
+    public_subnet_cidrs            = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs    = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources        = true
+  }
+
+  assert {
+    condition     = var.enable_dr_secret_seed == false
+    error_message = "enable_dr_secret_seed must default off; nothing may read secret values until DR is approved."
+  }
+
+  assert {
+    condition     = length(aws_iam_role.dr_secret_seed) == 0 && length(aws_iam_role_policy.dr_secret_seed) == 0
+    error_message = "No DR seed identity may exist while the switch is off."
+  }
+}
+
+run "dr_secret_seed_reads_exactly_four_secrets_from_one_workflow" {
+  command = plan
+
+  variables {
+    expected_account_id                 = "123456789012"
+    aws_region                          = "us-east-1"
+    availability_zones                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                            = "10.10.0.0/16"
+    public_subnet_cidrs                 = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs                = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs         = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns      = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources             = true
+    enable_full_profile_tooling_secrets = true
+    full_profile_secret_values = {
+      grafana_admin   = "mock-grafana-admin-value"
+      sonarqube_db    = "mock-sonarqube-db-value"
+      sonarqube_admin = "mock-sonarqube-admin-value"
+    }
+    full_profile_secret_versions = {
+      grafana_admin   = 1
+      sonarqube_db    = 1
+      sonarqube_admin = 1
+    }
+    enable_dr_secret_seed        = true
+    dr_secret_seed_subjects      = ["repo:MicroTodoSuite/.github:environment:azure-dr"]
+    dr_secret_seed_workflow_refs = ["MicroTodoSuite/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main"]
+  }
+
+  assert {
+    condition     = aws_iam_role.dr_secret_seed[0].name == "microtodosuite-github-dr-secret-seed"
+    error_message = "The DR seed must use its own dedicated role."
+  }
+
+  # Repository AND environment AND the exact workflow file. Any one of the three
+  # alone would let an unrelated job in the same repository read these values.
+  assert {
+    condition = jsonencode(jsondecode(aws_iam_role.dr_secret_seed[0].assume_role_policy).Statement[0].Condition.StringEquals) == jsonencode({
+      "token.actions.githubusercontent.com:aud"              = "sts.amazonaws.com"
+      "token.actions.githubusercontent.com:sub"              = ["repo:MicroTodoSuite/.github:environment:azure-dr"]
+      "token.actions.githubusercontent.com:job_workflow_ref" = ["MicroTodoSuite/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main"]
+    })
+    error_message = "The DR seed must be pinned to an exact repository, environment and workflow file."
+  }
+
+  assert {
+    condition = jsonencode(sort(jsondecode(aws_iam_role_policy.dr_secret_seed[0].policy).Statement[0].Resource)) == jsonencode([
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/observability/alertmanager-slack-webhook",
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/observability/grafana-admin",
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/prod/auth-api-secrets",
+      "arn:aws:secretsmanager:us-east-1:123456789012:secret:microtodosuite/security/falcosidekick-slack-webhook",
+    ])
+    error_message = "The DR seed must read exactly the four approved source ARNs."
+  }
+
+  assert {
+    condition = jsonencode(sort(tolist(jsondecode(aws_iam_role_policy.dr_secret_seed[0].policy).Statement[0].Action))) == jsonencode([
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+    ])
+    error_message = "The DR seed must only describe and read; it must never write or delete a secret."
+  }
+
+  # The publisher stays an artifact identity and never gains secret-read trust.
+  assert {
+    condition = alltrue([
+      for statement in jsondecode(aws_iam_role_policy.github_ecr_publisher[0].policy).Statement :
+      !can(regex("secretsmanager", jsonencode(statement.Action)))
+    ])
+    error_message = "The GitHub publisher must never gain secret-read permissions."
+  }
+}
+
+run "reject_dr_secret_seed_without_its_exact_identity" {
+  command = plan
+
+  variables {
+    expected_account_id                 = "123456789012"
+    aws_region                          = "us-east-1"
+    availability_zones                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                            = "10.10.0.0/16"
+    public_subnet_cidrs                 = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs                = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs         = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns      = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources             = true
+    enable_full_profile_tooling_secrets = true
+    full_profile_secret_values = {
+      grafana_admin   = "mock-grafana-admin-value"
+      sonarqube_db    = "mock-sonarqube-db-value"
+      sonarqube_admin = "mock-sonarqube-admin-value"
+    }
+    full_profile_secret_versions = {
+      grafana_admin   = 1
+      sonarqube_db    = 1
+      sonarqube_admin = 1
+    }
+    enable_dr_secret_seed        = true
+    dr_secret_seed_subjects      = []
+    dr_secret_seed_workflow_refs = []
+  }
+
+  expect_failures = [
+    var.dr_secret_seed_subjects,
+    var.dr_secret_seed_workflow_refs,
+  ]
+}

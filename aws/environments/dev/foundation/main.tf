@@ -44,4 +44,13 @@ module "foundation" {
   enable_platform_image_mirror              = var.enable_platform_image_mirror
   github_platform_mirror_job_workflow_refs  = var.github_platform_mirror_job_workflow_refs
   additional_eks_oidc_issuers               = var.additional_eks_oidc_issuers
+
+  enable_full_profile_tooling_secrets = var.enable_full_profile_tooling_secrets
+  full_profile_secret_values          = module.full_profile_secret_values.values
+  full_profile_secret_versions        = var.full_profile_secret_versions
+  sonarqube_reader_issuer_label       = var.sonarqube_reader_issuer_label
+  consumer_jwt_environment            = var.consumer_jwt_environment
+  enable_dr_secret_seed               = var.enable_dr_secret_seed
+  dr_secret_seed_subjects             = var.dr_secret_seed_subjects
+  dr_secret_seed_workflow_refs        = var.dr_secret_seed_workflow_refs
 }
