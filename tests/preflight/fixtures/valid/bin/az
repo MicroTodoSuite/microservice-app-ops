@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FIXTURE_DIR="${AZURE_DR_FIXTURE_DIR:?AZURE_DR_FIXTURE_DIR is required}"
+
+case "$*" in
+  "version --output json") file="version.json" ;;
+  "account show --output json") file="account.json" ;;
+  "account list-locations --output json") file="locations.json" ;;
+  "network vnet list --output json") file="vnets.json" ;;
+  "provider list --output json") file="providers.json" ;;
+  storage\ account\ show*) file="storage-account.json" ;;
+  storage\ container\ show*) file="container.json" ;;
+  aks\ get-versions*) file="aks-versions.json" ;;
+  *)
+    printf 'unexpected fixture az command: %s\n' "$*" >&2
+    exit 64
+    ;;
+esac
+
+exec /bin/cat "$FIXTURE_DIR/$file"

@@ -53,6 +53,41 @@ variable "public_hosted_zone_name" {
     )
     error_message = "public_hosted_zone_name must be a lowercase fully qualified DNS name without a trailing dot."
   }
+
+  validation {
+    condition     = var.public_hosted_zone_name != "microtodosuite.online"
+    error_message = "The canonical microtodosuite.online zone must be created through create_canonical_hosted_zone at its own resource address. Renaming this zone would replace it, destroying every record it holds and invalidating the registrar delegation."
+  }
+}
+
+variable "create_canonical_hosted_zone" {
+  description = "Whether this foundation owns the canonical microtodosuite.online public hosted zone. Exactly one foundation in the account may own it. Enabling it creates a NEW zone alongside public_hosted_zone_name and never renames, replaces, or destroys the legacy zone."
+  type        = bool
+  default     = false
+}
+
+variable "canonical_destination_records" {
+  description = "Alias records to publish in the canonical zone, keyed by subdomain label. Empty by default: routing real traffic to app.microtodosuite.online requires a separate named traffic-owner approval taken after the DR game day."
+  type = map(object({
+    dns_name = string
+    zone_id  = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for label, record in var.canonical_destination_records :
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", label)) &&
+      trimspace(record.dns_name) != "" &&
+      can(regex("^[A-Z0-9]+$", record.zone_id))
+    ])
+    error_message = "canonical_destination_records keys must be DNS labels and each value must carry a non-empty alias dns_name and a Route 53 hosted-zone id."
+  }
+
+  validation {
+    condition     = length(var.canonical_destination_records) == 0 || var.create_canonical_hosted_zone
+    error_message = "canonical_destination_records requires create_canonical_hosted_zone; a record cannot be published into a zone this foundation does not own."
+  }
 }
 
 variable "owner" {
@@ -206,35 +241,35 @@ variable "bootstrap_node_ami_release_version" {
 }
 
 variable "bootstrap_node_min_size" {
-  description = "Minimum number of stable bootstrap nodes."
+  description = "Minimum number of stable bootstrap nodes. The current dev and demo foundations keep the default of 2; a reviewed cost-bounded full-profile cluster may lower it to 1."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.bootstrap_node_min_size == 2
-    error_message = "The dev bootstrap node minimum must remain 2."
+    condition     = var.bootstrap_node_min_size >= 1 && floor(var.bootstrap_node_min_size) == var.bootstrap_node_min_size
+    error_message = "bootstrap_node_min_size must be a whole number of at least 1; the bootstrap group hosts the GitOps controllers and cannot scale to zero."
   }
 }
 
 variable "bootstrap_node_desired_size" {
-  description = "Desired number of stable bootstrap nodes."
+  description = "Desired number of stable bootstrap nodes. Must satisfy min <= desired <= max, which terraform_data.eks_input_guard enforces."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.bootstrap_node_desired_size == 2
-    error_message = "The dev bootstrap node desired size must remain 2."
+    condition     = var.bootstrap_node_desired_size >= 1 && floor(var.bootstrap_node_desired_size) == var.bootstrap_node_desired_size
+    error_message = "bootstrap_node_desired_size must be a whole number of at least 1."
   }
 }
 
 variable "bootstrap_node_max_size" {
-  description = "Maximum number of stable bootstrap nodes."
+  description = "Maximum number of stable bootstrap nodes. Karpenter, not this managed group, provides elastic capacity on a full-profile cluster, so this ceiling stays deliberately small."
   type        = number
   default     = 4
 
   validation {
-    condition     = var.bootstrap_node_max_size == 4
-    error_message = "The dev bootstrap node maximum must remain 4."
+    condition     = var.bootstrap_node_max_size >= 1 && var.bootstrap_node_max_size <= 10 && floor(var.bootstrap_node_max_size) == var.bootstrap_node_max_size
+    error_message = "bootstrap_node_max_size must be a whole number between 1 and 10; larger fleets belong to a reviewed Karpenter NodePool."
   }
 }
 
@@ -263,10 +298,148 @@ variable "iam_permissions_boundary_arn" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# Full-profile compatibility inputs (spec 009, T017/T018).
+#
+# Every switch below defaults to the value the current economical dev and demo
+# foundations already use, so adding them changes no existing plan.
+# ---------------------------------------------------------------------------
+
+variable "outbound_mode" {
+  description = "How private workloads reach the internet. direct-nat creates in-VPC NAT gateways and is what every current foundation uses. transit-egress creates no NAT gateway and no Elastic IP, and instead sends the private default route to a centrally owned transit gateway; the spoke keeps its own internet gateway for public load balancers only."
+  type        = string
+  default     = "direct-nat"
+
+  validation {
+    condition     = contains(["direct-nat", "transit-egress"], var.outbound_mode)
+    error_message = "outbound_mode must be either direct-nat or transit-egress."
+  }
+}
+
+variable "transit_gateway_id" {
+  description = "Existing centrally owned transit gateway that provides egress when outbound_mode is transit-egress. This module never creates, owns, or attaches the transit gateway itself; that is the centralized egress account's resource."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.transit_gateway_id == null || can(regex("^tgw-[0-9a-f]{8,17}$", var.transit_gateway_id))
+    error_message = "transit_gateway_id must be null or a tgw- identifier."
+  }
+
+  validation {
+    condition     = var.outbound_mode != "transit-egress" || var.transit_gateway_id != null
+    error_message = "outbound_mode=transit-egress requires transit_gateway_id; this module never discovers or creates the transit gateway."
+  }
+
+  validation {
+    condition     = var.outbound_mode == "transit-egress" || var.transit_gateway_id == null
+    error_message = "transit_gateway_id must be null when outbound_mode is direct-nat, so a spoke cannot silently keep both egress paths."
+  }
+}
+
+variable "enable_full_profile_cluster_prerequisites" {
+  description = "Whether this cluster receives the opt-in full-profile IAM and event prerequisites: the Karpenter controller/node identities with their per-cluster encrypted interruption queue and EventBridge rules, and the AWS Load Balancer Controller IRSA role. Terraform owns only these prerequisites; GitOps owns both controllers and every Karpenter NodePool."
+  type        = bool
+  default     = false
+}
+
+variable "aws_load_balancer_controller_policy_arns" {
+  description = "Reviewed IAM policy ARNs attached to the AWS Load Balancer Controller role. The controller's permission set is published by AWS and is deliberately not reproduced here: supply the exact policy the operator created and reviewed. Required when enable_full_profile_cluster_prerequisites is true."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.aws_load_balancer_controller_policy_arns :
+      can(regex("^arn:(aws|aws-us-gov|aws-cn):iam::([0-9]{12}|aws):policy/.+$", arn))
+    ])
+    error_message = "aws_load_balancer_controller_policy_arns must contain IAM policy ARNs."
+  }
+
+  validation {
+    condition     = !var.enable_full_profile_cluster_prerequisites || length(var.aws_load_balancer_controller_policy_arns) > 0
+    error_message = "enable_full_profile_cluster_prerequisites requires at least one reviewed aws_load_balancer_controller_policy_arns entry; the role must not exist without its reviewed permissions."
+  }
+}
+
+variable "karpenter_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to assume the Karpenter controller role."
+  type        = string
+  default     = "system:serviceaccount:kube-system:karpenter"
+
+  validation {
+    condition     = var.karpenter_service_account_subject == "system:serviceaccount:kube-system:karpenter"
+    error_message = "karpenter_service_account_subject must identify only the kube-system Karpenter controller."
+  }
+}
+
+variable "aws_load_balancer_controller_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to assume the AWS Load Balancer Controller role."
+  type        = string
+  default     = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+
+  validation {
+    condition     = var.aws_load_balancer_controller_service_account_subject == "system:serviceaccount:kube-system:aws-load-balancer-controller"
+    error_message = "aws_load_balancer_controller_service_account_subject must identify only the kube-system AWS Load Balancer Controller."
+  }
+}
+
 variable "create_shared_resources" {
   description = "Whether this module instance owns the account-level neutral ECR repositories, GitHub Actions OIDC provider, shared IAM roles, and shared webhook secret containers."
   type        = bool
   default     = true
+}
+
+variable "additional_eks_oidc_issuers" {
+  description = "Additional EKS OIDC issuers, keyed by a reviewed cluster label, whose service accounts may assume this foundation's SHARED reader roles. The full profile runs several clusters against one set of shared singletons; each extra issuer adds one exactly scoped trust statement rather than a second copy of the role. Empty by default, so no existing trust widens."
+  type = map(object({
+    provider_arn = string
+    issuer_host  = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for label, issuer in var.additional_eks_oidc_issuers :
+      can(regex("^[a-z0-9][a-z0-9-]*$", label)) &&
+      can(regex("^oidc\\.eks\\.[a-z0-9-]+\\.amazonaws\\.com/id/[A-Z0-9]+$", issuer.issuer_host))
+    ])
+    error_message = "additional_eks_oidc_issuers keys must be DNS-safe cluster labels and issuer_host must be an EKS OIDC issuer of the form oidc.eks.<region>.amazonaws.com/id/<id>."
+  }
+
+  validation {
+    condition = alltrue([
+      for label, issuer in var.additional_eks_oidc_issuers :
+      can(regex("^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:oidc-provider/", issuer.provider_arn)) &&
+      endswith(issuer.provider_arn, "/${issuer.issuer_host}")
+    ])
+    error_message = "Each additional_eks_oidc_issuers provider_arn must be an IAM OIDC provider ARN whose path is exactly its own issuer_host; a mismatch would trust one cluster's provider under another cluster's claims."
+  }
+}
+
+variable "enable_platform_image_mirror" {
+  description = "Whether the single microtodosuite/platform ECR mirror for third-party platform images is in use. The foundation that owns the shared resources creates it; every other foundation reads it. Off by default so no environment gains a repository before the stage that populates it."
+  type        = bool
+  default     = false
+}
+
+variable "github_platform_mirror_job_workflow_refs" {
+  description = "Exact GitHub Actions job_workflow_ref values allowed to assume the platform mirror role, for example \"MicroTodoSuite/.github/.github/workflows/<file>.yml@refs/heads/main\". job_workflow_ref rather than sub binds the trust to one reviewed workflow file, so adding another workflow to the same repository grants nothing. Required when the owning foundation enables the mirror."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for ref in var.github_platform_mirror_job_workflow_refs :
+      can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/.+\\.ya?ml@refs/(heads|tags)/.+$", ref))
+    ])
+    error_message = "Each github_platform_mirror_job_workflow_refs entry must be a fully qualified <owner>/<repo>/<path>.yml@refs/heads/<branch> workflow reference."
+  }
+
+  validation {
+    condition     = !var.enable_platform_image_mirror || !var.create_shared_resources || length(var.github_platform_mirror_job_workflow_refs) > 0
+    error_message = "The foundation that owns the platform mirror must name at least one exact workflow allowed to publish to it; the role must not exist with an unbounded trust."
+  }
 }
 
 variable "shared_environments" {
@@ -384,6 +557,10 @@ variable "security_service_account_subject" {
 
 locals {
   cluster_name = "${var.project}-${var.environment}"
+
+  # The canonical domain is fixed, not an operator input: the registrar
+  # delegation and every downstream certificate are tied to this exact name.
+  canonical_hosted_zone_name = "microtodosuite.online"
 
   service_names = toset([
     "auth-api",

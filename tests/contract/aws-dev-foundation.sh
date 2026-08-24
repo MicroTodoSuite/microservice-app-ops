@@ -122,8 +122,21 @@ reject_text "aws" 'secret_string[[:space:]]*=' \
   "an ordinary state-persisted Secrets Manager value is forbidden"
 reject_text "aws" 'resource[[:space:]]+"aws_acm_' \
   "ACM certificate creation must wait for verified registrar delegation"
-reject_text "aws" 'resource[[:space:]]+"aws_route53_record"' \
-  "DNS records are outside this hosted-zone-only change"
+# Constitution 3.0.0 authorized the full-profile rollout, which introduces the
+# canonical microtodosuite.online zone and, later, one alias record pointing at
+# it. The blanket ban on aws_route53_record that guarded the earlier
+# hosted-zone-only scope is therefore replaced by the two properties that
+# actually matter now: a record must be gated behind owning the canonical zone,
+# and the destination input must default empty so enabling real traffic stays a
+# separate named approval.
+require_text "aws/modules/environment-foundation/route53.tf" \
+  'for_each[[:space:]]*=[[:space:]]*var\.create_canonical_hosted_zone \? var\.canonical_destination_records : \{\}' \
+  "canonical DNS records are not gated behind owning the canonical zone"
+require_text "aws/modules/environment-foundation/variables.tf" \
+  'variable "canonical_destination_records"' \
+  "the canonical destination input is missing"
+reject_text "aws/environments" 'canonical_destination_records[[:space:]]*=[[:space:]]*\{[[:space:]]*[^}[:space:]]' \
+  "an environment publishes a canonical destination record without a named traffic-owner approval"
 reject_text "aws" '(AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY[[:space:]]*=|JWT_SECRET[[:space:]]*=)' \
   "static AWS or JWT secret material is forbidden"
 

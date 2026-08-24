@@ -16,22 +16,27 @@ resource "aws_iam_role" "kyverno_ecr_verifier" {
   description          = "Read neutral private ECR artifacts for Kyverno signature admission"
   permissions_boundary = var.iam_permissions_boundary_arn
 
+  # One statement per reviewed cluster issuer. Index 0 is this foundation's own
+  # cluster and keeps the original Sid, so a foundation with no additional
+  # issuer renders exactly the policy it renders today.
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid    = "AllowExactKyvernoAdmissionController"
-      Effect = "Allow"
-      Principal = {
-        Federated = module.eks.oidc_provider_arn
-      }
-      Action = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = var.kyverno_service_account_subject
+    Statement = [
+      for index, issuer in local.shared_irsa_issuers : {
+        Sid    = index == 0 ? "AllowExactKyvernoAdmissionController" : "AllowExactKyvernoAdmissionController${index}"
+        Effect = "Allow"
+        Principal = {
+          Federated = issuer.provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${issuer.issuer_host}:aud" = "sts.amazonaws.com"
+            "${issuer.issuer_host}:sub" = var.kyverno_service_account_subject
+          }
         }
       }
-    }]
+    ]
   })
 
   tags = merge(local.tags, {
