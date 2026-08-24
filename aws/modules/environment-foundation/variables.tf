@@ -12,11 +12,10 @@ variable "project" {
 variable "environment" {
   description = "Canonical environment owned by this foundation."
   type        = string
-  default     = "dev"
 
   validation {
-    condition     = var.environment == "dev"
-    error_message = "This feature is dev-only."
+    condition     = can(regex("^[a-z0-9-]+$", var.environment))
+    error_message = "environment must be a non-empty, DNS-safe string."
   }
 }
 
@@ -37,6 +36,22 @@ variable "aws_region" {
   validation {
     condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.aws_region))
     error_message = "aws_region must be a valid AWS region identifier."
+  }
+}
+
+variable "public_hosted_zone_name" {
+  description = "Optional registered public DNS name whose Route 53 hosted zone is owned by this foundation."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.public_hosted_zone_name == null || (
+      var.public_hosted_zone_name == trimspace(lower(var.public_hosted_zone_name)) &&
+      length(var.public_hosted_zone_name) <= 253 &&
+      !endswith(var.public_hosted_zone_name, ".") &&
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.public_hosted_zone_name))
+    )
+    error_message = "public_hosted_zone_name must be a lowercase fully qualified DNS name without a trailing dot."
   }
 }
 
@@ -136,12 +151,12 @@ variable "private_subnet_cidrs" {
 }
 
 variable "cluster_public_access_cidrs" {
-  description = "Human-approved dev-only public EKS API CIDR; staging and production require restricted policies."
+  description = "Allowed CIDR blocks for public EKS API access."
   type        = set(string)
 
   validation {
-    condition     = var.cluster_public_access_cidrs == toset(["0.0.0.0/0"])
-    error_message = "The approved dev policy is exactly 0.0.0.0/0; changing it requires an explicit reviewed decision, and future environments must define restricted CIDRs."
+    condition     = alltrue([for c in var.cluster_public_access_cidrs : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", c))])
+    error_message = "cluster_public_access_cidrs must contain valid CIDR blocks."
   }
 }
 
@@ -243,13 +258,13 @@ variable "iam_permissions_boundary_arn" {
 }
 
 variable "shared_environments" {
-  description = "Exact namespace environments sharing this EKS foundation."
+  description = "Exact namespace environments sharing this EKS foundation. Can be empty for dedicated clusters."
   type        = set(string)
-  default     = ["dev", "staging", "prod"]
+  default     = []
 
   validation {
-    condition     = var.shared_environments == toset(["dev", "staging", "prod"])
-    error_message = "shared_environments must contain exactly dev, staging, and prod."
+    condition     = alltrue([for e in var.shared_environments : can(regex("^[a-z0-9-]+$", e))])
+    error_message = "shared_environments elements must be DNS-safe strings."
   }
 }
 

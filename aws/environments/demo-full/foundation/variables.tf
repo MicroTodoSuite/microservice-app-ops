@@ -9,7 +9,7 @@ variable "environment" {
 }
 
 variable "expected_account_id" {
-  description = "AWS account that is allowed to receive the dev foundation."
+  description = "AWS account that is allowed to receive this foundation."
   type        = string
 
   validation {
@@ -19,27 +19,12 @@ variable "expected_account_id" {
 }
 
 variable "aws_region" {
-  description = "AWS region for the dev foundation."
+  description = "AWS region for this foundation."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.aws_region))
     error_message = "aws_region must be a valid AWS region identifier."
-  }
-}
-
-variable "public_hosted_zone_name" {
-  description = "Registered public DNS name whose Route 53 hosted zone is owned by this foundation."
-  type        = string
-
-  validation {
-    condition = (
-      var.public_hosted_zone_name == trimspace(lower(var.public_hosted_zone_name)) &&
-      length(var.public_hosted_zone_name) <= 253 &&
-      !endswith(var.public_hosted_zone_name, ".") &&
-      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.public_hosted_zone_name))
-    )
-    error_message = "public_hosted_zone_name must be a lowercase fully qualified DNS name without a trailing dot."
   }
 }
 
@@ -82,7 +67,7 @@ variable "bootstrap_admin_principal_arns" {
 }
 
 variable "availability_zones" {
-  description = "Exactly three availability zones used by the dev foundation."
+  description = "Exactly three availability zones used by this foundation."
   type        = list(string)
 
   validation {
@@ -96,7 +81,7 @@ variable "availability_zones" {
 }
 
 variable "vpc_cidr" {
-  description = "IPv4 CIDR dedicated to the dev VPC."
+  description = "IPv4 CIDR dedicated to this environment's VPC."
   type        = string
 
   validation {

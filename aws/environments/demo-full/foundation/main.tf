@@ -1,12 +1,11 @@
 module "foundation" {
   source = "../../../modules/environment-foundation"
 
-  environment             = var.environment
-  expected_account_id     = var.expected_account_id
-  aws_region              = var.aws_region
-  public_hosted_zone_name = var.public_hosted_zone_name
-  owner                   = var.owner
-  common_tags             = var.common_tags
+  environment         = var.environment
+  expected_account_id = var.expected_account_id
+  aws_region          = var.aws_region
+  owner               = var.owner
+  common_tags         = var.common_tags
 
   availability_zones             = var.availability_zones
   vpc_cidr                       = var.vpc_cidr
@@ -27,6 +26,6 @@ module "foundation" {
   neutral_service_names           = var.neutral_service_names
   github_oidc_subjects            = var.github_oidc_subjects
   environment_jwt_secret_version  = var.environment_jwt_secret_version
-  environment_jwt_values          = module.environment_jwt_values.values
+  environment_jwt_values          = local.environment_jwt_values
   kyverno_service_account_subject = var.kyverno_service_account_subject
 }

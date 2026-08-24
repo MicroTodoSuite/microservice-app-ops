@@ -40,6 +40,7 @@ require_file "aws/modules/environment-foundation/managed-secrets.tf"
 require_file "aws/modules/environment-jwt-values/main.tf"
 require_file "aws/modules/environment-foundation/github-oidc.tf"
 require_file "aws/modules/environment-foundation/kyverno-irsa.tf"
+require_file "aws/modules/environment-foundation/route53.tf"
 require_file "aws/modules/environment-foundation/outputs.tf"
 require_file "aws/environments/dev/foundation/main.tf"
 require_file "aws/environments/dev/foundation/dev.tfvars"
@@ -102,6 +103,14 @@ require_text "aws/modules/environment-foundation/kyverno-irsa.tf" 'microtodosuit
   "the exact Kyverno ECR verifier role is missing"
 require_text "aws/modules/environment-foundation/variables.tf" 'repo:MicroTodoSuite/microservice-app-auth-api:ref:refs/heads/main' \
   "GitHub publisher subjects are not constrained to reviewed main"
+require_text "aws/modules/environment-foundation/route53.tf" 'resource "aws_route53_zone" "public"' \
+  "the Terraform-owned public Route 53 hosted zone is missing"
+require_text "aws/modules/environment-foundation/route53.tf" 'force_destroy[[:space:]]*=[[:space:]]*false' \
+  "the public hosted zone must not permit destructive record cleanup"
+require_text "aws/environments/dev/foundation/dev.tfvars" 'public_hosted_zone_name[[:space:]]*=[[:space:]]*"microtodosuite\.abrdns\.com"' \
+  "the committed foundation does not select the registered public domain"
+require_text "aws/environments/dev/foundation/outputs.tf" 'output "public_hosted_zone_name_servers"' \
+  "the dev foundation does not expose registrar delegation name servers"
 
 reject_text "scripts/aws-dev-foundation.sh" '(^|[[:space:]])(apply|destroy|kubectl)([[:space:]]|$)' \
   "entrypoint exposes a forbidden mutation command"
@@ -111,6 +120,10 @@ reject_text "aws/environments/dev/foundation" 'azurerm|azure|aks-dr|module[[:spa
   "dev foundation root couples to Azure, DR, or the US2 backend module"
 reject_text "aws" 'secret_string[[:space:]]*=' \
   "an ordinary state-persisted Secrets Manager value is forbidden"
+reject_text "aws" 'resource[[:space:]]+"aws_acm_' \
+  "ACM certificate creation must wait for verified registrar delegation"
+reject_text "aws" 'resource[[:space:]]+"aws_route53_record"' \
+  "DNS records are outside this hosted-zone-only change"
 reject_text "aws" '(AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY[[:space:]]*=|JWT_SECRET[[:space:]]*=)' \
   "static AWS or JWT secret material is forbidden"
 

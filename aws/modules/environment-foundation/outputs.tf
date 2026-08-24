@@ -20,9 +20,27 @@ output "foundation_contract" {
         ami_type      = "AL2023_x86_64_STANDARD"
       }
     }
+    dns = {
+      public_hosted_zone_name = var.public_hosted_zone_name
+    }
     ecr_service_count = length(local.service_names)
     identity_mode     = "IRSA"
   }
+}
+
+output "public_hosted_zone_name" {
+  description = "Registered public DNS name managed by Route 53, or null when this module instance does not own one."
+  value       = one(aws_route53_zone.public[*].name)
+}
+
+output "public_hosted_zone_id" {
+  description = "Route 53 public hosted-zone identifier, available after the hosted zone is applied."
+  value       = one(aws_route53_zone.public[*].zone_id)
+}
+
+output "public_hosted_zone_name_servers" {
+  description = "Four authoritative Route 53 name servers to configure manually at the registrar after apply."
+  value       = sort(flatten(aws_route53_zone.public[*].name_servers))
 }
 
 output "vpc_id" {

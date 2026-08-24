@@ -1,35 +1,20 @@
 output "environment" {
   description = "Environment owned by this Terraform root."
-  value       = "dev"
+  value       = var.environment
 }
 
 output "foundation_contract" {
-  description = "Reviewable dev foundation inventory."
+  description = "Reviewable environment foundation inventory."
   value       = module.foundation.foundation_contract
 }
 
-output "public_hosted_zone_name" {
-  description = "Registered public DNS name managed by Route 53."
-  value       = module.foundation.public_hosted_zone_name
-}
-
-output "public_hosted_zone_id" {
-  description = "Route 53 public hosted-zone identifier, available after apply."
-  value       = module.foundation.public_hosted_zone_id
-}
-
-output "public_hosted_zone_name_servers" {
-  description = "Four authoritative Route 53 name servers to configure manually at the registrar after apply."
-  value       = module.foundation.public_hosted_zone_name_servers
-}
-
 output "vpc_id" {
-  description = "Dev VPC identifier."
+  description = "Environment VPC identifier."
   value       = module.foundation.vpc_id
 }
 
 output "availability_zones" {
-  description = "Availability zones selected for the dev foundation."
+  description = "Availability zones selected for the environment foundation."
   value       = module.foundation.availability_zones
 }
 

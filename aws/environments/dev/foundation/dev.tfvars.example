@@ -1,7 +1,11 @@
 # Reference template only. Dev uses the committed, human-approved dev.tfvars;
-# do not copy these placeholders over it.
+# do not copy account or IAM placeholders over it.
+environment         = "dev"
 expected_account_id = "123456789012"
-aws_region         = "us-east-1"
+aws_region          = "us-east-1"
+
+# This non-secret domain is registered and approved for the shared public zone.
+public_hosted_zone_name = "microtodosuite.abrdns.com"
 
 availability_zones = [
   "us-east-1a",
