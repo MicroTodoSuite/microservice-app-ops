@@ -114,8 +114,8 @@ run "network_and_eks_contract" {
   }
 
   assert {
-    condition     = aws_eks_addon.vpc_cni.addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns.addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy.addon_version == "v1.35.3-eksbuild.18"
-    error_message = "The three EKS managed add-ons must use the reviewed Kubernetes 1.35 versions."
+    condition     = aws_eks_addon.vpc_cni.addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns.addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy.addon_version == "v1.35.3-eksbuild.18" && aws_eks_addon.ebs_csi.addon_version == "v1.64.0-eksbuild.1"
+    error_message = "The four EKS managed add-ons must use the reviewed Kubernetes 1.35 versions."
   }
 
   assert {

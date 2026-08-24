@@ -195,3 +195,19 @@ resource "aws_eks_addon" "kube_proxy" {
 
   depends_on = [module.bootstrap_node_group]
 }
+
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = local.addon_versions.ebs_csi
+  service_account_role_arn    = aws_iam_role.ebs_csi.arn
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
+
+  tags = local.tags
+
+  depends_on = [
+    module.bootstrap_node_group,
+    aws_iam_role_policy_attachment.ebs_csi,
+  ]
+}

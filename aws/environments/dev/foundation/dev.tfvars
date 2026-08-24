@@ -41,8 +41,13 @@ bootstrap_admin_principal_arns = [
 
 # This account's Free Tier policy permits m7i-flex.large while preserving the
 # approved non-burstable x86 baseline of 2 vCPU and 8 GiB memory.
-bootstrap_node_instance_types      = ["m7i-flex.large"]
-bootstrap_node_ami_release_version = "1.35.6-20260801"
+bootstrap_node_instance_types = ["m7i-flex.large"]
+# Bumped to match the release actually running on the nodegroup after the
+# 2026-08-24 rolling replace (aws eks update-nodegroup-version --force, done
+# to pick up VPC CNI prefix delegation on fresh nodes) - keeping this pinned
+# to the older value would make Terraform revert a working nodegroup to an
+# older AMI on the next apply, forcing another full node replacement.
+bootstrap_node_ami_release_version = "1.35.6-20260818"
 
 # Shared-cluster release prerequisites. These exact values are validated by the
 # module; changing them requires a separate reviewed design decision.
