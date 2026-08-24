@@ -103,3 +103,29 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.ebs_csi.name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
+
+# ---------------------------------------------------------------------------
+# Shared IRSA issuer set (spec 009, T019).
+#
+# The reader roles below are account singletons, but the full profile runs
+# several clusters. Each reviewed extra issuer contributes ONE trust statement
+# carrying the same exact audience and service-account subject, so a second
+# cluster gains access without a second copy of the role and without the
+# subject condition ever widening.
+#
+# With no additional issuer configured this renders exactly one statement, so
+# the applied policies are unchanged.
+# ---------------------------------------------------------------------------
+
+locals {
+  shared_irsa_issuers = concat(
+    [{
+      provider_arn = module.eks.oidc_provider_arn
+      issuer_host  = module.eks.oidc_provider
+    }],
+    [
+      for label in sort(keys(var.additional_eks_oidc_issuers)) :
+      var.additional_eks_oidc_issuers[label]
+    ],
+  )
+}

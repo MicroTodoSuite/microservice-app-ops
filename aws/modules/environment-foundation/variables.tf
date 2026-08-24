@@ -390,6 +390,33 @@ variable "create_shared_resources" {
   default     = true
 }
 
+variable "additional_eks_oidc_issuers" {
+  description = "Additional EKS OIDC issuers, keyed by a reviewed cluster label, whose service accounts may assume this foundation's SHARED reader roles. The full profile runs several clusters against one set of shared singletons; each extra issuer adds one exactly scoped trust statement rather than a second copy of the role. Empty by default, so no existing trust widens."
+  type = map(object({
+    provider_arn = string
+    issuer_host  = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for label, issuer in var.additional_eks_oidc_issuers :
+      can(regex("^[a-z0-9][a-z0-9-]*$", label)) &&
+      can(regex("^oidc\\.eks\\.[a-z0-9-]+\\.amazonaws\\.com/id/[A-Z0-9]+$", issuer.issuer_host))
+    ])
+    error_message = "additional_eks_oidc_issuers keys must be DNS-safe cluster labels and issuer_host must be an EKS OIDC issuer of the form oidc.eks.<region>.amazonaws.com/id/<id>."
+  }
+
+  validation {
+    condition = alltrue([
+      for label, issuer in var.additional_eks_oidc_issuers :
+      can(regex("^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:oidc-provider/", issuer.provider_arn)) &&
+      endswith(issuer.provider_arn, "/${issuer.issuer_host}")
+    ])
+    error_message = "Each additional_eks_oidc_issuers provider_arn must be an IAM OIDC provider ARN whose path is exactly its own issuer_host; a mismatch would trust one cluster's provider under another cluster's claims."
+  }
+}
+
 variable "enable_platform_image_mirror" {
   description = "Whether the single microtodosuite/platform ECR mirror for third-party platform images is in use. The foundation that owns the shared resources creates it; every other foundation reads it. Off by default so no environment gains a repository before the stage that populates it."
   type        = bool
