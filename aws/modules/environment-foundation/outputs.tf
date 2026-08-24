@@ -34,7 +34,10 @@ output "foundation_contract" {
       }
     }
     dns = {
-      public_hosted_zone_name = var.public_hosted_zone_name
+      public_hosted_zone_name            = var.public_hosted_zone_name
+      canonical_hosted_zone_name         = one(aws_route53_zone.canonical[*].name)
+      canonical_hosted_zone_enabled      = var.create_canonical_hosted_zone
+      canonical_destination_record_count = length(aws_route53_record.canonical_destination)
     }
     cluster_prerequisites = {
       enabled = var.enable_full_profile_cluster_prerequisites
@@ -105,6 +108,21 @@ output "public_hosted_zone_id" {
 output "public_hosted_zone_name_servers" {
   description = "Four authoritative Route 53 name servers to configure manually at the registrar after apply."
   value       = sort(flatten(aws_route53_zone.public[*].name_servers))
+}
+
+output "canonical_hosted_zone_name" {
+  description = "Canonical public DNS name owned by this foundation, or null when this instance does not own it."
+  value       = one(aws_route53_zone.canonical[*].name)
+}
+
+output "canonical_hosted_zone_id" {
+  description = "Canonical Route 53 public hosted-zone identifier, available after the zone is applied."
+  value       = one(aws_route53_zone.canonical[*].zone_id)
+}
+
+output "canonical_hosted_zone_name_servers" {
+  description = "Four authoritative Route 53 name servers to configure manually at the registrar for the canonical domain."
+  value       = sort(flatten(aws_route53_zone.canonical[*].name_servers))
 }
 
 output "vpc_id" {

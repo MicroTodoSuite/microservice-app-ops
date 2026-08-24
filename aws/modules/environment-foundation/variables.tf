@@ -53,6 +53,41 @@ variable "public_hosted_zone_name" {
     )
     error_message = "public_hosted_zone_name must be a lowercase fully qualified DNS name without a trailing dot."
   }
+
+  validation {
+    condition     = var.public_hosted_zone_name != "microtodosuite.online"
+    error_message = "The canonical microtodosuite.online zone must be created through create_canonical_hosted_zone at its own resource address. Renaming this zone would replace it, destroying every record it holds and invalidating the registrar delegation."
+  }
+}
+
+variable "create_canonical_hosted_zone" {
+  description = "Whether this foundation owns the canonical microtodosuite.online public hosted zone. Exactly one foundation in the account may own it. Enabling it creates a NEW zone alongside public_hosted_zone_name and never renames, replaces, or destroys the legacy zone."
+  type        = bool
+  default     = false
+}
+
+variable "canonical_destination_records" {
+  description = "Alias records to publish in the canonical zone, keyed by subdomain label. Empty by default: routing real traffic to app.microtodosuite.online requires a separate named traffic-owner approval taken after the DR game day."
+  type = map(object({
+    dns_name = string
+    zone_id  = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for label, record in var.canonical_destination_records :
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", label)) &&
+      trimspace(record.dns_name) != "" &&
+      can(regex("^[A-Z0-9]+$", record.zone_id))
+    ])
+    error_message = "canonical_destination_records keys must be DNS labels and each value must carry a non-empty alias dns_name and a Route 53 hosted-zone id."
+  }
+
+  validation {
+    condition     = length(var.canonical_destination_records) == 0 || var.create_canonical_hosted_zone
+    error_message = "canonical_destination_records requires create_canonical_hosted_zone; a record cannot be published into a zone this foundation does not own."
+  }
 }
 
 variable "owner" {
@@ -470,6 +505,10 @@ variable "security_service_account_subject" {
 
 locals {
   cluster_name = "${var.project}-${var.environment}"
+
+  # The canonical domain is fixed, not an operator input: the registrar
+  # delegation and every downstream certificate are tied to this exact name.
+  canonical_hosted_zone_name = "microtodosuite.online"
 
   service_names = toset([
     "auth-api",
