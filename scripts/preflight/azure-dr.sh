@@ -64,7 +64,7 @@ done
 [[ -n "${AZURE_LOCATION:-}" ]] || fail "AZURE_LOCATION is required"
 [[ -f "$TOOLCHAIN_LOCK" ]] || fail "toolchain lock is missing: $TOOLCHAIN_LOCK"
 
-for dependency in jq python3 sha256sum rg; do
+for dependency in jq python3 sha256sum grep; do
   command -v "$dependency" >/dev/null 2>&1 || fail "required command is missing: $dependency"
 done
 
@@ -179,11 +179,11 @@ BACKEND_AAD_AUTH="$(backend_value use_azuread_auth)"
 [[ -n "$BACKEND_KEY" ]] || fail "backend key is missing"
 [[ "$BACKEND_KEY" == *.tfstate ]] || fail "backend key must end in .tfstate"
 [[ "$BACKEND_AAD_AUTH" == "true" ]] || fail "backend must use Azure AD authentication"
-if rg -q '^[[:space:]]*access_key[[:space:]]*=' "$BACKEND_CONFIG"; then
+if grep -Eq '^[[:space:]]*access_key[[:space:]]*=' "$BACKEND_CONFIG"; then
   fail "backend config must not contain a static access key"
 fi
 
-rg -q 'backend[[:space:]]+"azurerm"' "$TERRAFORM_ROOT" --glob '*.tf' \
+grep -rEq --include='*.tf' 'backend[[:space:]]+"azurerm"' "$TERRAFORM_ROOT" \
   || fail "Terraform root must use the azurerm backend with Azure Blob lease locking"
 
 "$AZ_BIN" storage account show \

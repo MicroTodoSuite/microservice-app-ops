@@ -71,7 +71,7 @@ jq -e '
   .cidrCollision == false
 ' "$TMP_DIR/valid.json" >/dev/null
 
-if rg -q "$EXPECTED_TENANT|fixture@example.invalid" "$TMP_DIR/valid.json"; then
+if grep -Eq "$EXPECTED_TENANT|fixture@example.invalid" "$TMP_DIR/valid.json"; then
   fail "preflight output exposed tenant or user identity"
 fi
 
