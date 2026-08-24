@@ -140,6 +140,16 @@ run "ecr_and_irsa_contract" {
   }
 
   assert {
+    condition     = jsondecode(aws_iam_role.ebs_csi.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+    error_message = "The EBS CSI role trust must bind only kube-system/ebs-csi-controller-sa."
+  }
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ebs_csi.policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    error_message = "AmazonEBSCSIDriverPolicy must be attached to the exact EBS CSI role."
+  }
+
+  assert {
     condition     = toset(keys(aws_iam_role_policy_attachment.node)) == toset(["ecr_pull", "worker"])
     error_message = "The node role must contain only worker and ECR pull managed policies."
   }
