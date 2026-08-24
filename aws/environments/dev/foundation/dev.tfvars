@@ -52,7 +52,7 @@ bootstrap_node_ami_release_version = "1.35.6-20260818"
 # Shared-cluster release prerequisites. These exact values are validated by the
 # module; changing them requires a separate reviewed design decision.
 create_shared_resources = true
-shared_environments     = ["dev", "staging", "prod"]
+shared_environments     = ["dev", "staging", "prod", "demo"]
 neutral_service_names = [
   "auth-api",
   "frontend",
