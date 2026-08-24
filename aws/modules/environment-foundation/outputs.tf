@@ -270,6 +270,36 @@ output "environment_jwt_reader_role_arns" {
   value       = { for environment, role in aws_iam_role.environment_jwt_reader : environment => role.arn }
 }
 
+output "full_profile_secret_names" {
+  description = "Non-secret Secrets Manager source names for the full-profile Grafana and SonarQube credentials, or an empty map when this foundation does not own them."
+  value       = { for key, secret in aws_secretsmanager_secret.tooling : key => secret.name }
+}
+
+output "full_profile_secret_arns" {
+  description = "Non-secret Secrets Manager source ARNs for the full-profile Grafana and SonarQube credentials, or an empty map when this foundation does not own them."
+  value       = { for key, secret in aws_secretsmanager_secret.tooling : key => secret.arn }
+}
+
+output "sonarqube_secrets_reader_role_arn" {
+  description = "Exact External Secrets reader role ARN for the shared SonarQube instance, or null when the reader is disabled."
+  value       = one(aws_iam_role.sonarqube_secrets_reader[*].arn)
+}
+
+output "consumer_jwt_reader_role_arn" {
+  description = "Cluster-qualified reader role for this consumer's one environment JWT secret, or null on an owning foundation."
+  value       = one(aws_iam_role.consumer_jwt_reader[*].arn)
+}
+
+output "dr_secret_seed_role_arn" {
+  description = "Role the approved disaster-recovery seed workflow assumes, or null when the seed is disabled."
+  value       = one(aws_iam_role.dr_secret_seed[*].arn)
+}
+
+output "dr_secret_seed_source_arns" {
+  description = "Exactly the four non-secret source ARNs the disaster-recovery seed may read."
+  value       = local.create_dr_secret_seed ? local.dr_secret_seed_source_arns : []
+}
+
 output "github_actions_oidc_provider_arn" {
   description = "GitHub Actions OIDC provider used by the reviewed-main publisher."
   value       = local.github_actions_oidc_provider_arn

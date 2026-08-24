@@ -339,3 +339,45 @@ variable "additional_eks_oidc_issuers" {
   }))
   default = {}
 }
+
+variable "enable_full_profile_tooling_secrets" {
+  description = "Whether this foundation owns the Grafana administrator and SonarQube database/administrator secret containers."
+  type        = bool
+  default     = false
+}
+
+variable "full_profile_secret_versions" {
+  description = "Non-secret rotation counters for the full-profile secret containers. Incrementing a counter is the only thing that rotates a stored value."
+  type        = map(number)
+  default     = {}
+}
+
+variable "sonarqube_reader_issuer_label" {
+  description = "Key of additional_eks_oidc_issuers naming the one cluster that hosts the shared SonarQube instance. Null disables the reader."
+  type        = string
+  default     = null
+}
+
+variable "consumer_jwt_environment" {
+  description = "For a consumer foundation only: the one environment whose owner-held JWT secret this cluster may read."
+  type        = string
+  default     = null
+}
+
+variable "enable_dr_secret_seed" {
+  description = "Whether the opt-in Azure disaster-recovery seed role exists."
+  type        = bool
+  default     = false
+}
+
+variable "dr_secret_seed_subjects" {
+  description = "Exact GitHub Actions repository/environment subjects allowed to assume the DR seed role."
+  type        = set(string)
+  default     = []
+}
+
+variable "dr_secret_seed_workflow_refs" {
+  description = "Exact GitHub Actions job_workflow_ref values allowed to assume the DR seed role."
+  type        = set(string)
+  default     = []
+}
