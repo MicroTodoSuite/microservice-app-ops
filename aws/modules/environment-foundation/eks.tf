@@ -167,6 +167,7 @@ module "bootstrap_node_group" {
 
   depends_on = [
     terraform_data.private_egress_ready,
+    terraform_data.transit_egress_ready,
     aws_eks_addon.vpc_cni,
     aws_iam_role_policy_attachment.node,
   ]

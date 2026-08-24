@@ -206,35 +206,35 @@ variable "bootstrap_node_ami_release_version" {
 }
 
 variable "bootstrap_node_min_size" {
-  description = "Minimum number of stable bootstrap nodes."
+  description = "Minimum number of stable bootstrap nodes. The current dev and demo foundations keep the default of 2; a reviewed cost-bounded full-profile cluster may lower it to 1."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.bootstrap_node_min_size == 2
-    error_message = "The dev bootstrap node minimum must remain 2."
+    condition     = var.bootstrap_node_min_size >= 1 && floor(var.bootstrap_node_min_size) == var.bootstrap_node_min_size
+    error_message = "bootstrap_node_min_size must be a whole number of at least 1; the bootstrap group hosts the GitOps controllers and cannot scale to zero."
   }
 }
 
 variable "bootstrap_node_desired_size" {
-  description = "Desired number of stable bootstrap nodes."
+  description = "Desired number of stable bootstrap nodes. Must satisfy min <= desired <= max, which terraform_data.eks_input_guard enforces."
   type        = number
   default     = 2
 
   validation {
-    condition     = var.bootstrap_node_desired_size == 2
-    error_message = "The dev bootstrap node desired size must remain 2."
+    condition     = var.bootstrap_node_desired_size >= 1 && floor(var.bootstrap_node_desired_size) == var.bootstrap_node_desired_size
+    error_message = "bootstrap_node_desired_size must be a whole number of at least 1."
   }
 }
 
 variable "bootstrap_node_max_size" {
-  description = "Maximum number of stable bootstrap nodes."
+  description = "Maximum number of stable bootstrap nodes. Karpenter, not this managed group, provides elastic capacity on a full-profile cluster, so this ceiling stays deliberately small."
   type        = number
   default     = 4
 
   validation {
-    condition     = var.bootstrap_node_max_size == 4
-    error_message = "The dev bootstrap node maximum must remain 4."
+    condition     = var.bootstrap_node_max_size >= 1 && var.bootstrap_node_max_size <= 10 && floor(var.bootstrap_node_max_size) == var.bootstrap_node_max_size
+    error_message = "bootstrap_node_max_size must be a whole number between 1 and 10; larger fleets belong to a reviewed Karpenter NodePool."
   }
 }
 
@@ -260,6 +260,92 @@ variable "iam_permissions_boundary_arn" {
       can(regex("^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:policy/.+$", var.iam_permissions_boundary_arn))
     )
     error_message = "iam_permissions_boundary_arn must be null or an IAM policy ARN."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Full-profile compatibility inputs (spec 009, T017/T018).
+#
+# Every switch below defaults to the value the current economical dev and demo
+# foundations already use, so adding them changes no existing plan.
+# ---------------------------------------------------------------------------
+
+variable "outbound_mode" {
+  description = "How private workloads reach the internet. direct-nat creates in-VPC NAT gateways and is what every current foundation uses. transit-egress creates no NAT gateway and no Elastic IP, and instead sends the private default route to a centrally owned transit gateway; the spoke keeps its own internet gateway for public load balancers only."
+  type        = string
+  default     = "direct-nat"
+
+  validation {
+    condition     = contains(["direct-nat", "transit-egress"], var.outbound_mode)
+    error_message = "outbound_mode must be either direct-nat or transit-egress."
+  }
+}
+
+variable "transit_gateway_id" {
+  description = "Existing centrally owned transit gateway that provides egress when outbound_mode is transit-egress. This module never creates, owns, or attaches the transit gateway itself; that is the centralized egress account's resource."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.transit_gateway_id == null || can(regex("^tgw-[0-9a-f]{8,17}$", var.transit_gateway_id))
+    error_message = "transit_gateway_id must be null or a tgw- identifier."
+  }
+
+  validation {
+    condition     = var.outbound_mode != "transit-egress" || var.transit_gateway_id != null
+    error_message = "outbound_mode=transit-egress requires transit_gateway_id; this module never discovers or creates the transit gateway."
+  }
+
+  validation {
+    condition     = var.outbound_mode == "transit-egress" || var.transit_gateway_id == null
+    error_message = "transit_gateway_id must be null when outbound_mode is direct-nat, so a spoke cannot silently keep both egress paths."
+  }
+}
+
+variable "enable_full_profile_cluster_prerequisites" {
+  description = "Whether this cluster receives the opt-in full-profile IAM and event prerequisites: the Karpenter controller/node identities with their per-cluster encrypted interruption queue and EventBridge rules, and the AWS Load Balancer Controller IRSA role. Terraform owns only these prerequisites; GitOps owns both controllers and every Karpenter NodePool."
+  type        = bool
+  default     = false
+}
+
+variable "aws_load_balancer_controller_policy_arns" {
+  description = "Reviewed IAM policy ARNs attached to the AWS Load Balancer Controller role. The controller's permission set is published by AWS and is deliberately not reproduced here: supply the exact policy the operator created and reviewed. Required when enable_full_profile_cluster_prerequisites is true."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.aws_load_balancer_controller_policy_arns :
+      can(regex("^arn:(aws|aws-us-gov|aws-cn):iam::([0-9]{12}|aws):policy/.+$", arn))
+    ])
+    error_message = "aws_load_balancer_controller_policy_arns must contain IAM policy ARNs."
+  }
+
+  validation {
+    condition     = !var.enable_full_profile_cluster_prerequisites || length(var.aws_load_balancer_controller_policy_arns) > 0
+    error_message = "enable_full_profile_cluster_prerequisites requires at least one reviewed aws_load_balancer_controller_policy_arns entry; the role must not exist without its reviewed permissions."
+  }
+}
+
+variable "karpenter_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to assume the Karpenter controller role."
+  type        = string
+  default     = "system:serviceaccount:kube-system:karpenter"
+
+  validation {
+    condition     = var.karpenter_service_account_subject == "system:serviceaccount:kube-system:karpenter"
+    error_message = "karpenter_service_account_subject must identify only the kube-system Karpenter controller."
+  }
+}
+
+variable "aws_load_balancer_controller_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to assume the AWS Load Balancer Controller role."
+  type        = string
+  default     = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+
+  validation {
+    condition     = var.aws_load_balancer_controller_service_account_subject == "system:serviceaccount:kube-system:aws-load-balancer-controller"
+    error_message = "aws_load_balancer_controller_service_account_subject must identify only the kube-system AWS Load Balancer Controller."
   }
 }
 
