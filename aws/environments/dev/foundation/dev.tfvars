@@ -26,6 +26,9 @@ private_subnet_cidrs = [
   "10.10.48.0/20",
 ]
 
+# Dev retains the resilient full-profile egress topology with one NAT per AZ.
+single_nat_gateway = false
+
 # Accepted dev-only tradeoff: the public EKS API is reachable from the internet
 # because this small team's source IPs are dynamic. IAM authentication and EKS
 # access entries enforce access. Do not silently narrow this value, and do not
@@ -43,7 +46,8 @@ bootstrap_node_ami_release_version = "1.35.6-20260801"
 
 # Shared-cluster release prerequisites. These exact values are validated by the
 # module; changing them requires a separate reviewed design decision.
-shared_environments = ["dev", "staging", "prod"]
+create_shared_resources = true
+shared_environments     = ["dev", "staging", "prod"]
 neutral_service_names = [
   "auth-api",
   "frontend",

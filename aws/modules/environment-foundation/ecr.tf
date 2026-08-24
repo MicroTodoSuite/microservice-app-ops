@@ -41,7 +41,7 @@ resource "aws_ecr_lifecycle_policy" "services" {
 }
 
 resource "aws_ecr_repository" "neutral_services" {
-  for_each = var.neutral_service_names
+  for_each = var.create_shared_resources ? var.neutral_service_names : toset([])
 
   name                 = "${var.project}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
@@ -60,6 +60,12 @@ resource "aws_ecr_repository" "neutral_services" {
     Name        = "${var.project}/${each.key}"
     Service     = each.key
   })
+}
+
+data "aws_ecr_repository" "neutral_services" {
+  for_each = var.create_shared_resources ? toset([]) : var.neutral_service_names
+
+  name = "${var.project}/${each.key}"
 }
 
 resource "aws_ecr_lifecycle_policy" "neutral_services" {
@@ -81,4 +87,11 @@ resource "aws_ecr_lifecycle_policy" "neutral_services" {
       }
     }]
   })
+}
+
+locals {
+  neutral_ecr_repository_urls = merge(
+    { for service, repository in aws_ecr_repository.neutral_services : service => repository.repository_url },
+    { for service, repository in data.aws_ecr_repository.neutral_services : service => repository.repository_url }
+  )
 }

@@ -29,7 +29,7 @@ output "private_subnet_ids" {
 }
 
 output "nat_gateway_ids" {
-  description = "Zonal NAT gateway identifiers."
+  description = "NAT gateway identifiers for the selected demo topology."
   value       = module.foundation.nat_gateway_ids
 }
 

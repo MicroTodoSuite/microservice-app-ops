@@ -156,6 +156,7 @@ module "bootstrap_node_group" {
   tags = local.tags
 
   depends_on = [
+    terraform_data.private_egress_ready,
     aws_eks_addon.vpc_cni,
     aws_iam_role_policy_attachment.node,
   ]

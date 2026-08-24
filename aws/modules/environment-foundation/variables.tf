@@ -150,6 +150,12 @@ variable "private_subnet_cidrs" {
   }
 }
 
+variable "single_nat_gateway" {
+  description = "Whether all private subnets share one NAT gateway instead of creating one NAT gateway per availability zone."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_public_access_cidrs" {
   description = "Allowed CIDR blocks for public EKS API access."
   type        = set(string)
@@ -172,7 +178,7 @@ variable "kubernetes_version" {
 }
 
 variable "bootstrap_node_instance_types" {
-  description = "Approved non-burstable bootstrap node types with at least 2 vCPU and 8 GiB memory."
+  description = "Account-compatible Free Tier bootstrap node types with at least 2 vCPU and 8 GiB memory."
   type        = list(string)
   default     = ["m7i-flex.large"]
 
@@ -181,10 +187,10 @@ variable "bootstrap_node_instance_types" {
       length(var.bootstrap_node_instance_types) > 0 &&
       alltrue([
         for instance_type in var.bootstrap_node_instance_types :
-        contains(["m6a.large", "m6i.large", "m7a.large", "m7i.large", "m7i-flex.large"], instance_type)
+        instance_type == "m7i-flex.large"
       ])
     )
-    error_message = "bootstrap_node_instance_types must use the reviewed non-burstable 2-vCPU/8-GiB allowlist."
+    error_message = "bootstrap_node_instance_types must use the account-compatible m7i-flex.large 2-vCPU/8-GiB baseline."
   }
 }
 
@@ -255,6 +261,12 @@ variable "iam_permissions_boundary_arn" {
     )
     error_message = "iam_permissions_boundary_arn must be null or an IAM policy ARN."
   }
+}
+
+variable "create_shared_resources" {
+  description = "Whether this module instance owns the account-level neutral ECR repositories, GitHub Actions OIDC provider, shared IAM roles, and shared webhook secret containers."
+  type        = bool
+  default     = true
 }
 
 variable "shared_environments" {

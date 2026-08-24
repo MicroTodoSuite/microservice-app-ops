@@ -65,8 +65,8 @@ module "vpc" {
 
   create_igw              = true
   enable_nat_gateway      = true
-  single_nat_gateway      = false
-  one_nat_gateway_per_az  = true
+  single_nat_gateway      = var.single_nat_gateway
+  one_nat_gateway_per_az  = !var.single_nat_gateway
   map_public_ip_on_launch = false
 
   public_subnet_tags = {
@@ -94,4 +94,16 @@ module "vpc" {
   flow_log_cloudwatch_log_group_class             = "STANDARD"
 
   tags = local.tags
+}
+
+# A single-NAT environment must not launch private worker nodes until both the
+# NAT gateway and its default route are ready. Referencing only these outputs
+# avoids coupling node replacement to unrelated VPC resource destruction.
+resource "terraform_data" "private_egress_ready" {
+  count = var.single_nat_gateway ? 1 : 0
+
+  input = {
+    nat_gateway_ids               = module.vpc.natgw_ids
+    private_nat_gateway_route_ids = module.vpc.private_nat_gateway_route_ids
+  }
 }

@@ -142,6 +142,24 @@ run "reject_burstable_free_tier_shortcut" {
   expect_failures = [var.bootstrap_node_instance_types]
 }
 
+run "reject_account_ineligible_instance_type" {
+  command = plan
+
+  variables {
+    expected_account_id            = "123456789012"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.10.0.0/16"
+    public_subnet_cidrs            = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs    = ["0.0.0.0/0"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::123456789012:role/platform-admin"]
+    bootstrap_node_instance_types  = ["m7i.large"]
+  }
+
+  expect_failures = [var.bootstrap_node_instance_types]
+}
+
 run "accept_environment_specific_api_narrowing" {
   command = plan
 

@@ -1,26 +1,28 @@
-# Tasks: AWS Full-Profile Demonstration Foundation (002)
+# Tasks: AWS Dedicated Demonstration Foundation (002)
 
-- [ ] **1. Setup Directory Structure**
-  - [ ] Create `aws/environments/demo-full/backend`
-  - [ ] Create `aws/environments/demo-full/foundation`
+- [x] **1. Synchronize and preserve the workspace**
+  - [x] Fast-forward `main` to `origin/main` without losing local Terraform work
+  - [x] Create an external backup and retain the synchronization stash
 
-- [ ] **2. Configure State Backend**
-  - [ ] Copy `dev` backend template files to `demo-full/backend`
-  - [ ] Update backend `README.md` for `demo-full`
-  - [ ] Create `demo-full.s3.tfbackend.example` with `demo-full` prefix and lock configuration
+- [x] **2. Restore the dev safety gate**
+  - [x] Make newly introduced account-level webhook secrets and IAM roles owner/consumer aware
+  - [x] Apply only the six reviewed resources introduced by the updated `main`
+  - [x] Confirm a refresh-backed `dev` plan is genuinely empty
 
-- [ ] **3. Configure Foundation Terraform**
-  - [ ] Copy `main.tf`, `outputs.tf`, `variables.tf`, `versions.tf`, `providers.tf`, `release-secrets.tf` from `dev/foundation` to `demo-full/foundation`
-  - [ ] Ensure `main.tf` invokes `../../../modules/environment-foundation` correctly
-  - [ ] Update any hardcoded references to `dev` in descriptions or defaults
+- [x] **3. Configure the cost-reduced demo topology**
+  - [x] Add a backward-compatible `single_nat_gateway` foundation input defaulting to `false`
+  - [x] Keep `dev` on one NAT gateway per availability zone
+  - [x] Configure `demo-full` with one shared NAT gateway
+  - [x] Configure `demo-full` with the account-compatible `m7i-flex.large` bootstrap type
+  - [x] Keep `demo-full` in shared-resource consumer mode
 
-- [ ] **4. Configure Environment Variables (`tfvars`)**
-  - [ ] Create `demo-full.tfvars.example`
-  - [ ] Set `environment_name = "demo-full"`
-  - [ ] Set `vpc_cidr = "10.20.0.0/16"`
-  - [ ] Set `node_group_capacity_type = "ON_DEMAND"` (or equivalent variable for the full-profile)
+- [x] **4. Verify the implementation**
+  - [x] Run Terraform formatting, validation, and module contract tests
+  - [x] Confirm the final refresh-backed `dev` plan remains 0/0/0
+  - [x] Save and inspect the `demo-full` recovery plan before applying it
 
-- [ ] **5. Verification**
-  - [ ] Run `terraform init -backend=false`
-  - [ ] Run `terraform validate`
-  - [ ] Confirm no modifications were made to `aws/modules/environment-foundation`
+- [x] **5. Apply and verify `demo-full`**
+  - [x] Back up the current remote state externally
+  - [x] Apply only the reviewed saved recovery plan
+  - [x] Confirm one NAT gateway, two healthy `m7i-flex.large` nodes, and an empty post-apply plan
+  - [x] Do not perform GitOps registration or direct Kubernetes mutations

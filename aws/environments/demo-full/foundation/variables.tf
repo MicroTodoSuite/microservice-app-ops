@@ -118,6 +118,12 @@ variable "private_subnet_cidrs" {
   }
 }
 
+variable "single_nat_gateway" {
+  description = "Whether all private subnets share one NAT gateway instead of using one per availability zone."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_public_access_cidrs" {
   description = "Allowed CIDR blocks for public EKS API access."
   type        = set(string)
@@ -168,6 +174,12 @@ variable "iam_permissions_boundary_arn" {
   description = "Optional IAM permissions boundary applied to foundation-created roles."
   type        = string
   default     = null
+}
+
+variable "create_shared_resources" {
+  description = "Whether this foundation owns the account-level neutral ECR repositories, GitHub Actions OIDC provider, and shared IAM roles."
+  type        = bool
+  default     = true
 }
 
 variable "shared_environments" {

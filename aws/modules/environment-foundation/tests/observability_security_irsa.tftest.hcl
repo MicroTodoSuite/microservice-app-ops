@@ -54,6 +54,8 @@ override_module {
 }
 
 variables {
+  environment         = "dev"
+  shared_environments = ["dev", "staging", "prod"]
   environment_jwt_values = {
     dev     = "mock-dev-jwt-value"
     staging = "mock-staging-jwt-value"
@@ -62,7 +64,7 @@ variables {
 }
 
 override_resource {
-  target          = aws_secretsmanager_secret.observability_slack_webhook
+  target          = aws_secretsmanager_secret.observability_slack_webhook[0]
   override_during = plan
   values = {
     arn = "arn:aws:secretsmanager:us-east-1:995253610162:secret:microtodosuite/observability/alertmanager-slack-webhook-test"
@@ -70,7 +72,7 @@ override_resource {
 }
 
 override_resource {
-  target          = aws_secretsmanager_secret.security_slack_webhook
+  target          = aws_secretsmanager_secret.security_slack_webhook[0]
   override_during = plan
   values = {
     arn = "arn:aws:secretsmanager:us-east-1:995253610162:secret:microtodosuite/security/falcosidekick-slack-webhook-test"
@@ -92,12 +94,12 @@ run "observability_security_secrets_reader_contract" {
   }
 
   assert {
-    condition     = aws_secretsmanager_secret.observability_slack_webhook.name == "microtodosuite/observability/alertmanager-slack-webhook"
+    condition     = aws_secretsmanager_secret.observability_slack_webhook[0].name == "microtodosuite/observability/alertmanager-slack-webhook"
     error_message = "The Alertmanager Slack webhook must use the exact observability secret path."
   }
 
   assert {
-    condition     = aws_secretsmanager_secret.observability_slack_webhook.recovery_window_in_days == 30
+    condition     = aws_secretsmanager_secret.observability_slack_webhook[0].recovery_window_in_days == 30
     error_message = "The Alertmanager Slack webhook secret must retain the maximum recovery window."
   }
 
@@ -107,57 +109,57 @@ run "observability_security_secrets_reader_contract" {
   }
 
   assert {
-    condition     = aws_iam_role.observability_secrets_reader.name == "microtodosuite-observability-secrets-reader"
+    condition     = aws_iam_role.observability_secrets_reader[0].name == "microtodosuite-observability-secrets-reader"
     error_message = "Observability must use the exact secrets-reader role name."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.observability_secrets_reader.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:observability:observability-external-secrets-jwt"
+    condition     = jsondecode(aws_iam_role.observability_secrets_reader[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:observability:observability-external-secrets-jwt"
     error_message = "The observability reader role must trust only the observability namespace's External Secrets ServiceAccount."
   }
 
   assert {
-    condition     = toset(jsondecode(aws_iam_role_policy.observability_secrets_reader.policy).Statement[0].Action) == toset(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
+    condition     = toset(jsondecode(aws_iam_role_policy.observability_secrets_reader[0].policy).Statement[0].Action) == toset(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
     error_message = "The observability reader may only describe and read the secret."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.observability_secrets_reader.policy).Statement[0].Resource == aws_secretsmanager_secret.observability_slack_webhook.arn
+    condition     = jsondecode(aws_iam_role_policy.observability_secrets_reader[0].policy).Statement[0].Resource == aws_secretsmanager_secret.observability_slack_webhook[0].arn
     error_message = "The observability reader must be scoped to exactly its own secret, not a wildcard."
   }
 
   assert {
-    condition     = aws_secretsmanager_secret.security_slack_webhook.name == "microtodosuite/security/falcosidekick-slack-webhook"
+    condition     = aws_secretsmanager_secret.security_slack_webhook[0].name == "microtodosuite/security/falcosidekick-slack-webhook"
     error_message = "The Falcosidekick Slack webhook must use the exact security secret path."
   }
 
   assert {
-    condition     = aws_secretsmanager_secret.security_slack_webhook.recovery_window_in_days == 30
+    condition     = aws_secretsmanager_secret.security_slack_webhook[0].recovery_window_in_days == 30
     error_message = "The Falcosidekick Slack webhook secret must retain the maximum recovery window."
   }
 
   assert {
-    condition     = aws_iam_role.security_secrets_reader.name == "microtodosuite-security-secrets-reader"
+    condition     = aws_iam_role.security_secrets_reader[0].name == "microtodosuite-security-secrets-reader"
     error_message = "Security must use the exact secrets-reader role name."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.security_secrets_reader.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:security:security-external-secrets-jwt"
+    condition     = jsondecode(aws_iam_role.security_secrets_reader[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:security:security-external-secrets-jwt"
     error_message = "The security reader role must trust only the security namespace's External Secrets ServiceAccount."
   }
 
   assert {
-    condition     = toset(jsondecode(aws_iam_role_policy.security_secrets_reader.policy).Statement[0].Action) == toset(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
+    condition     = toset(jsondecode(aws_iam_role_policy.security_secrets_reader[0].policy).Statement[0].Action) == toset(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
     error_message = "The security reader may only describe and read the secret."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.security_secrets_reader.policy).Statement[0].Resource == aws_secretsmanager_secret.security_slack_webhook.arn
+    condition     = jsondecode(aws_iam_role_policy.security_secrets_reader[0].policy).Statement[0].Resource == aws_secretsmanager_secret.security_slack_webhook[0].arn
     error_message = "The security reader must be scoped to exactly its own secret, not a wildcard."
   }
 
   assert {
-    condition     = aws_iam_role.observability_secrets_reader.name != aws_iam_role.security_secrets_reader.name
+    condition     = aws_iam_role.observability_secrets_reader[0].name != aws_iam_role.security_secrets_reader[0].name
     error_message = "Observability and security must never share a reader role."
   }
 }
