@@ -5,6 +5,10 @@ locals {
   vpc_cni_service_account = "aws-node"
   vpc_cni_subject         = "system:serviceaccount:${local.vpc_cni_namespace}:${local.vpc_cni_service_account}"
 
+  ebs_csi_namespace       = "kube-system"
+  ebs_csi_service_account = "ebs-csi-controller-sa"
+  ebs_csi_subject         = "system:serviceaccount:${local.ebs_csi_namespace}:${local.ebs_csi_service_account}"
+
   node_managed_policy_arns = {
     ecr_pull = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
     worker   = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
@@ -67,4 +71,35 @@ resource "aws_iam_role" "vpc_cni" {
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
   role       = aws_iam_role.vpc_cni.name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
+
+resource "aws_iam_role" "ebs_csi" {
+  name                 = "${local.cluster_name}-ebs-csi"
+  description          = "IRSA role bound exactly to ${local.ebs_csi_subject}"
+  permissions_boundary = var.iam_permissions_boundary_arn
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "AllowEbsCsiControllerWebIdentity"
+      Effect = "Allow"
+      Principal = {
+        Federated = module.eks.oidc_provider_arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks.oidc_provider}:sub" = local.ebs_csi_subject
+        }
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  role       = aws_iam_role.ebs_csi.name
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }

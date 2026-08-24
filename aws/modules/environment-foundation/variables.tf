@@ -397,6 +397,7 @@ locals {
     coredns    = "v1.14.3-eksbuild.3"
     kube_proxy = "v1.35.3-eksbuild.18"
     vpc_cni    = "v1.23.0-eksbuild.1"
+    ebs_csi    = "v1.64.0-eksbuild.1"
   }
 
   required_tags = {
