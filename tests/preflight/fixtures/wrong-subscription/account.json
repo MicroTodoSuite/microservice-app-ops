@@ -1,0 +1,10 @@
+{
+  "environmentName": "AzureCloud",
+  "homeTenantId": "22222222-2222-2222-2222-222222222222",
+  "id": "33333333-3333-3333-3333-333333333333",
+  "isDefault": true,
+  "name": "Wrong fixture subscription",
+  "state": "Enabled",
+  "tenantId": "22222222-2222-2222-2222-222222222222",
+  "user": {"name": "fixture@example.invalid", "type": "user"}
+}

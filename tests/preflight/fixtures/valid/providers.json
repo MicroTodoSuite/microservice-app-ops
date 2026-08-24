@@ -1,0 +1,7 @@
+[
+  {"namespace": "Microsoft.ContainerService", "registrationState": "Registered"},
+  {"namespace": "Microsoft.Network", "registrationState": "Registered"},
+  {"namespace": "Microsoft.ContainerRegistry", "registrationState": "Registered"},
+  {"namespace": "Microsoft.KeyVault", "registrationState": "Registered"},
+  {"namespace": "Microsoft.Storage", "registrationState": "Registered"}
+]

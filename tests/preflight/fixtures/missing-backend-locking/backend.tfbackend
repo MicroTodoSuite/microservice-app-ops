@@ -1,0 +1,5 @@
+resource_group_name  = "rg-state"
+storage_account_name = "stmicrotodosuitestate"
+container_name       = "tfstate"
+key                  = "environments/dr/foundation/terraform.tfstate"
+use_azuread_auth     = true
