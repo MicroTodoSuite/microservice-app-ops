@@ -56,5 +56,7 @@ github_oidc_subjects = [
   "repo:MicroTodoSuite/microservice-app-todos-api:ref:refs/heads/main",
   "repo:MicroTodoSuite/microservice-app-users-api:ref:refs/heads/main",
 ]
-environment_jwt_secret_version  = 1
-kyverno_service_account_subject = "system:serviceaccount:kyverno:kyverno-admission-controller"
+environment_jwt_secret_version        = 1
+kyverno_service_account_subject       = "system:serviceaccount:kyverno:kyverno-admission-controller"
+observability_service_account_subject = "system:serviceaccount:observability:observability-external-secrets-jwt"
+security_service_account_subject      = "system:serviceaccount:security:security-external-secrets-jwt"

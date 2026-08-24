@@ -174,3 +174,33 @@ output "kyverno_ecr_verifier_role_arn" {
   description = "Exact Kyverno admission-controller role allowed to read neutral ECR artifacts."
   value       = aws_iam_role.kyverno_ecr_verifier.arn
 }
+
+output "observability_slack_webhook_secret_name" {
+  description = "Non-secret Secrets Manager source name for the Alertmanager Slack webhook."
+  value       = aws_secretsmanager_secret.observability_slack_webhook.name
+}
+
+output "observability_slack_webhook_secret_arn" {
+  description = "Non-secret Secrets Manager source ARN for the Alertmanager Slack webhook."
+  value       = aws_secretsmanager_secret.observability_slack_webhook.arn
+}
+
+output "observability_secrets_reader_role_arn" {
+  description = "Exact External Secrets reader role ARN for the observability namespace."
+  value       = aws_iam_role.observability_secrets_reader.arn
+}
+
+output "security_slack_webhook_secret_name" {
+  description = "Non-secret Secrets Manager source name for the Falcosidekick Slack webhook."
+  value       = aws_secretsmanager_secret.security_slack_webhook.name
+}
+
+output "security_slack_webhook_secret_arn" {
+  description = "Non-secret Secrets Manager source ARN for the Falcosidekick Slack webhook."
+  value       = aws_secretsmanager_secret.security_slack_webhook.arn
+}
+
+output "security_secrets_reader_role_arn" {
+  description = "Exact External Secrets reader role ARN for the security namespace."
+  value       = aws_iam_role.security_secrets_reader.arn
+}

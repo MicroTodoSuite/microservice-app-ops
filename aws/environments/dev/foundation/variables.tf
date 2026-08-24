@@ -207,6 +207,18 @@ variable "kyverno_service_account_subject" {
   default     = "system:serviceaccount:kyverno:kyverno-admission-controller"
 }
 
+variable "observability_service_account_subject" {
+  description = "Exact EKS ServiceAccount subject allowed to read the Alertmanager Slack webhook."
+  type        = string
+  default     = "system:serviceaccount:observability:observability-external-secrets-jwt"
+}
+
+variable "security_service_account_subject" {
+  description = "Exact EKS ServiceAccount subject allowed to read the Falcosidekick Slack webhook."
+  type        = string
+  default     = "system:serviceaccount:security:security-external-secrets-jwt"
+}
+
 locals {
   required_tags = {
     Project     = "MicroTodoSuite"

@@ -27,4 +27,7 @@ module "foundation" {
   environment_jwt_secret_version  = var.environment_jwt_secret_version
   environment_jwt_values          = module.environment_jwt_values.values
   kyverno_service_account_subject = var.kyverno_service_account_subject
+
+  observability_service_account_subject = var.observability_service_account_subject
+  security_service_account_subject      = var.security_service_account_subject
 }
