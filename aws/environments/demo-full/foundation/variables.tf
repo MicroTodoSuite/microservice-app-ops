@@ -125,12 +125,30 @@ variable "single_nat_gateway" {
 }
 
 variable "cluster_public_access_cidrs" {
-  description = "Allowed CIDR blocks for public EKS API access."
+  description = "Allowed CIDR blocks for public EKS API access. Exactly the four reviewed operator host routes."
   type        = set(string)
 
   validation {
     condition     = alltrue([for c in var.cluster_public_access_cidrs : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", c))])
     error_message = "cluster_public_access_cidrs must contain valid CIDR blocks."
+  }
+
+  validation {
+    condition     = length(var.cluster_public_access_cidrs) == 4
+    error_message = "Exactly four reviewed operator addresses are approved for staging's control plane endpoint."
+  }
+
+  validation {
+    condition     = alltrue([for c in var.cluster_public_access_cidrs : endswith(c, "/32")])
+    error_message = "Every operator entry must be a single host route. A wider prefix admits addresses nobody reviewed."
+  }
+
+  # A format check alone accepts 0.0.0.0/0, which leaves endpoint_public_access
+  # looking correctly configured while the API server is reachable from the
+  # internet. That is the exact shape of the mistake worth failing on.
+  validation {
+    condition     = !contains(var.cluster_public_access_cidrs, "0.0.0.0/0")
+    error_message = "0.0.0.0/0 would expose the staging API server to the internet."
   }
 }
 
@@ -180,6 +198,13 @@ variable "create_shared_resources" {
   description = "Whether this foundation owns the account-level neutral ECR repositories, GitHub Actions OIDC provider, and shared IAM roles."
   type        = bool
   default     = true
+  # demo-full shares an account with the owner root. If it ever created the
+  # account-level singletons itself there would be two of each, and which one a
+  # workload got would depend on apply order.
+  validation {
+    condition     = var.create_shared_resources == false
+    error_message = "demo-full is a consumer environment. The shared ECR repositories, GitHub OIDC provider, and JWT secret containers are owned by aws/environments/dev/foundation."
+  }
 }
 
 variable "shared_environments" {
@@ -238,4 +263,39 @@ locals {
   }
 
   tags = merge(var.common_tags, local.required_tags)
+}
+
+# Full-profile opt-ins.
+#
+# demo-full is the live full staging environment, so every one of these defaults
+# to the behaviour that is running today. A plan of the unchanged root must stay
+# empty; the values below are turned on only by an explicit, separately reviewed
+# tfvars change.
+
+variable "enable_full_profile_cluster_prerequisites" {
+  description = "Whether to create the EBS/Karpenter/AWS Load Balancer Controller prerequisites. Off by default so an unchanged demo-full plan adds nothing to a live environment."
+  type        = bool
+  default     = false
+}
+
+variable "aws_load_balancer_controller_policy_arns" {
+  description = "Customer-managed policies attached to the AWS Load Balancer Controller IRSA role. Required only when the prerequisites are enabled."
+  type        = list(string)
+  default     = []
+}
+
+variable "consumer_jwt_environment" {
+  description = <<-EOT
+    The single environment whose JWT secret this cluster may read. Null keeps the
+    current behaviour, in which demo-full has no reader at all. Staging is the
+    only correct value here; pointing a staging cluster at the dev or prod secret
+    would cross an environment boundary.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.consumer_jwt_environment == null || var.consumer_jwt_environment == "staging"
+    error_message = "demo-full is the staging cluster and may read only the staging JWT secret."
+  }
 }
