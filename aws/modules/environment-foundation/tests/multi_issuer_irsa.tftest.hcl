@@ -243,3 +243,147 @@ run "reject_additional_issuer_that_is_not_an_eks_issuer" {
 
   expect_failures = [var.additional_eks_oidc_issuers]
 }
+
+# The full profile runs three additional clusters against one set of shared
+# singletons. Extending the trust policy is what keeps that to one role each; the
+# alternative — a second copy of every shared reader per cluster — is how a
+# fleet ends up with roles nobody can prove the scope of.
+run "all_three_full_profile_issuers_extend_the_shared_readers_exactly" {
+  command = plan
+
+  variables {
+    expected_account_id            = "123456789012"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.10.0.0/16"
+    public_subnet_cidrs            = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs    = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources        = true
+
+    additional_eks_oidc_issuers = {
+      "eks-full-dev" = {
+        provider_arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLDEV"
+        issuer_host  = "oidc.eks.us-east-1.amazonaws.com/id/FULLDEV"
+      }
+      "eks-full-staging" = {
+        provider_arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLSTAGING"
+        issuer_host  = "oidc.eks.us-east-1.amazonaws.com/id/FULLSTAGING"
+      }
+      "eks-full-prod" = {
+        provider_arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/FULLPROD"
+        issuer_host  = "oidc.eks.us-east-1.amazonaws.com/id/FULLPROD"
+      }
+    }
+  }
+
+  # One statement for the owning cluster plus one per added issuer. A fourth
+  # extra statement would mean an issuer nobody declared gained access.
+  assert {
+    condition     = length(jsondecode(aws_iam_role.observability_secrets_reader[0].assume_role_policy).Statement) == 4
+    error_message = "The shared observability reader must trust exactly the owning cluster and the three reviewed full-profile issuers."
+  }
+
+  assert {
+    condition     = length(jsondecode(aws_iam_role.security_secrets_reader[0].assume_role_policy).Statement) == 4
+    error_message = "The shared security reader must trust exactly the owning cluster and the three reviewed full-profile issuers."
+  }
+
+  # Every added issuer must be pinned to the one ServiceAccount that needs it.
+  # A subject wildcard here would let any pod in any of the three clusters read
+  # the shared secrets.
+  assert {
+    condition = alltrue([
+      for host in ["FULLDEV", "FULLSTAGING", "FULLPROD"] :
+      anytrue([
+        for statement in jsondecode(aws_iam_role.observability_secrets_reader[0].assume_role_policy).Statement :
+        statement.Principal.Federated == "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/${host}" &&
+        statement.Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/${host}:sub"] == "system:serviceaccount:observability:observability-external-secrets-jwt"
+      ])
+    ])
+    error_message = "Each full-profile issuer must be bound to the exact observability ServiceAccount subject."
+  }
+
+  assert {
+    condition = alltrue([
+      for host in ["FULLDEV", "FULLSTAGING", "FULLPROD"] :
+      anytrue([
+        for statement in jsondecode(aws_iam_role.security_secrets_reader[0].assume_role_policy).Statement :
+        statement.Principal.Federated == "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/${host}" &&
+        statement.Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/${host}:sub"] == "system:serviceaccount:security:security-external-secrets-jwt"
+      ])
+    ])
+    error_message = "Each full-profile issuer must be bound to the exact security ServiceAccount subject."
+  }
+
+  # No statement anywhere may carry a wildcard subject.
+  assert {
+    condition = alltrue([
+      for statement in concat(
+        jsondecode(aws_iam_role.observability_secrets_reader[0].assume_role_policy).Statement,
+        jsondecode(aws_iam_role.security_secrets_reader[0].assume_role_policy).Statement,
+      ) :
+      alltrue([
+        for key, value in statement.Condition.StringEquals :
+        !endswith(key, ":sub") || !strcontains(value, "*")
+      ])
+    ])
+    error_message = "A wildcard ServiceAccount subject would let any pod in a trusted cluster assume a shared reader."
+  }
+
+  # Adding EKS clusters must not create a second copy of any shared singleton.
+  assert {
+    condition     = output.foundation_contract.shared_resources.github_oidc_providers_created == 1
+    error_message = "Extending trust must not multiply the account-level OIDC provider."
+  }
+
+  assert {
+    condition     = output.foundation_contract.shared_resources.kyverno_verifier_roles_created == 1
+    error_message = "Three extra clusters must still share exactly one Kyverno verifier role."
+  }
+}
+
+# The mirror image of the run above: a consumer foundation, whatever else it is
+# configured with, creates none of the shared singletons.
+run "a_consumer_creates_zero_shared_roles_repositories_and_secret_containers" {
+  command = plan
+
+  variables {
+    expected_account_id            = "123456789012"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.40.0.0/16"
+    public_subnet_cidrs            = ["10.40.0.0/24", "10.40.1.0/24", "10.40.2.0/24"]
+    private_subnet_cidrs           = ["10.40.16.0/20", "10.40.32.0/20", "10.40.48.0/20"]
+    cluster_public_access_cidrs    = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::123456789012:role/platform-admin"]
+    create_shared_resources        = false
+    shared_environments            = []
+    environment_jwt_values         = {}
+  }
+
+  assert {
+    condition     = output.foundation_contract.shared_resources.owned == false
+    error_message = "A consumer must report itself as a consumer."
+  }
+
+  assert {
+    condition = alltrue([
+      output.foundation_contract.shared_resources.neutral_ecr_repositories_created == 0,
+      output.foundation_contract.shared_resources.github_oidc_providers_created == 0,
+      output.foundation_contract.shared_resources.github_publisher_roles_created == 0,
+      output.foundation_contract.shared_resources.kyverno_verifier_roles_created == 0,
+      output.foundation_contract.shared_resources.jwt_secret_containers_created == 0,
+      output.foundation_contract.shared_resources.jwt_owner_reader_roles_created == 0,
+    ])
+    error_message = "A consumer foundation must create zero shared roles, zero shared ECR repositories, and zero secret containers."
+  }
+
+  # It still owns its own per-environment repositories. Those are namespaced
+  # project/environment/service and collide with nothing.
+  assert {
+    condition     = output.foundation_contract.shared_resources.environment_ecr_repositories_created == 5
+    error_message = "A consumer keeps its own five per-environment repositories."
+  }
+}

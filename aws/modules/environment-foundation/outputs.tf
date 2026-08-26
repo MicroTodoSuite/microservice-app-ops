@@ -25,6 +25,16 @@ output "foundation_contract" {
       kubernetes_version      = var.kubernetes_version
       endpoint_private_access = true
       endpoint_public_access  = true
+
+      # The public endpoint stays reachable only from the reviewed operator
+      # addresses. The count and the prefix lengths are what a stage gate can
+      # check mechanically; a single 0.0.0.0/0 entry would still leave
+      # endpoint_public_access true while silently opening the control plane to
+      # the internet, so the CIDRs themselves are reported, not just the flag.
+      public_access_cidrs       = sort(tolist(var.cluster_public_access_cidrs))
+      public_access_cidr_count  = length(var.cluster_public_access_cidrs)
+      public_access_is_wildcard = contains(tolist(var.cluster_public_access_cidrs), "0.0.0.0/0")
+
       node_group = {
         min           = var.bootstrap_node_min_size
         desired       = var.bootstrap_node_desired_size
@@ -51,9 +61,45 @@ output "foundation_contract" {
       karpenter_interruption_queue_arn      = one(module.karpenter[*].queue_arn)
       karpenter_interruption_rule_count     = var.enable_full_profile_cluster_prerequisites ? length(module.karpenter[0].event_rules) : 0
       aws_load_balancer_controller_role_arn = one(aws_iam_role.aws_load_balancer_controller[*].arn)
+
+      # Enforcement of GitOps-owned NetworkPolicy resources. This is an
+      # unconditional baseline in both profiles rather than a full-profile
+      # opt-in: a cluster where NetworkPolicy objects exist but nothing enforces
+      # them looks isolated in Git and is flat in reality.
+      vpc_cni_network_policy_enabled = true
     }
     ecr_service_count = length(local.service_names)
     identity_mode     = "IRSA"
+
+    # Census of the account-level singletons this foundation actually creates.
+    #
+    # Ownership cannot be read off create_shared_resources alone: several of
+    # these resources have a data-source twin, so a consumer still reports a
+    # non-null ARN for something it merely looked up. Counting the managed
+    # resources is what distinguishes "owns it" from "reads it", and a consumer
+    # that started creating its own copy of a singleton would show up here as a
+    # non-zero number rather than as a silently duplicated global.
+    shared_resources = {
+      owned = var.create_shared_resources
+
+      neutral_ecr_repositories_created = length(aws_ecr_repository.neutral_services)
+      github_oidc_providers_created    = length(aws_iam_openid_connect_provider.github_actions)
+      github_publisher_roles_created   = length(aws_iam_role.github_ecr_publisher)
+      kyverno_verifier_roles_created   = length(aws_iam_role.kyverno_ecr_verifier)
+      jwt_secret_containers_created    = length(aws_secretsmanager_secret.environment_jwt)
+      jwt_owner_reader_roles_created   = length(aws_iam_role.environment_jwt_reader)
+
+      # Per-environment repositories are NOT shared: each is named
+      # project/environment/service, so two environments cannot collide. They are
+      # reported separately to keep them from being mistaken for the shared set.
+      environment_ecr_repositories_created = length(aws_ecr_repository.services)
+    }
+
+    # A consumer's single permitted cross-boundary read.
+    consumer_jwt = {
+      environment  = var.consumer_jwt_environment
+      reader_count = length(aws_iam_role.consumer_jwt_reader)
+    }
   }
 }
 

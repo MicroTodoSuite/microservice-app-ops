@@ -1,0 +1,14 @@
+# Copy this file to egress.s3.tfbackend before initializing the shared egress
+# root. Do not add credentials to this file.
+#
+# The bucket, region, and kms_key_id must be byte-identical to
+# aws/environments/dev/foundation/dev.s3.tfbackend: the egress hub deliberately
+# reuses the existing state backend rather than provisioning a second one. Only
+# the key differs, which is what keeps this root's state separate from every
+# environment's.
+bucket       = "microtodosuite-tfstate-123456789012-us-east-1-dev"
+key          = "shared/egress/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+kms_key_id   = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+use_lockfile = true

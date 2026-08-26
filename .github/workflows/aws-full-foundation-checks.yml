@@ -1,0 +1,149 @@
+name: AWS Full Foundation Checks
+
+# Static checks for the full-profile roots: the shared egress hub, full-dev,
+# full-prod, and the demo-full staging prerequisites.
+#
+# Everything here runs without AWS credentials. That is a deliberate limit, not
+# an oversight: a refreshed plan against the real backend is what decides whether
+# an apply is safe, and those plans are produced and reviewed by a human under
+# T053-T056, against an external state backup. What CI can do is prove that every
+# root still parses, validates, and satisfies its own contract on every pull
+# request — the checks that are worth running a hundred times a week.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'aws/**'
+      - '.terraform-version'
+      - '.github/workflows/aws-full-foundation-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # One failing root must not hide the state of the other three.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Shared egress hub
+            chdir: aws/shared/egress
+          - name: Full dev foundation
+            chdir: aws/environments/full-dev/foundation
+          - name: Full prod foundation
+            chdir: aws/environments/full-prod/foundation
+          - name: Demo full staging prerequisites
+            chdir: aws/environments/demo-full/foundation
+          - name: Centralized egress module
+            chdir: aws/modules/centralized-egress
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+
+      - name: Check Terraform formatting
+        run: terraform -chdir=${{ matrix.chdir }} fmt -check -recursive
+
+      # -backend=false keeps this credential-free; -lockfile=readonly means a
+      # provider upgrade has to arrive as a reviewed lockfile change rather than
+      # appearing silently on the next CI run.
+      - name: Initialize without the remote backend
+        run: >-
+          terraform -chdir=${{ matrix.chdir }} init
+          -backend=false
+          -input=false
+          -lockfile=readonly
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data
+
+      - name: Validate
+        run: terraform -chdir=${{ matrix.chdir }} validate
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data
+
+      - name: Test
+        run: terraform -chdir=${{ matrix.chdir }} test
+        env:
+          TF_DATA_DIR: ${{ runner.temp }}/terraform-data
+
+  state-keys:
+    name: State keys stay distinct
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Two roots sharing a state key is the failure that destroys an
+      # environment rather than reporting an error: the second apply reads the
+      # first one's state and plans to delete everything it does not recognise.
+      # The real backend files are gitignored, so the committed examples are what
+      # can be checked here.
+      - name: Every committed backend example uses a distinct key
+        run: |
+          set -euo pipefail
+          keys=$(grep -h '^key' \
+            aws/environments/*/foundation/*.s3.tfbackend.example \
+            aws/shared/*/*.s3.tfbackend.example \
+            | sed -E 's/^key[[:space:]]*=[[:space:]]*//' | tr -d '"')
+          total=$(printf '%s\n' "$keys" | wc -l)
+          unique=$(printf '%s\n' "$keys" | sort -u | wc -l)
+          printf 'state keys:\n%s\n' "$keys"
+          if [ "$total" -ne "$unique" ]; then
+            echo "FAIL: two roots declare the same Terraform state key." >&2
+            printf '%s\n' "$keys" | sort | uniq -d >&2
+            exit 1
+          fi
+          echo "PASS: $unique distinct state keys."
+
+  cost:
+    name: Cost estimate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for an Infracost API key
+        id: key
+        run: |
+          if [ -n "${{ secrets.INFRACOST_API_KEY }}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No INFRACOST_API_KEY configured; skipping the cost estimate."
+          fi
+
+      - name: Install Infracost
+        if: steps.key.outputs.present == 'true'
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      # Infracost parses the HCL directly, so this needs no AWS credentials and
+      # no saved plan. It is an estimate of the declared configuration, which is
+      # what a reviewer needs on a pull request; the authoritative figure comes
+      # from the saved plan attached to each apply's evidence.
+      - name: Estimate the full-profile roots
+        if: steps.key.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          for root in \
+            aws/shared/egress \
+            aws/environments/full-dev/foundation \
+            aws/environments/full-prod/foundation
+          do
+            echo "=== $root ==="
+            infracost breakdown --path "$root" --format table
+          done

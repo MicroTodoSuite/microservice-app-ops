@@ -1,0 +1,13 @@
+# Copy this file to demo-full.s3.tfbackend. Do not add credentials to this file.
+#
+# demo-full is the live full staging environment. Its bucket, region, and
+# kms_key_id are identical to every other root's; only the key differs, and that
+# key already holds live state. Changing it would point this root at an empty
+# state and plan to create a second staging environment alongside the running
+# one.
+bucket       = "microtodosuite-tfstate-123456789012-us-east-1-dev"
+key          = "environments/demo-full/foundation/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+kms_key_id   = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+use_lockfile = true
