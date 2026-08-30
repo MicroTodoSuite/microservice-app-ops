@@ -1,29 +1,31 @@
 ## Overview
-This repository provisions and operates the Azure infrastructure for MicroTodoSuite through Terraform and GitHub Actions.
-It creates the Terraform state backend, shared Azure Container Apps resources, ten container apps, and deployment, restart, and release automation; it contains no application runtime.
+This repository provisions the AWS infrastructure for MicroTodoSuite through Terraform and GitHub Actions.
+It owns the S3/KMS state backend, the shared environment-foundation module (VPC, EKS, IAM/IRSA, ECR, Secrets Manager), the centralized-egress hub, and one Terraform root per environment; it contains no application runtime.
+
+The Azure Container Apps estate this repository used to operate was retired on 2026-08-30. Kubernetes workloads are delivered through `microservice-app-gitops` and ArgoCD, never from here.
 
 ## Stack
-- Infrastructure: Terraform HCL. Backend and base-infrastructure CI jobs pin Terraform 1.5.0; container-app and destroy jobs request `latest`.
-- Providers: AzureRM and Random. No `required_providers`, provider version constraint, `required_version`, or committed `.terraform.lock.hcl` exists.
-- Automation: GitHub Actions, Bash, Azure CLI, GitHub CLI, and curl; their CLI versions are not pinned.
-- Release tooling: Node.js 22 with semantic-release 24.2.3, @semantic-release/changelog 6.0.3, and @semantic-release/git 10.0.1 from `package-lock.json`.
+- Infrastructure: Terraform HCL with the AWS provider.
+- Automation: GitHub Actions, Bash, AWS CLI, GitHub CLI, and Infracost.
+- Release tooling: Node.js with semantic-release, from `package-lock.json`.
 
 ## Commands
 - Install the release dependencies: `npm ci`.
 - Run the release automation: `npx semantic-release` (the workflow supplies `GITHUB_TOKEN`).
-- Initialize and validate a Terraform root: `terraform init`, then `terraform validate`; CI runs these in `backend/`, `base-infrastructure/`, and `container-apps/`, with backend arguments for the latter two.
-- Apply the saved backend/base plan: `terraform apply -input=false tfplan`; apply the container plan: `terraform apply -input=false tfplan-containers`.
-- `npm test` is the only declared test command; it prints `Error: no test specified` and exits with status 1. There are no test files, build command, or local-run command.
+- Initialize and validate a Terraform root: `terraform init -backend-config=<root>.s3.tfbackend`, then `terraform validate`.
+- Run a module's tests: `terraform test` inside the module directory.
+- Apply only a reviewed saved plan: `terraform apply -input=false <plan>`; never a convenience apply.
+- `npm test` is the only declared test command and it is a placeholder.
 
 ## Structure
-- `backend/`: creates the Azure resource group, storage account, and private blob container used for Terraform state.
-- `base-infrastructure/`: remote-state Terraform root for the resource group, Azure Container Registry, Log Analytics workspace, and Container Apps environment.
-- `base-infrastructure/modules/`: local modules for the resource group, registry, and Container Apps environment.
-- `container-apps/`: remote-state Terraform root defining Redis, Zipkin, users-api, auth-api, todos-api, log-message-processor, frontend, frontend-exporter, Prometheus, and Grafana.
-- `container-apps/modules/container_apps/`: reusable Azure Container App module for ingress, scaling, registry credentials, environment variables, secrets, and command overrides.
-- `.github/workflows/`: backend setup, infrastructure deployment/destruction, ordered restarts, resiliency configuration, and semantic-release workflows.
-- `scripts/setup-azure-secrets.sh`: writes infrastructure values to this repository and six microservice repositories with GitHub CLI.
-- `package.json`, `package-lock.json`, and `.releaserc`: release-only Node dependencies and semantic-release configuration.
+- `aws/environments/dev/backend/`: bootstraps the S3 bucket and KMS key used for Terraform state.
+- `aws/environments/{dev,demo-full,full-dev,full-prod}/foundation/`: one remote-state root per environment, each with its own backend key.
+- `aws/shared/egress/`: the centralized-egress root — one NAT gateway and Elastic IP behind a Transit Gateway.
+- `aws/modules/environment-foundation/`: the shared VPC, EKS, IAM/IRSA, ECR, and Secrets Manager module, with its Terraform tests.
+- `aws/modules/{centralized-egress,state-backend,environment-jwt-values,ephemeral-passwords}/`: the supporting modules.
+- `scripts/preflight/azure-dr.sh`: read-only Azure discovery for the planned AKS disaster-recovery environment (spec 009 T124). This is the future multi-cloud leg, unrelated to the retired Container Apps estate.
+- `tests/`: contract and preflight tests.
+- `specs/`: the Spec Kit lifecycle for this repository.
 
 ## Conventions
 - Treat `backend/`, `base-infrastructure/`, and `container-apps/` as independent Terraform roots; base and container state use separate Azure Blob keys.
@@ -37,18 +39,10 @@ It creates the Terraform state backend, shared Azure Container Apps resources, t
 - Never merge with `--admin`, force-push to `main`, disable a branch protection rule to land your own work, or approve your own pull request. As an AI agent you may open, describe, and update a pull request; you may never approve one and never author an acceptance or approval artifact — only a named human unlocks a gate.
 - Report outcomes faithfully in commits and pull-request bodies: name what is red, say what was skipped, and correct an earlier claim that turns out to be wrong rather than leaving the record wrong.
 
-## Notes for the Kubernetes migration
-- Ports/exposure: external—Zipkin 9411, frontend 8080, Prometheus 9090, Grafana 3000; internal—Redis 6379/TCP, users-api 8083, auth-api 8000, todos-api 8082, log-message-processor 8081, frontend-exporter 9113.
-- users-api variables: `JWT_SECRET`, `SERVER_PORT=8083`, `SPRING_PROFILES_ACTIVE=default`, `ZIPKIN_URL=http://zipkin/`.
-- auth-api variables: `JWT_SECRET`, `AUTH_API_PORT=8000`, `USERS_API_ADDRESS=http://users-api`, `ZIPKIN_URL=http://zipkin/api/v2/spans`.
-- todos-api variables: `TODO_API_PORT=8082`, `REDIS_HOST=redis`, `REDIS_PORT=6379`, `REDIS_CHANNEL=log_channel`, `USERS_API_URL=http://users-api`, `ZIPKIN_URL`, and `JWT_SECRET`.
-- log-message-processor variables: `PORT=8081`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_CHANNEL`, and `ZIPKIN_URL`; frontend uses `PORT=8080`, `AUTH_API_ADDRESS`, `TODOS_API_ADDRESS`, `ZIPKIN_URL`, and `JWT_SECRET`.
-- Prometheus needs `AUTH_API_TARGET`, `USERS_API_TARGET`, `TODOS_API_TARGET`, `LOG_PROCESSOR_TARGET`, and `FRONTEND_EXPORTER_TARGET`; Grafana sets `GF_SECURITY_ADMIN_PASSWORD` and `GF_PATHS_PROVISIONING`.
-- Service dependencies use bare-name HTTP endpoints for Zipkin, users-api, auth-api, and todos-api; Redis pub/sub uses `log_channel`. No database is declared. The exporter scrapes `http://frontend/nginx_status`.
-- External platform dependencies are Azure Blob state, Azure Container Registry, Container Apps, Log Analytics, GitHub APIs/repositories, and Docker Hub images for Zipkin, Redis, nginx-prometheus-exporter, and Grafana.
-- CI identity/state inputs are `AZURE_CREDENTIALS_COLONIA`, `AZURE_SUBSCRIPTION_ID_COLONIA`, `GH_TOKEN`, `TF_STATE_RESOURCE_GROUP`, `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER`, `TF_STATE_ACCESS_KEY`, `TF_STATE_BASE_INFRASTRUCTURE_KEY`, `TF_STATE_CONTAINER_APPS_KEY`, and `TF_STATE_KEY`.
-- Other CI inputs are `AZURE_LOCATION`, `AZURE_RESOURCE_GROUP_NAME`, `ACR_NAME`, `ACR_SKU`, `ACR_ADMIN_ENABLED`, `CONTAINER_APPS_ENVIRONMENT_NAME`, `JWT_SECRET`, and `STANDARD_TAGS`.
-- No Dockerfile exists. Review all `:latest` image tags, ACR admin credentials, hard-coded JWT/Grafana defaults, Redis without persistent storage, public monitoring ingress, and the absence of health probes and volumes.
-- The destroy workflow targets an absent `terraform/` directory and uses `TF_STATE_KEY`; resolve that stale path/key rather than carrying it into the migration.
-- Current workflows apply Terraform and mutate Container Apps through Azure CLI. Kubernetes changes must instead be committed to `microservice-app-gitops` for ArgoCD reconciliation in the single AWS account, with environments isolated by clusters/VPCs or namespaces.
-- Translate Azure single-revision mode, 1–3 replica limits, ingress transport, secret references, registry authentication, and CLI-created resiliency policies into GitOps-managed Kubernetes Deployments, Services, Ingress/NetworkPolicies, Secrets, storage, probes, and scaling policies.
+## Notes
+- Every environment is a separate Terraform root with a distinct state key in the shared bucket. Two roots sharing a key destroys an environment rather than erroring, so the state-key uniqueness check in `aws-full-foundation-checks.yml` is load-bearing.
+- State locking is Terraform's native S3 lockfile (`use_lockfile = true`). There is no DynamoDB lock table, by recorded decision in `specs/001-aws-dev-foundation/plan.md`.
+- The economical dev environment is the live platform and the rollback target for the whole full-profile rollout. After any change under `aws/`, re-run the dev plan and confirm `0 to add, 0 to change, 0 to destroy` from the plan JSON — `terraform show -json`, every `resource_changes` entry `no-op` — not from the printed text. Every full-profile switch defaults off.
+- Applies use only an approved saved plan after a timestamped external state backup under `~/backups-microtodosuite/`, or a `no-prior-state` receipt for a genuinely new key.
+- The full-profile rollout is driven by `microservice-app-gitops/specs/009-full-platform-rollout/`. Its task register is the source of truth for what is done; `microservice-app-docs/full-platform/plan-reconciliation.md` reconciles it against reality.
+- The planned Azure work is AKS for disaster recovery (spec 009 T118-T141), sequenced last. It is not a revival of Container Apps.
