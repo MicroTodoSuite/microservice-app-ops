@@ -16,7 +16,7 @@ Before the four-command flow, an approved platform operator provides:
 - An already provisioned and migrated dev state backend that satisfies
   [the remote-state contract](./contracts/remote-state.md).
 - The committed, human-approved dev values in each root's `dev.tfvars`. Dev uses
-  account `995253610162`, `us-east-1`, three named AZs, `10.10.0.0/16`, the
+  account `575172595729`, `us-east-1`, three named AZs, `10.10.0.0/16`, the
   explicit global dev API CIDR, and the approved EKS access-entry role.
 
 Confirm authentication through the team's normal identity flow. Do not export,
@@ -67,6 +67,12 @@ or Kubernetes application resources.
 
 The plan is review evidence, not authorization to provision. Do not append a
 Terraform apply command.
+
+For the explicitly authorized 2026-09-07 new-account recovery, the operator
+instead saves each backend and foundation plan, machine-checks its action set,
+requires zero destroys, and applies only that reviewed binary plan. This narrow
+authorization does not extend to any full-profile root or to direct mutation of
+GitOps-managed Kubernetes resources.
 
 For an already provisioned cluster whose VPC CNI add-on was created without
 network-policy configuration, the remediation plan must contain one in-place

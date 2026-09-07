@@ -21,6 +21,12 @@
 - Q: How is the dev EKS public API exposed for a team with dynamic source IPs? → A: Dev intentionally uses `0.0.0.0/0`; IAM authentication and exact EKS access entries enforce access. This is a human-approved dev-only tradeoff that MUST NOT be silently narrowed or copied to staging/production, which require restricted network policies.
 - Q: Who owns Kubernetes network-policy enforcement? → A: Terraform owns the EKS VPC CNI managed add-on switch `enableNetworkPolicy = "true"`; GitOps continues to own the `NetworkPolicy` manifests. The VPC CNI node agent enforces those policies on each Linux EC2 worker.
 
+### Session 2026-09-07
+
+- Q: Which account now owns the economical shared-cluster foundation? → A: The replacement account is `575172595729`; the prior `916491575487` state remains an external recovery backup and must not be migrated into the new account.
+- Q: Which deployment scope is authorized? → A: Bootstrap and apply only the economical `dev` backend and foundation from inspected saved plans, then perform the audited ArgoCD/root bootstrap and let GitOps reconcile the shared cluster. Dedicated full-profile roots remain out of scope.
+- Q: Which execution identity is required? → A: Terraform runs through `arn:aws:iam::575172595729:role/microtodosuite-terraform-dev`, assumed from the authenticated `esteban-developer` console session; credentials remain outside the repository.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Preview an isolated dev foundation (Priority: P1)
@@ -262,7 +268,7 @@ ApplicationSet or `infrastructure/*` root needs modification.
   requires a separate constitution amendment.
 - Team members authenticate to the existing AWS account through approved
   short-lived or federated credentials supplied outside the repository.
-- Dev uses the human-approved account `995253610162`, region `us-east-1`, three
+- Dev uses the human-approved account `575172595729`, region `us-east-1`, three
   named AZs, VPC/subnet allocation, global dev API CIDR, and Terraform operator
   role committed as non-secret team configuration. Credentials remain external.
 - The remote-state bootstrap is a one-time prerequisite with its own state
