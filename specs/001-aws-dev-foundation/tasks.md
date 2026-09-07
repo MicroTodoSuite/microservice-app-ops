@@ -225,6 +225,9 @@ evidence and re-entering the GitOps-only operating model after bootstrap.
 - [ ] T060 Update the sibling GitOps account-specific values from Terraform
   outputs, pass render/schema checks, merge through protected `main`, perform only
   the audited ArgoCD/root bootstrap, and verify reconciliation and service health
+- [X] T061 Add a failing wrapper contract proving account recovery selects the
+  replacement backend with `terraform init -reconfigure`
+- [ ] T062 Implement the wrapper reconfiguration path and rerun its shell contract
 
 ---
 

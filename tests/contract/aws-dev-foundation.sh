@@ -62,6 +62,8 @@ require_text "scripts/aws-dev-foundation.sh" -- '-input=false' \
   "plan does not disable interactive input"
 require_text "scripts/aws-dev-foundation.sh" -- '-lock-timeout=5m' \
   "plan does not use the required bounded lock timeout"
+require_text "scripts/aws-dev-foundation.sh" '-reconfigure' \
+  "backend initialization cannot safely select a replacement account backend"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'cluster_public_access_cidrs[[:space:]]*=[[:space:]]*\["0\.0\.0\.0/0"\]' \
   "committed dev configuration does not preserve the approved global API CIDR"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_instance_types[[:space:]]*=[[:space:]]*\["m7i-flex\.large"\]' \
