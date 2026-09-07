@@ -1,6 +1,6 @@
 environment = "dev"
 # Human-approved, non-secret dev foundation configuration shared by the team.
-expected_account_id     = "916491575487"
+expected_account_id     = "575172595729"
 aws_region              = "us-east-1"
 public_hosted_zone_name = "microtodosuite.abrdns.com"
 
@@ -36,7 +36,7 @@ single_nat_gateway = false
 cluster_public_access_cidrs = ["0.0.0.0/0"]
 
 bootstrap_admin_principal_arns = [
-  "arn:aws:iam::916491575487:role/microtodosuite-terraform-dev",
+  "arn:aws:iam::575172595729:role/microtodosuite-terraform-dev",
 ]
 
 # This account's Free Tier policy permits m7i-flex.large while preserving the

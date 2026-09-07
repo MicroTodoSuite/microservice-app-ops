@@ -214,9 +214,9 @@ evidence and re-entering the GitOps-only operating model after bootstrap.
   execution role, and GitOps handoff in the specification and implementation plan
 - [X] T055 Add failing shell-contract assertions for the replacement account in
   `tests/contract/aws-dev-foundation.sh` before changing active Terraform inputs
-- [ ] T056 Replace the account and execution-role values in the dev backend,
+- [X] T056 Replace the account and execution-role values in the dev backend,
   foundation, and reviewed IAM policy; run all static and mocked Terraform checks
-- [ ] T057 Back up the prior local state and establish the approved
+- [X] T057 Back up the prior local state and establish the approved
   `microtodosuite-terraform-dev` assumed-role session in account `575172595729`
 - [ ] T058 Create the S3/KMS backend from an inspected saved plan with zero
   destroys, generate `dev.s3.tfbackend` from typed outputs, and verify no drift

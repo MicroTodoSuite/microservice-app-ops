@@ -11,8 +11,8 @@
         "iam:ListRolePolicies"
       ],
       "Resource": [
-        "arn:aws:iam::995253610162:role/microtodosuite-dev-*",
-        "arn:aws:iam::995253610162:role/vpc-flow-log-role-*"
+        "arn:aws:iam::575172595729:role/microtodosuite-dev-*",
+        "arn:aws:iam::575172595729:role/vpc-flow-log-role-*"
       ]
     },
     {
@@ -32,11 +32,11 @@
         "iam:UpdateAssumeRolePolicy"
       ],
       "Resource": [
-        "arn:aws:iam::995253610162:role/microtodosuite-dev-jwt-reader",
-        "arn:aws:iam::995253610162:role/microtodosuite-staging-jwt-reader",
-        "arn:aws:iam::995253610162:role/microtodosuite-prod-jwt-reader",
-        "arn:aws:iam::995253610162:role/microtodosuite-github-ecr-publisher",
-        "arn:aws:iam::995253610162:role/microtodosuite-kyverno-ecr-verifier"
+        "arn:aws:iam::575172595729:role/microtodosuite-dev-jwt-reader",
+        "arn:aws:iam::575172595729:role/microtodosuite-staging-jwt-reader",
+        "arn:aws:iam::575172595729:role/microtodosuite-prod-jwt-reader",
+        "arn:aws:iam::575172595729:role/microtodosuite-github-ecr-publisher",
+        "arn:aws:iam::575172595729:role/microtodosuite-kyverno-ecr-verifier"
       ]
     },
     {
@@ -58,7 +58,7 @@
         "iam:UntagOpenIDConnectProvider",
         "iam:UpdateOpenIDConnectProviderThumbprint"
       ],
-      "Resource": "arn:aws:iam::995253610162:oidc-provider/token.actions.githubusercontent.com"
+      "Resource": "arn:aws:iam::575172595729:oidc-provider/token.actions.githubusercontent.com"
     }
   ]
 }
