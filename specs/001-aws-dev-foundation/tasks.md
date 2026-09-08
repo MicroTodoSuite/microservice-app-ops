@@ -218,9 +218,9 @@ evidence and re-entering the GitOps-only operating model after bootstrap.
   foundation, and reviewed IAM policy; run all static and mocked Terraform checks
 - [X] T057 Back up the prior local state and establish the approved
   `microtodosuite-terraform-dev` assumed-role session in account `575172595729`
-- [ ] T058 Create the S3/KMS backend from an inspected saved plan with zero
+- [X] T058 Create the S3/KMS backend from an inspected saved plan with zero
   destroys, generate `dev.s3.tfbackend` from typed outputs, and verify no drift
-- [ ] T059 Create the economical dev foundation from an inspected saved plan with
+- [X] T059 Create the economical dev foundation from an inspected saved plan with
   zero destroys, preserve its resulting state externally, and verify no drift
 - [ ] T060 Update the sibling GitOps account-specific values from Terraform
   outputs, pass render/schema checks, merge through protected `main`, perform only
