@@ -35,7 +35,7 @@ versioning, public-access blocking, and `use_lockfile = true`; no DynamoDB table
 and `terraform validate`; mocked `terraform test`; ShellCheck; repository
 contract tests; Trivy configuration scan; Infracost breakdown
 
-**Target Platform**: AWS account `995253610162`, region `us-east-1`, and
+**Target Platform**: AWS account `575172595729`, region `us-east-1`, and
 availability zones `us-east-1a`, `us-east-1b`, and `us-east-1c`; Linux operator
 and CI runners
 
@@ -46,7 +46,7 @@ thin repository-root operator CLI
 documented commands; a lock conflict fails before state mutation; unchanged
 inputs and state converge to an empty follow-up plan
 
-**Constraints**: No `terraform apply`, GitOps mutation, direct `kubectl apply`,
+**Constraints**: No unreviewed `terraform apply`, GitOps-managed direct mutation,
 staging/production/AKS resources, static AWS keys, wildcard IRSA subjects,
 mutable ECR tags, DynamoDB lock table, or changes to existing Azure state
 
@@ -74,6 +74,21 @@ state bucket/KMS key, and exact IAM identities needed by this foundation
 | 12. Proven DR and Disclosed Data Loss | PASS | No DR claim or data-continuity change is made; AKS and cross-cloud routing are explicitly excluded. |
 
 No constitutional exception or complexity waiver is required.
+
+## 2026-09-07 Economical Account Recovery Addendum
+
+The previously provisioned account is no longer the deployment target. Recovery
+creates a new backend state lineage and a new economical `dev` foundation in
+account `575172595729`; the prior local state and backend configuration are
+backed up externally before the new lineage is initialized. Every apply uses an
+inspected binary plan with zero destroys. The dedicated full-profile roots are
+not initialized or applied.
+
+After Terraform succeeds, the sibling GitOps repository is updated with exact
+output-derived account, ECR, and IRSA values on a short-lived branch. A human
+merges the reviewed change to protected `main`; only then may the cluster receive
+the two audited bootstrap mutations: vendored ArgoCD and the tracked root
+Application. All subsequent platform and workload changes are ArgoCD-owned.
 
 ## Project Structure
 

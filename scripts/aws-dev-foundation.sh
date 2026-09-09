@@ -73,6 +73,7 @@ case "${1:-}" in
     require_local_file "$BACKEND_FILE"
     terraform -chdir="$FOUNDATION_DIR" init \
       -input=false \
+      -reconfigure \
       -backend-config="$BACKEND_FILE" \
       -lockfile=readonly
     ;;

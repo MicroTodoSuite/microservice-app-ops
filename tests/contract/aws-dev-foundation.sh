@@ -62,6 +62,8 @@ require_text "scripts/aws-dev-foundation.sh" -- '-input=false' \
   "plan does not disable interactive input"
 require_text "scripts/aws-dev-foundation.sh" -- '-lock-timeout=5m' \
   "plan does not use the required bounded lock timeout"
+require_text "scripts/aws-dev-foundation.sh" '-reconfigure' \
+  "backend initialization cannot safely select a replacement account backend"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'cluster_public_access_cidrs[[:space:]]*=[[:space:]]*\["0\.0\.0\.0/0"\]' \
   "committed dev configuration does not preserve the approved global API CIDR"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'bootstrap_node_instance_types[[:space:]]*=[[:space:]]*\["m7i-flex\.large"\]' \
@@ -109,6 +111,20 @@ require_text "aws/modules/environment-foundation/route53.tf" 'force_destroy[[:sp
   "the public hosted zone must not permit destructive record cleanup"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'public_hosted_zone_name[[:space:]]*=[[:space:]]*"microtodosuite\.abrdns\.com"' \
   "the committed foundation does not select the registered public domain"
+require_text "aws/environments/dev/backend/dev.tfvars" 'expected_account_id[[:space:]]*=[[:space:]]*"575172595729"' \
+  "the backend does not target the approved replacement AWS account"
+require_text "aws/environments/dev/foundation/dev.tfvars" 'expected_account_id[[:space:]]*=[[:space:]]*"575172595729"' \
+  "the foundation does not target the approved replacement AWS account"
+require_text "aws/environments/dev/foundation/dev.tfvars" 'arn:aws:iam::575172595729:role/microtodosuite-terraform-dev' \
+  "the EKS bootstrap administrator is not the replacement-account Terraform role"
+require_text "aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json" 'arn:aws:iam::575172595729:' \
+  "the reviewed Terraform execution policy does not target the replacement account"
+if rg -n -- '995253610162|916491575487' \
+  "$ROOT/aws/environments/dev/backend/dev.tfvars" \
+  "$ROOT/aws/environments/dev/foundation/dev.tfvars" \
+  "$ROOT/aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json" >/dev/null; then
+  fail "active economical Terraform inputs still reference a retired AWS account"
+fi
 require_text "aws/environments/dev/foundation/outputs.tf" 'output "public_hosted_zone_name_servers"' \
   "the dev foundation does not expose registrar delegation name servers"
 
