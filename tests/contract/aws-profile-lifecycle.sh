@@ -84,10 +84,16 @@ require_text "aws/modules/environment-foundation/variables.tf" 'default[[:space:
 require_text "aws/modules/environment-foundation/outputs.tf" 'runtime_enabled[[:space:]]*=[[:space:]]*var\.runtime_enabled' \
   "foundation contract does not expose runtime state"
 
-for durable_file in ecr.tf managed-secrets.tf route53.tf github-oidc.tf; do
+for durable_file in ecr.tf route53.tf github-oidc.tf; do
   reject_text "aws/modules/environment-foundation/${durable_file}" \
     '(count|for_each)[[:space:]]*=[^\n]*runtime_enabled' \
     "durable resources in ${durable_file} must not depend on runtime_enabled"
 done
+require_text "aws/modules/environment-foundation/managed-secrets.tf" \
+  'resource "aws_secretsmanager_secret" "environment_jwt"' \
+  "durable environment JWT secret containers are missing"
+require_text "aws/modules/environment-foundation/managed-secrets.tf" \
+  'resource "aws_secretsmanager_secret_version" "environment_jwt"' \
+  "durable environment JWT secret values are missing"
 
 printf 'PASS: AWS profile lifecycle contract\n'

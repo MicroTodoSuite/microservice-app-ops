@@ -17,7 +17,7 @@ mock_provider "aws" {
 }
 
 override_module {
-  target = module.vpc
+  target = module.vpc[0]
   outputs = {
     vpc_id                       = "vpc-0123456789abcdef0"
     public_subnets               = ["subnet-public-a", "subnet-public-b", "subnet-public-c"]
@@ -29,7 +29,7 @@ override_module {
 }
 
 override_module {
-  target = module.eks
+  target = module.eks[0]
   outputs = {
     cluster_name                       = "microtodosuite-dev"
     cluster_arn                        = "arn:aws:eks:us-east-1:123456789012:cluster/microtodosuite-dev"
@@ -45,7 +45,7 @@ override_module {
 }
 
 override_module {
-  target = module.bootstrap_node_group
+  target = module.bootstrap_node_group[0]
   outputs = {
     node_group_id     = "microtodosuite-dev:bootstrap"
     node_group_arn    = "arn:aws:eks:us-east-1:123456789012:nodegroup/microtodosuite-dev/bootstrap/test"
@@ -130,22 +130,22 @@ run "ecr_and_irsa_contract" {
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.vpc_cni.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kube-system:aws-node"
+    condition     = jsondecode(aws_iam_role.vpc_cni[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kube-system:aws-node"
     error_message = "The CNI role trust must bind only kube-system/aws-node."
   }
 
   assert {
-    condition     = aws_iam_role_policy_attachment.vpc_cni.policy_arn == "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+    condition     = aws_iam_role_policy_attachment.vpc_cni[0].policy_arn == "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
     error_message = "AmazonEKS_CNI_Policy must be attached to the exact CNI role."
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.ebs_csi.assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+    condition     = jsondecode(aws_iam_role.ebs_csi[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:kube-system:ebs-csi-controller-sa"
     error_message = "The EBS CSI role trust must bind only kube-system/ebs-csi-controller-sa."
   }
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ebs_csi.policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    condition     = aws_iam_role_policy_attachment.ebs_csi[0].policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
     error_message = "AmazonEBSCSIDriverPolicy must be attached to the exact EBS CSI role."
   }
 

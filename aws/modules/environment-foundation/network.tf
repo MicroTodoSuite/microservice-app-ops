@@ -1,4 +1,6 @@
 resource "aws_kms_key" "vpc_flow_logs" {
+  count = var.runtime_enabled ? 1 : 0
+
   description             = "Encrypts ${local.cluster_name} VPC flow logs"
   deletion_window_in_days = 30
   enable_key_rotation     = true
@@ -43,9 +45,21 @@ resource "aws_kms_key" "vpc_flow_logs" {
   })
 }
 
+moved {
+  from = aws_kms_key.vpc_flow_logs
+  to   = aws_kms_key.vpc_flow_logs[0]
+}
+
 resource "aws_kms_alias" "vpc_flow_logs" {
+  count = var.runtime_enabled ? 1 : 0
+
   name          = "alias/${local.cluster_name}-vpc-flow-logs"
-  target_key_id = aws_kms_key.vpc_flow_logs.key_id
+  target_key_id = aws_kms_key.vpc_flow_logs[0].key_id
+}
+
+moved {
+  from = aws_kms_alias.vpc_flow_logs
+  to   = aws_kms_alias.vpc_flow_logs[0]
 }
 
 locals {
@@ -53,7 +67,7 @@ locals {
 
   # A transit-egress spoke has no NAT gateway and therefore no Elastic IP: its
   # private default route leaves through the centrally owned transit gateway.
-  nat_gateway_enabled = !local.transit_egress
+  nat_gateway_enabled = var.runtime_enabled && !local.transit_egress
 
   # Exact subnet tags the AWS Load Balancer Controller uses for discovery. They
   # are declared once here so the controller's contract and the subnets that
@@ -76,6 +90,8 @@ locals {
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "6.6.1"
+
+  count = var.runtime_enabled ? 1 : 0
 
   name   = local.cluster_name
   region = var.aws_region
@@ -109,11 +125,16 @@ module "vpc" {
   flow_log_cloudwatch_log_group_name_prefix       = "/aws/vpc-flow-logs/"
   flow_log_cloudwatch_log_group_name_suffix       = local.cluster_name
   flow_log_cloudwatch_log_group_retention_in_days = 90
-  flow_log_cloudwatch_log_group_kms_key_id        = aws_kms_key.vpc_flow_logs.arn
+  flow_log_cloudwatch_log_group_kms_key_id        = aws_kms_key.vpc_flow_logs[0].arn
   flow_log_cloudwatch_log_group_skip_destroy      = false
   flow_log_cloudwatch_log_group_class             = "STANDARD"
 
   tags = local.tags
+}
+
+moved {
+  from = module.vpc
+  to   = module.vpc[0]
 }
 
 # In transit-egress the VPC module creates no default route for the private
@@ -123,9 +144,9 @@ resource "aws_route" "private_transit_egress" {
   # The transit_gateway_id guard below reports a missing gateway as a reviewable
   # precondition failure; planning zero routes here keeps that message the only
   # error the operator has to read.
-  count = local.transit_egress && var.transit_gateway_id != null ? length(var.private_subnet_cidrs) : 0
+  count = var.runtime_enabled && local.transit_egress && var.transit_gateway_id != null ? length(var.private_subnet_cidrs) : 0
 
-  route_table_id         = module.vpc.private_route_table_ids[count.index]
+  route_table_id         = module.vpc[0].private_route_table_ids[count.index]
   destination_cidr_block = "0.0.0.0/0"
   transit_gateway_id     = var.transit_gateway_id
 }
@@ -138,18 +159,18 @@ resource "aws_route" "private_transit_egress" {
 # the applied dev and demo foundations already track it, and widening its input
 # would replace it for no behavioral gain. transit-egress gets its own gate.
 resource "terraform_data" "private_egress_ready" {
-  count = var.single_nat_gateway ? 1 : 0
+  count = var.runtime_enabled && var.single_nat_gateway ? 1 : 0
 
   input = {
-    nat_gateway_ids               = module.vpc.natgw_ids
-    private_nat_gateway_route_ids = module.vpc.private_nat_gateway_route_ids
+    nat_gateway_ids               = module.vpc[0].natgw_ids
+    private_nat_gateway_route_ids = module.vpc[0].private_nat_gateway_route_ids
   }
 }
 
 # The transit-egress equivalent: private workers must not launch before their
 # transit-gateway default routes exist, or they come up with no path off-VPC.
 resource "terraform_data" "transit_egress_ready" {
-  count = local.transit_egress ? 1 : 0
+  count = var.runtime_enabled && local.transit_egress ? 1 : 0
 
   input = {
     transit_gateway_id        = var.transit_gateway_id

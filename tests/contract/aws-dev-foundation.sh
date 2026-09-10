@@ -2,8 +2,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-FOUNDATION="$ROOT/aws/environments/dev/foundation"
-MODULE="$ROOT/aws/modules/environment-foundation"
 ENTRYPOINT="$ROOT/scripts/aws-dev-foundation.sh"
 
 fail() {

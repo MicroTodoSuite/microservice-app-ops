@@ -39,6 +39,11 @@ override.tf.json
 *.tfplan
 tfplan*
 
+# Local saved-plan bundles created by scripts/aws-profile-lifecycle.sh.
+# They can contain sensitive plan and state-derived data and must never be
+# committed.
+.aws-profile-plans/
+
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc

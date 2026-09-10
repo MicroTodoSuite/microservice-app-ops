@@ -43,7 +43,7 @@ mock_provider "aws" {
 }
 
 override_module {
-  target = module.vpc
+  target = module.vpc[0]
   outputs = {
     vpc_id                       = "vpc-0123456789abcdef0"
     public_subnets               = ["subnet-public-a", "subnet-public-b", "subnet-public-c"]
@@ -55,7 +55,7 @@ override_module {
 }
 
 override_module {
-  target = module.eks
+  target = module.eks[0]
   outputs = {
     cluster_name                       = "microtodosuite-dev"
     cluster_arn                        = "arn:aws:eks:us-east-1:123456789012:cluster/microtodosuite-dev"
@@ -71,7 +71,7 @@ override_module {
 }
 
 override_module {
-  target = module.bootstrap_node_group
+  target = module.bootstrap_node_group[0]
   outputs = {
     node_group_id     = "microtodosuite-dev:bootstrap"
     node_group_arn    = "arn:aws:eks:us-east-1:123456789012:nodegroup/microtodosuite-dev/bootstrap/test"

@@ -16,6 +16,8 @@ locals {
 }
 
 resource "aws_iam_role" "node" {
+  count = var.runtime_enabled ? 1 : 0
+
   name                 = "${local.cluster_name}-node"
   description          = "Limited worker-node role for the ${local.cluster_name} stable bootstrap node group"
   permissions_boundary = var.iam_permissions_boundary_arn
@@ -35,14 +37,21 @@ resource "aws_iam_role" "node" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy_attachment" "node" {
-  for_each = local.node_managed_policy_arns
+moved {
+  from = aws_iam_role.node
+  to   = aws_iam_role.node[0]
+}
 
-  role       = aws_iam_role.node.name
+resource "aws_iam_role_policy_attachment" "node" {
+  for_each = var.runtime_enabled ? local.node_managed_policy_arns : {}
+
+  role       = aws_iam_role.node[0].name
   policy_arn = each.value
 }
 
 resource "aws_iam_role" "vpc_cni" {
+  count = var.runtime_enabled ? 1 : 0
+
   name                 = "${local.cluster_name}-vpc-cni"
   description          = "IRSA role bound exactly to ${local.vpc_cni_subject}"
   permissions_boundary = var.iam_permissions_boundary_arn
@@ -53,13 +62,13 @@ resource "aws_iam_role" "vpc_cni" {
       Sid    = "AllowVpcCniWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = module.eks.oidc_provider_arn
+        Federated = module.eks[0].oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = local.vpc_cni_subject
+          "${module.eks[0].oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks[0].oidc_provider}:sub" = local.vpc_cni_subject
         }
       }
     }]
@@ -68,12 +77,26 @@ resource "aws_iam_role" "vpc_cni" {
   tags = local.tags
 }
 
+moved {
+  from = aws_iam_role.vpc_cni
+  to   = aws_iam_role.vpc_cni[0]
+}
+
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
-  role       = aws_iam_role.vpc_cni.name
+  count = var.runtime_enabled ? 1 : 0
+
+  role       = aws_iam_role.vpc_cni[0].name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
+moved {
+  from = aws_iam_role_policy_attachment.vpc_cni
+  to   = aws_iam_role_policy_attachment.vpc_cni[0]
+}
+
 resource "aws_iam_role" "ebs_csi" {
+  count = var.runtime_enabled ? 1 : 0
+
   name                 = "${local.cluster_name}-ebs-csi"
   description          = "IRSA role bound exactly to ${local.ebs_csi_subject}"
   permissions_boundary = var.iam_permissions_boundary_arn
@@ -84,13 +107,13 @@ resource "aws_iam_role" "ebs_csi" {
       Sid    = "AllowEbsCsiControllerWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = module.eks.oidc_provider_arn
+        Federated = module.eks[0].oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = local.ebs_csi_subject
+          "${module.eks[0].oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks[0].oidc_provider}:sub" = local.ebs_csi_subject
         }
       }
     }]
@@ -99,9 +122,21 @@ resource "aws_iam_role" "ebs_csi" {
   tags = local.tags
 }
 
+moved {
+  from = aws_iam_role.ebs_csi
+  to   = aws_iam_role.ebs_csi[0]
+}
+
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
-  role       = aws_iam_role.ebs_csi.name
+  count = var.runtime_enabled ? 1 : 0
+
+  role       = aws_iam_role.ebs_csi[0].name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.ebs_csi
+  to   = aws_iam_role_policy_attachment.ebs_csi[0]
 }
 
 # ---------------------------------------------------------------------------
@@ -119,10 +154,10 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 
 locals {
   shared_irsa_issuers = concat(
-    [{
-      provider_arn = module.eks.oidc_provider_arn
-      issuer_host  = module.eks.oidc_provider
-    }],
+    var.runtime_enabled ? [{
+      provider_arn = module.eks[0].oidc_provider_arn
+      issuer_host  = module.eks[0].oidc_provider
+    }] : [],
     [
       for label in sort(keys(var.additional_eks_oidc_issuers)) :
       var.additional_eks_oidc_issuers[label]

@@ -46,7 +46,7 @@ mock_provider "aws" {
 }
 
 override_module {
-  target = module.foundation.module.vpc
+  target = module.foundation.module.vpc[0]
   outputs = {
     vpc_id          = "vpc-0demofull00000000"
     public_subnets  = ["subnet-df-public-a", "subnet-df-public-b", "subnet-df-public-c"]
@@ -66,7 +66,7 @@ override_module {
 }
 
 override_module {
-  target = module.foundation.module.eks
+  target = module.foundation.module.eks[0]
   outputs = {
     cluster_name                       = "microtodosuite-demo-full"
     cluster_arn                        = "arn:aws:eks:us-east-1:916491575487:cluster/microtodosuite-demo-full"
@@ -82,7 +82,7 @@ override_module {
 }
 
 override_module {
-  target = module.foundation.module.bootstrap_node_group
+  target = module.foundation.module.bootstrap_node_group[0]
   outputs = {
     node_group_id     = "microtodosuite-demo-full:bootstrap"
     node_group_arn    = "arn:aws:eks:us-east-1:916491575487:nodegroup/microtodosuite-demo-full/bootstrap/test"
@@ -123,6 +123,11 @@ variables {
 
 run "current_staging_topology_is_unchanged_by_default" {
   command = plan
+
+  assert {
+    condition     = var.runtime_enabled == true
+    error_message = "The runtime boundary must default on so an ordinary staging plan preserves the current topology."
+  }
 
   assert {
     condition     = var.vpc_cidr == "10.20.0.0/16"

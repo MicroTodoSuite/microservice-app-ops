@@ -10,24 +10,24 @@
   - [X] Require a default-on `runtime_enabled` input in every foundation root
   - [X] Require plan provenance and durable-deletion guards
 
-- [ ] **T003 Implement the state-safe runtime boundary**
-  - [ ] Conditionalize VPC, EKS, nodes, add-ons, flow logs, and cluster-scoped identities
-  - [ ] Add explicit `moved` blocks for singleton address migrations
-  - [ ] Preserve ECR, Secrets Manager, Route 53, and GitHub publication resources
-  - [ ] Make runtime outputs null or empty while disabled
+- [X] **T003 Implement the state-safe runtime boundary**
+  - [X] Conditionalize VPC, EKS, nodes, add-ons, flow logs, and cluster-scoped identities
+  - [X] Add explicit `moved` blocks for singleton address migrations
+  - [X] Preserve ECR, Secrets Manager, Route 53, and GitHub publication resources
+  - [X] Make runtime outputs null or empty while disabled
 
-- [ ] **T004 Implement profile orchestration**
-  - [ ] Add economical and full root inventories and dependency order
-  - [ ] Add AWS account, local configuration, Git cleanliness, and tool preflight
-  - [ ] Create saved plans, JSON evidence, checksums, and metadata
-  - [ ] Validate plan provenance and apply only exact saved plans
-  - [ ] Require a GitOps revision for down transitions
+- [X] **T004 Implement profile orchestration**
+  - [X] Add economical and full root inventories and dependency order
+  - [X] Add AWS account, local configuration, Git cleanliness, and tool preflight
+  - [X] Create saved plans, JSON evidence, checksums, and metadata
+  - [X] Validate plan provenance and apply only exact saved plans
+  - [X] Require a GitOps revision for down transitions
 
-- [ ] **T005 Document operation and prerequisites**
-  - [ ] Document AWS login renewal for the configured source and role profiles
-  - [ ] Document exact economical and full commands
-  - [ ] Document pinned local-tool installation and verification
-  - [ ] Document residual durable cost and persistent-data warnings
+- [X] **T005 Document operation and prerequisites**
+  - [X] Document AWS login renewal for the configured source and role profiles
+  - [X] Document exact economical and full commands
+  - [X] Document pinned local-tool installation and verification
+  - [X] Document residual durable cost and persistent-data warnings
 
 - [ ] **T006 Verify without mutating AWS**
   - [ ] Run Terraform formatting, validation, and tests

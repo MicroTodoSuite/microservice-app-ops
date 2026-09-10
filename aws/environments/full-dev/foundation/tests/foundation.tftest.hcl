@@ -45,7 +45,7 @@ mock_provider "aws" {
 }
 
 override_module {
-  target = module.foundation.module.vpc
+  target = module.foundation.module.vpc[0]
   outputs = {
     vpc_id = "vpc-0fulldev000000000"
     # A transit-egress spoke keeps public subnets for load balancers only.
@@ -66,7 +66,7 @@ override_module {
 }
 
 override_module {
-  target = module.foundation.module.eks
+  target = module.foundation.module.eks[0]
   outputs = {
     cluster_name                       = "microtodosuite-full-dev"
     cluster_arn                        = "arn:aws:eks:us-east-1:916491575487:cluster/microtodosuite-full-dev"
@@ -129,7 +129,7 @@ override_resource {
 }
 
 override_module {
-  target = module.foundation.module.bootstrap_node_group
+  target = module.foundation.module.bootstrap_node_group[0]
   outputs = {
     node_group_id     = "microtodosuite-full-dev:bootstrap"
     node_group_arn    = "arn:aws:eks:us-east-1:916491575487:nodegroup/microtodosuite-full-dev/bootstrap/test"
@@ -162,6 +162,11 @@ variables {
 
 run "identity_region_and_address_space_match_the_reviewed_allocation" {
   command = plan
+
+  assert {
+    condition     = var.runtime_enabled == true
+    error_message = "The runtime boundary must default on so an ordinary full-dev plan preserves the declared topology."
+  }
 
   assert {
     condition     = var.expected_account_id == "916491575487"

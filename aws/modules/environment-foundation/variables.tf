@@ -19,6 +19,12 @@ variable "environment" {
   }
 }
 
+variable "runtime_enabled" {
+  description = "Whether this foundation owns its cost-bearing VPC, EKS cluster, nodes, add-ons, and cluster-scoped identities. Durable ECR, Secrets Manager, Route 53, and publication resources remain managed when false."
+  type        = bool
+  default     = true
+}
+
 variable "expected_account_id" {
   description = "AWS account that is allowed to receive this dev foundation."
   type        = string
