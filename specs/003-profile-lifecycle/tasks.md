@@ -29,11 +29,11 @@
   - [X] Document pinned local-tool installation and verification
   - [X] Document residual durable cost and persistent-data warnings
 
-- [ ] **T006 Verify without mutating AWS**
-  - [ ] Run Terraform formatting, validation, and tests
-  - [ ] Run shell contracts and ShellCheck
-  - [ ] Run live AWS identity and profile preflight
-  - [ ] Record that no plan apply or destroy was executed
+- [X] **T006 Verify without mutating AWS**
+  - [X] Run Terraform formatting, validation, and tests
+  - [X] Run shell contracts and ShellCheck
+  - [X] Run live AWS identity and profile preflight
+  - [X] Record that no plan apply or destroy was executed
 
 - [ ] **T007 Complete live acceptance in a separate approved operation**
   - [ ] Review a refresh-backed enabled migration plan with no physical replacements
