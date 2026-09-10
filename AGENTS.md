@@ -40,6 +40,7 @@ The Azure Container Apps estate this repository used to operate was retired on 2
 - Report outcomes faithfully in commits and pull-request bodies: name what is red, say what was skipped, and correct an earlier claim that turns out to be wrong rather than leaving the record wrong.
 
 ## Notes
+- The AWS account is declared once, in `config/aws-account.env`. Change it only with `scripts/set-aws-account.sh <account-id>`, never by editing literals: `tests/contract/aws-account-parameter.sh` fails on any tracked file that carries another account, unless `config/aws-account-exceptions.txt` names that file, the exact account, and the reason. Gitignored `.tfvars` and `.tfbackend` files are operator-owned; the script lists the ones that still need a hand edit.
 - Every environment is a separate Terraform root with a distinct state key in the shared bucket. Two roots sharing a key destroys an environment rather than erroring, so the state-key uniqueness check in `aws-full-foundation-checks.yml` is load-bearing.
 - State locking is Terraform's native S3 lockfile (`use_lockfile = true`). There is no DynamoDB lock table, by recorded decision in `specs/001-aws-dev-foundation/plan.md`.
 - The economical dev environment is the live platform and the rollback target for the whole full-profile rollout. After any change under `aws/`, re-run the dev plan and confirm `0 to add, 0 to change, 0 to destroy` from the plan JSON — `terraform show -json`, every `resource_changes` entry `no-op` — not from the printed text. Every full-profile switch defaults off.

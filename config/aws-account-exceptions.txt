@@ -1,0 +1,25 @@
+# Files that still carry an AWS account other than the one declared in
+# config/aws-account.env, each with the reason it is allowed to.
+#
+# Format: <path>  <account>[,<account>]  # <reason>
+#
+# An entry covers only the accounts it names; any other account in that file is
+# still a violation. The list exists to shrink: tests/contract/aws-account-parameter.sh
+# fails on an entry whose file no longer carries any account it names, so an
+# entry cannot outlive its reason.
+#
+# Decision 1 in microservice-app-docs/full-platform/infrastructure-execution-plan.md:
+# the full-profile roots are pinned to the retired account 916491575487.
+# Re-pointing them amends spec 009, so it is a maintainer decision, not a sweep.
+aws/environments/full-dev/foundation/variables.tf  916491575487  # decision 1: validation hard-pins the retired account
+aws/environments/full-dev/foundation/tests/foundation.tftest.hcl  916491575487  # decision 1: full-dev root tests assert the retired account
+aws/environments/full-prod/foundation/variables.tf  916491575487  # decision 1: validation hard-pins the retired account
+aws/environments/full-prod/foundation/tests/foundation.tftest.hcl  916491575487  # decision 1: full-prod root tests assert the retired account
+aws/shared/egress/variables.tf  916491575487  # decision 1: validation hard-pins the retired account
+aws/shared/egress/tests/egress.tftest.hcl  916491575487  # decision 1: egress root tests assert the retired account
+aws/modules/centralized-egress/tests/centralized-egress.tftest.hcl  916491575487  # decision 1: egress module tests assert the retired account
+aws/environments/demo-full/foundation/tests/full-staging-contract.tftest.hcl  916491575487  # decisions 1 and 2: demo-full has to be recreated
+#
+# Not account configuration.
+aws/environments/dev/backend/README.md  995253610162  # history: records the 2026-08-16 plan run in the original account
+aws/modules/environment-foundation/tests/observability_security_irsa.tftest.hcl  995253610162  # mock data only; never planned or applied
