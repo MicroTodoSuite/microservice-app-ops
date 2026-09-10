@@ -90,6 +90,11 @@ run "full_profile_switches_are_declared_and_default_safe" {
   command = plan
 
   assert {
+    condition     = var.runtime_enabled == true
+    error_message = "The runtime boundary must default on so an ordinary dev plan preserves the live economical topology."
+  }
+
+  assert {
     condition     = var.outbound_mode == "direct-nat" && var.transit_gateway_id == null
     error_message = "The root must default to the in-VPC NAT egress dev already uses."
   }

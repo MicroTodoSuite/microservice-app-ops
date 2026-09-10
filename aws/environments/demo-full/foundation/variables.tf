@@ -8,6 +8,12 @@ variable "environment" {
   }
 }
 
+variable "runtime_enabled" {
+  description = "Whether the full staging VPC, EKS cluster, nodes, add-ons, and cluster-scoped identities are present."
+  type        = bool
+  default     = true
+}
+
 variable "expected_account_id" {
   description = "AWS account that is allowed to receive this foundation."
   type        = string

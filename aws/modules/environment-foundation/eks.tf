@@ -18,11 +18,13 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.24.2"
 
+  count = var.runtime_enabled ? 1 : 0
+
   name               = local.cluster_name
   kubernetes_version = var.kubernetes_version
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.vpc[0].vpc_id
+  subnet_ids = module.vpc[0].private_subnets
 
   endpoint_private_access                  = true
   endpoint_public_access                   = true
@@ -61,11 +63,18 @@ module "eks" {
   depends_on = [terraform_data.eks_input_guard]
 }
 
+moved {
+  from = module.eks
+  to   = module.eks[0]
+}
+
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name                = module.eks.cluster_name
+  count = var.runtime_enabled ? 1 : 0
+
+  cluster_name                = module.eks[0].cluster_name
   addon_name                  = "vpc-cni"
   addon_version               = local.addon_versions.vpc_cni
-  service_account_role_arn    = aws_iam_role.vpc_cni.arn
+  service_account_role_arn    = aws_iam_role.vpc_cni[0].arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "PRESERVE"
 
@@ -91,9 +100,16 @@ resource "aws_eks_addon" "vpc_cni" {
   depends_on = [aws_iam_role_policy_attachment.vpc_cni]
 }
 
+moved {
+  from = aws_eks_addon.vpc_cni
+  to   = aws_eks_addon.vpc_cni[0]
+}
+
 module "bootstrap_node_group" {
   source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
   version = "21.24.2"
+
+  count = var.runtime_enabled ? 1 : 0
 
   # The pinned module enforces create-before-destroy for node groups. A unique
   # physical name lets replacements coexist while the logical bootstrap tag and
@@ -101,15 +117,15 @@ module "bootstrap_node_group" {
   name            = "bootstrap"
   use_name_prefix = true
 
-  cluster_name                      = module.eks.cluster_name
-  cluster_endpoint                  = module.eks.cluster_endpoint
-  cluster_auth_base64               = module.eks.cluster_certificate_authority_data
-  cluster_service_cidr              = module.eks.cluster_service_cidr
+  cluster_name                      = module.eks[0].cluster_name
+  cluster_endpoint                  = module.eks[0].cluster_endpoint
+  cluster_auth_base64               = module.eks[0].cluster_certificate_authority_data
+  cluster_service_cidr              = module.eks[0].cluster_service_cidr
   cluster_ip_family                 = "ipv4"
   kubernetes_version                = var.kubernetes_version
-  subnet_ids                        = module.vpc.private_subnets
-  vpc_security_group_ids            = [module.eks.node_security_group_id]
-  cluster_primary_security_group_id = module.eks.cluster_primary_security_group_id
+  subnet_ids                        = module.vpc[0].private_subnets
+  vpc_security_group_ids            = [module.eks[0].node_security_group_id]
+  cluster_primary_security_group_id = module.eks[0].cluster_primary_security_group_id
 
   ami_type                       = "AL2023_x86_64_STANDARD"
   ami_release_version            = var.bootstrap_node_ami_release_version
@@ -155,7 +171,7 @@ module "bootstrap_node_group" {
   }
 
   create_iam_role            = false
-  iam_role_arn               = aws_iam_role.node.arn
+  iam_role_arn               = aws_iam_role.node[0].arn
   iam_role_attach_cni_policy = false
   create_iam_role_policy     = false
 
@@ -173,8 +189,15 @@ module "bootstrap_node_group" {
   ]
 }
 
+moved {
+  from = module.bootstrap_node_group
+  to   = module.bootstrap_node_group[0]
+}
+
 resource "aws_eks_addon" "coredns" {
-  cluster_name                = module.eks.cluster_name
+  count = var.runtime_enabled ? 1 : 0
+
+  cluster_name                = module.eks[0].cluster_name
   addon_name                  = "coredns"
   addon_version               = local.addon_versions.coredns
   resolve_conflicts_on_create = "OVERWRITE"
@@ -185,8 +208,15 @@ resource "aws_eks_addon" "coredns" {
   depends_on = [module.bootstrap_node_group]
 }
 
+moved {
+  from = aws_eks_addon.coredns
+  to   = aws_eks_addon.coredns[0]
+}
+
 resource "aws_eks_addon" "kube_proxy" {
-  cluster_name                = module.eks.cluster_name
+  count = var.runtime_enabled ? 1 : 0
+
+  cluster_name                = module.eks[0].cluster_name
   addon_name                  = "kube-proxy"
   addon_version               = local.addon_versions.kube_proxy
   resolve_conflicts_on_create = "OVERWRITE"
@@ -197,11 +227,18 @@ resource "aws_eks_addon" "kube_proxy" {
   depends_on = [module.bootstrap_node_group]
 }
 
+moved {
+  from = aws_eks_addon.kube_proxy
+  to   = aws_eks_addon.kube_proxy[0]
+}
+
 resource "aws_eks_addon" "ebs_csi" {
-  cluster_name                = module.eks.cluster_name
+  count = var.runtime_enabled ? 1 : 0
+
+  cluster_name                = module.eks[0].cluster_name
   addon_name                  = "aws-ebs-csi-driver"
   addon_version               = local.addon_versions.ebs_csi
-  service_account_role_arn    = aws_iam_role.ebs_csi.arn
+  service_account_role_arn    = aws_iam_role.ebs_csi[0].arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "PRESERVE"
 
@@ -211,4 +248,9 @@ resource "aws_eks_addon" "ebs_csi" {
     module.bootstrap_node_group,
     aws_iam_role_policy_attachment.ebs_csi,
   ]
+}
+
+moved {
+  from = aws_eks_addon.ebs_csi
+  to   = aws_eks_addon.ebs_csi[0]
 }

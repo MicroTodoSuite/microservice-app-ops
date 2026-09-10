@@ -9,6 +9,12 @@ variable "environment" {
   }
 }
 
+variable "runtime_enabled" {
+  description = "Whether the full-production VPC, EKS cluster, nodes, add-ons, and cluster-scoped identities are present."
+  type        = bool
+  default     = true
+}
+
 variable "expected_account_id" {
   description = "AWS account allowed to receive the full-prod foundation."
   type        = string

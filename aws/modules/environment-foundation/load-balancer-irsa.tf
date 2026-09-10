@@ -20,13 +20,13 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
       Sid    = "AllowLoadBalancerControllerWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = module.eks.oidc_provider_arn
+        Federated = module.eks[0].oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = var.aws_load_balancer_controller_service_account_subject
+          "${module.eks[0].oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks[0].oidc_provider}:sub" = var.aws_load_balancer_controller_service_account_subject
         }
       }
     }]
@@ -36,7 +36,7 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
 }
 
 resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
-  for_each = var.enable_full_profile_cluster_prerequisites ? var.aws_load_balancer_controller_policy_arns : toset([])
+  for_each = var.runtime_enabled && var.enable_full_profile_cluster_prerequisites ? var.aws_load_balancer_controller_policy_arns : toset([])
 
   role       = aws_iam_role.aws_load_balancer_controller[0].name
   policy_arn = each.value

@@ -4,13 +4,13 @@ locals {
 }
 
 data "aws_iam_role" "kyverno_ecr_verifier" {
-  count = var.create_shared_resources ? 0 : 1
+  count = !var.create_shared_resources && var.runtime_enabled ? 1 : 0
 
   name = local.kyverno_ecr_verifier_role_name
 }
 
 resource "aws_iam_role" "kyverno_ecr_verifier" {
-  count = var.create_shared_resources ? 1 : 0
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
 
   name                 = local.kyverno_ecr_verifier_role_name
   description          = "Read neutral private ECR artifacts for Kyverno signature admission"
@@ -50,7 +50,7 @@ moved {
 }
 
 resource "aws_iam_role_policy" "kyverno_ecr_verifier" {
-  count = var.create_shared_resources ? 1 : 0
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
 
   name = "verify-neutral-ecr-artifacts"
   role = aws_iam_role.kyverno_ecr_verifier[0].id

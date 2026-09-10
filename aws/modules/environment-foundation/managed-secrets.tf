@@ -31,7 +31,7 @@ resource "aws_secretsmanager_secret_version" "environment_jwt" {
 }
 
 resource "aws_iam_role" "environment_jwt_reader" {
-  for_each = var.shared_environments
+  for_each = var.runtime_enabled ? var.shared_environments : toset([])
 
   name                 = "${var.project}-${each.key}-jwt-reader"
   description          = "Read only the ${each.key} JWT source secret through external-secrets-jwt"
@@ -43,13 +43,13 @@ resource "aws_iam_role" "environment_jwt_reader" {
       Sid    = "AllowExactExternalSecretsServiceAccount"
       Effect = "Allow"
       Principal = {
-        Federated = module.eks.oidc_provider_arn
+        Federated = module.eks[0].oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = local.environment_jwt_subjects[each.key]
+          "${module.eks[0].oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks[0].oidc_provider}:sub" = local.environment_jwt_subjects[each.key]
         }
       }
     }]
@@ -61,7 +61,7 @@ resource "aws_iam_role" "environment_jwt_reader" {
 }
 
 resource "aws_iam_role_policy" "environment_jwt_reader" {
-  for_each = var.shared_environments
+  for_each = var.runtime_enabled ? var.shared_environments : toset([])
 
   name = "read-exact-environment-jwt-secret"
   role = aws_iam_role.environment_jwt_reader[each.key].id
@@ -92,7 +92,7 @@ resource "aws_iam_role_policy" "environment_jwt_reader" {
 # ---------------------------------------------------------------------------
 
 locals {
-  consumer_jwt_enabled = var.consumer_jwt_environment != null && !var.create_shared_resources
+  consumer_jwt_enabled = var.runtime_enabled && var.consumer_jwt_environment != null && !var.create_shared_resources
 
   consumer_jwt_secret_name = local.consumer_jwt_enabled ? "${var.project}/${var.consumer_jwt_environment}/auth-api-secrets" : null
 
@@ -118,13 +118,13 @@ resource "aws_iam_role" "consumer_jwt_reader" {
       Sid    = "AllowExactExternalSecretsServiceAccount"
       Effect = "Allow"
       Principal = {
-        Federated = module.eks.oidc_provider_arn
+        Federated = module.eks[0].oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          "${module.eks.oidc_provider}:sub" = local.consumer_jwt_subject
+          "${module.eks[0].oidc_provider}:aud" = "sts.amazonaws.com"
+          "${module.eks[0].oidc_provider}:sub" = local.consumer_jwt_subject
         }
       }
     }]

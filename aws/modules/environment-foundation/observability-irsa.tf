@@ -40,13 +40,13 @@ moved {
 }
 
 data "aws_iam_role" "observability_secrets_reader" {
-  count = var.create_shared_resources ? 0 : 1
+  count = !var.create_shared_resources && var.runtime_enabled ? 1 : 0
 
   name = local.observability_secrets_reader_role_name
 }
 
 resource "aws_iam_role" "observability_secrets_reader" {
-  count = var.create_shared_resources ? 1 : 0
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
 
   name                 = local.observability_secrets_reader_role_name
   description          = "Read only the Alertmanager Slack webhook through ${var.observability_service_account_subject}"
@@ -86,7 +86,7 @@ moved {
 }
 
 resource "aws_iam_role_policy" "observability_secrets_reader" {
-  count = var.create_shared_resources ? 1 : 0
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
 
   name = "read-exact-observability-slack-webhook"
   role = aws_iam_role.observability_secrets_reader[0].id

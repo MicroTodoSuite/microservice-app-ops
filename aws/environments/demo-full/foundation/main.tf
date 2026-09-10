@@ -2,6 +2,7 @@ module "foundation" {
   source = "../../../modules/environment-foundation"
 
   environment         = var.environment
+  runtime_enabled     = var.runtime_enabled
   expected_account_id = var.expected_account_id
   aws_region          = var.aws_region
   owner               = var.owner

@@ -7,7 +7,11 @@ on:
     paths:
       - 'aws/**'
       - 'scripts/aws-dev-foundation.sh'
+      - 'scripts/aws-profile-lifecycle.sh'
       - 'tests/contract/aws-dev-foundation.sh'
+      - 'tests/contract/aws-profile-lifecycle.sh'
+      - 'docs/aws-profile-lifecycle.md'
+      - 'specs/003-profile-lifecycle/**'
       - '.terraform-version'
       - '.github/workflows/aws-dev-foundation-checks.yml'
       - 'tests/workflows/foundation-checks.bats'
@@ -32,7 +36,7 @@ jobs:
       - name: Install shell test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ripgrep
+          sudo apt-get install --yes ripgrep shellcheck
 
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive aws
@@ -71,7 +75,10 @@ jobs:
           TF_DATA_DIR: ${{ runner.temp }}/terraform-data/foundation
 
       - name: Verify the shell contract
-        run: ./tests/contract/aws-dev-foundation.sh
+        run: |
+          ./tests/contract/aws-dev-foundation.sh
+          ./tests/contract/aws-profile-lifecycle.sh
+          shellcheck --severity=warning scripts/aws-dev-foundation.sh scripts/aws-profile-lifecycle.sh tests/contract/*.sh
 
       - name: Verify the root and workflow foundation contract
         run: ./tests/workflows/foundation-checks.bats

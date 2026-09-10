@@ -33,7 +33,7 @@ mock_provider "aws" {
 }
 
 override_module {
-  target = module.vpc
+  target = module.vpc[0]
   outputs = {
     vpc_id                       = "vpc-0123456789abcdef0"
     public_subnets               = ["subnet-public-a", "subnet-public-b", "subnet-public-c"]
@@ -47,7 +47,7 @@ override_module {
 }
 
 override_module {
-  target = module.eks
+  target = module.eks[0]
   outputs = {
     cluster_name                       = "microtodosuite-dev"
     cluster_arn                        = "arn:aws:eks:us-east-1:123456789012:cluster/microtodosuite-dev"
@@ -63,7 +63,7 @@ override_module {
 }
 
 override_module {
-  target = module.bootstrap_node_group
+  target = module.bootstrap_node_group[0]
   outputs = {
     node_group_id     = "microtodosuite-dev:bootstrap"
     node_group_arn    = "arn:aws:eks:us-east-1:123456789012:nodegroup/microtodosuite-dev/bootstrap/test"
@@ -132,17 +132,17 @@ run "network_and_eks_contract" {
   }
 
   assert {
-    condition     = aws_eks_addon.vpc_cni.addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns.addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy.addon_version == "v1.35.3-eksbuild.18" && aws_eks_addon.ebs_csi.addon_version == "v1.64.0-eksbuild.1"
+    condition     = aws_eks_addon.vpc_cni[0].addon_version == "v1.23.0-eksbuild.1" && aws_eks_addon.coredns[0].addon_version == "v1.14.3-eksbuild.3" && aws_eks_addon.kube_proxy[0].addon_version == "v1.35.3-eksbuild.18" && aws_eks_addon.ebs_csi[0].addon_version == "v1.64.0-eksbuild.1"
     error_message = "The four EKS managed add-ons must use the reviewed Kubernetes 1.35 versions."
   }
 
   assert {
-    condition     = try(jsondecode(aws_eks_addon.vpc_cni.configuration_values).enableNetworkPolicy == "true", false)
+    condition     = try(jsondecode(aws_eks_addon.vpc_cni[0].configuration_values).enableNetworkPolicy == "true", false)
     error_message = "The VPC CNI managed add-on must declaratively enable its network-policy node agent."
   }
 
   assert {
-    condition     = try(jsondecode(aws_eks_addon.vpc_cni.configuration_values).env.ENABLE_PREFIX_DELEGATION == "true", false)
+    condition     = try(jsondecode(aws_eks_addon.vpc_cni[0].configuration_values).env.ENABLE_PREFIX_DELEGATION == "true", false)
     error_message = "The VPC CNI managed add-on must enable prefix delegation to raise max pods per node without additional EC2 spend."
   }
 }
@@ -434,7 +434,7 @@ run "transit_egress_spoke_has_no_nat_or_elastic_ip" {
   command = plan
 
   override_module {
-    target = module.vpc
+    target = module.vpc[0]
     outputs = {
       vpc_id                       = "vpc-0123456789abcdef0"
       public_subnets               = ["subnet-public-a", "subnet-public-b", "subnet-public-c"]
@@ -619,4 +619,52 @@ run "reject_unordered_bootstrap_bounds" {
   }
 
   expect_failures = [terraform_data.eks_input_guard]
+}
+
+run "runtime_disabled_preserves_durable_resources" {
+  command = plan
+
+  variables {
+    runtime_enabled                = false
+    expected_account_id            = "123456789012"
+    aws_region                     = "us-east-1"
+    availability_zones             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    vpc_cidr                       = "10.10.0.0/16"
+    public_subnet_cidrs            = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+    private_subnet_cidrs           = ["10.10.16.0/20", "10.10.32.0/20", "10.10.48.0/20"]
+    cluster_public_access_cidrs    = ["203.0.113.10/32"]
+    bootstrap_admin_principal_arns = ["arn:aws:iam::123456789012:role/platform-admin"]
+  }
+
+  assert {
+    condition = (
+      output.foundation_contract.runtime_enabled == false &&
+      length(module.vpc) == 0 &&
+      length(module.eks) == 0 &&
+      length(module.bootstrap_node_group) == 0 &&
+      output.vpc_id == null &&
+      output.cluster_name == null
+    )
+    error_message = "Disabling runtime must remove the VPC, EKS cluster, and bootstrap node group and expose null runtime outputs."
+  }
+
+  assert {
+    condition = (
+      length(aws_ecr_repository.services) == 5 &&
+      length(aws_secretsmanager_secret.environment_jwt) == 3 &&
+      length(aws_secretsmanager_secret_version.environment_jwt) == 3 &&
+      length(aws_iam_openid_connect_provider.github_actions) == 1
+    )
+    error_message = "Disabling runtime must preserve service images, JWT secret containers and values, and the GitHub publication identity."
+  }
+
+  assert {
+    condition = (
+      length(aws_iam_role.node) == 0 &&
+      length(aws_iam_role.vpc_cni) == 0 &&
+      length(aws_iam_role.ebs_csi) == 0 &&
+      length(aws_iam_role.environment_jwt_reader) == 0
+    )
+    error_message = "Cluster-scoped node and IRSA identities must be absent with the runtime."
+  }
 }

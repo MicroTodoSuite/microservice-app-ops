@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------
 
 locals {
-  full_profile_prerequisite_count = var.enable_full_profile_cluster_prerequisites ? 1 : 0
+  full_profile_prerequisite_count = var.runtime_enabled && var.enable_full_profile_cluster_prerequisites ? 1 : 0
 }
 
 resource "aws_kms_key" "karpenter_interruption" {
@@ -80,18 +80,18 @@ data "aws_iam_policy_document" "karpenter_controller_irsa" {
 
     principals {
       type        = "Federated"
-      identifiers = [module.eks.oidc_provider_arn]
+      identifiers = [module.eks[0].oidc_provider_arn]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${module.eks.oidc_provider}:aud"
+      variable = "${module.eks[0].oidc_provider}:aud"
       values   = ["sts.amazonaws.com"]
     }
 
     condition {
       test     = "StringEquals"
-      variable = "${module.eks.oidc_provider}:sub"
+      variable = "${module.eks[0].oidc_provider}:sub"
       values   = [var.karpenter_service_account_subject]
     }
   }
@@ -104,7 +104,7 @@ module "karpenter" {
   count = local.full_profile_prerequisite_count
 
   create       = true
-  cluster_name = module.eks.cluster_name
+  cluster_name = module.eks[0].cluster_name
   region       = var.aws_region
 
   # Controller identity, scoped to this cluster's own OIDC issuer.
