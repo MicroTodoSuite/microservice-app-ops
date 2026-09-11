@@ -44,6 +44,41 @@ Physical names use the client code `lex` (Lexfield Legal); the first draft used
 No load balancer, ACM certificate, SQS queue, SSM parameter, or transit gateway
 exists. The full-profile roots have never been applied.
 
+## Reconciliation — the economical runtime was torn down on 2026-09-11
+
+The runtime was brought down with the profile-lifecycle interface
+(`make plan-down` / `make apply-down PROFILE=economical`) after the GitOps
+quiescence changes (microservice-app-gitops#109, #112, #113), before this
+feature's preservation phase ran. CloudTrail, read on 2026-09-11, records one
+`DeleteCluster`, three `DeleteNatGateway`, two `TerminateInstances`, one
+`DeleteVpc`, twelve `DeleteRole`, four `DeleteVolume` (2026-09-11T13:51:36-05:00 2026-09-11T13:51:48-05:00), and two
+`ScheduleKeyDeletion`.
+
+| Item | Outcome |
+| --- | --- |
+| State bucket, its KMS key, and the dev foundation state | Preserved |
+| ECR: five repositories holding 33 images; five empty `dev/*` repositories | Preserved |
+| Six Secrets Manager secrets, including both Slack webhooks | Preserved; none scheduled for deletion |
+| Publisher and Terraform execution roles, GitHub OIDC provider | Preserved |
+| Public zone `microtodosuite.abrdns.com` | Preserved |
+| Four observability volumes: Prometheus 10 GiB, Loki 10 GiB, Jaeger 5 GiB, Grafana 2 GiB | **Deleted without a snapshot**; the development metric, log, and trace history is lost |
+| Log groups of the cluster and the VPC flow logs | **Deleted without an export** |
+| KMS keys for EKS secrets and flow logs | Pending deletion until 2026-10-11; nothing in the rebuild needs them |
+
+Consequences for this feature:
+
+- The destruction this plan scheduled for its window has already happened for
+  everything the lifecycle classifies as runtime. The window shrinks to the
+  **persistent** resources: they keep their old names under the dev foundation's
+  state and are renamed by creating the new resources, migrating their contents,
+  and deleting the old ones after validation.
+- Because nothing is running, the economical platform is brought up for the
+  first time in the target layout, not rebuilt in place.
+- With the runtime already down and decision G4 taken, the modules are written
+  directly in `terraform-aws-modules` and consumed by tag, instead of locally
+  first. That removes PC-IAC-015's transition exception; the maintainer can keep
+  the local-first order instead.
+
 ## Target layout
 
 ```
