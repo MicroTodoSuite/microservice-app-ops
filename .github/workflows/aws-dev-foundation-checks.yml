@@ -17,6 +17,10 @@ on:
       - '.terraform-version'
       - '.github/workflows/aws-dev-foundation-checks.yml'
       - 'tests/workflows/foundation-checks.bats'
+      - 'config/**'
+      - 'scripts/set-aws-account.sh'
+      - 'tests/contract/aws-account-parameter.sh'
+      - 'tests/contract/set-aws-account.sh'
 
 permissions:
   contents: read
@@ -82,6 +86,12 @@ jobs:
           ./tests/contract/aws-profile-lifecycle.sh
           ./tests/contract/aws-profile-lifecycle-make.sh
           shellcheck --severity=warning scripts/aws-dev-foundation.sh scripts/aws-profile-lifecycle.sh tests/contract/*.sh
+
+      - name: Verify the single declared AWS account
+        run: ./tests/contract/aws-account-parameter.sh
+
+      - name: Verify the one-command account change
+        run: ./tests/contract/set-aws-account.sh
 
       - name: Verify the root and workflow foundation contract
         run: ./tests/workflows/foundation-checks.bats
