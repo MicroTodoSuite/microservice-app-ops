@@ -231,6 +231,23 @@ evidence and re-entering the GitOps-only operating model after bootstrap.
 
 ---
 
+## Phase 9: The Account as a Parameter
+
+**Purpose**: Declare the AWS account once so the next account change is one
+command and a passing contract, not a repository-wide search. Three accounts in
+three weeks (`995253610162`, `916491575487`, `575172595729`) made this necessary.
+
+- [X] T063 Add failing contracts in `tests/contract/aws-account-parameter.sh` and
+  `tests/contract/set-aws-account.sh` requiring one declared account, rejecting any
+  tracked file that carries another or a retired account, and proving a
+  one-command change on a disposable copy
+- [X] T064 Declare the account in `config/aws-account.env`, implement
+  `scripts/set-aws-account.sh`, list every remaining foreign account with its reason
+  in `config/aws-account-exceptions.txt`, make `tests/contract/aws-dev-foundation.sh`
+  read the declaration, and run both contracts in `aws-dev-foundation-checks.yml`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

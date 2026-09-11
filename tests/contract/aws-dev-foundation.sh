@@ -20,6 +20,12 @@ require_text() {
   rg -q -- "$pattern" "$ROOT/$file" || fail "$message"
 }
 
+# The AWS account is declared once; these checks read it rather than repeat it.
+ACCOUNT_CONFIG="$ROOT/config/aws-account.env"
+AWS_ACCOUNT_ID="$(sed -n 's/^AWS_ACCOUNT_ID=\([0-9]*\)[[:space:]]*$/\1/p' "$ACCOUNT_CONFIG")"
+RETIRED_ACCOUNT_PATTERN="$(sed -n 's/^RETIRED_AWS_ACCOUNT_IDS="\([0-9 ]*\)"[[:space:]]*$/\1/p' "$ACCOUNT_CONFIG" | xargs | tr ' ' '|')"
+[[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || fail "config/aws-account.env does not declare the AWS account"
+
 reject_text() {
   local path=$1
   local pattern=$2
@@ -109,15 +115,15 @@ require_text "aws/modules/environment-foundation/route53.tf" 'force_destroy[[:sp
   "the public hosted zone must not permit destructive record cleanup"
 require_text "aws/environments/dev/foundation/dev.tfvars" 'public_hosted_zone_name[[:space:]]*=[[:space:]]*"microtodosuite\.abrdns\.com"' \
   "the committed foundation does not select the registered public domain"
-require_text "aws/environments/dev/backend/dev.tfvars" 'expected_account_id[[:space:]]*=[[:space:]]*"575172595729"' \
-  "the backend does not target the approved replacement AWS account"
-require_text "aws/environments/dev/foundation/dev.tfvars" 'expected_account_id[[:space:]]*=[[:space:]]*"575172595729"' \
-  "the foundation does not target the approved replacement AWS account"
-require_text "aws/environments/dev/foundation/dev.tfvars" 'arn:aws:iam::575172595729:role/microtodosuite-terraform-dev' \
-  "the EKS bootstrap administrator is not the replacement-account Terraform role"
-require_text "aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json" 'arn:aws:iam::575172595729:' \
-  "the reviewed Terraform execution policy does not target the replacement account"
-if rg -n -- '995253610162|916491575487' \
+require_text "aws/environments/dev/backend/dev.tfvars" "expected_account_id[[:space:]]*=[[:space:]]*\"${AWS_ACCOUNT_ID}\"" \
+  "the backend does not target the declared AWS account"
+require_text "aws/environments/dev/foundation/dev.tfvars" "expected_account_id[[:space:]]*=[[:space:]]*\"${AWS_ACCOUNT_ID}\"" \
+  "the foundation does not target the declared AWS account"
+require_text "aws/environments/dev/foundation/dev.tfvars" "arn:aws:iam::${AWS_ACCOUNT_ID}:role/microtodosuite-terraform-dev" \
+  "the EKS bootstrap administrator is not the declared account's Terraform role"
+require_text "aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json" "arn:aws:iam::${AWS_ACCOUNT_ID}:" \
+  "the reviewed Terraform execution policy does not target the declared account"
+if [[ -n "$RETIRED_ACCOUNT_PATTERN" ]] && rg -n -- "$RETIRED_ACCOUNT_PATTERN" \
   "$ROOT/aws/environments/dev/backend/dev.tfvars" \
   "$ROOT/aws/environments/dev/foundation/dev.tfvars" \
   "$ROOT/aws/environments/dev/backend/namespace-isolation-terraform-execution-policy.json" >/dev/null; then
