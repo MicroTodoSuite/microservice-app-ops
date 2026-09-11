@@ -1,3 +1,11 @@
+## [1.5.2](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.1...v1.5.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* **lifecycle:** canonicalize saved bundle paths ([1e64e13](https://github.com/MicroTodoSuite/microservice-app-ops/commit/1e64e13b3c0f0afc9e2e8780a5430cc892a99534))
+* **lifecycle:** keep bundle fixture self-contained ([29baf87](https://github.com/MicroTodoSuite/microservice-app-ops/commit/29baf8794c28eaa0eb15954a3027361699a77682))
+
 ## [1.5.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.0...v1.5.1) (2026-09-11)
 
 
