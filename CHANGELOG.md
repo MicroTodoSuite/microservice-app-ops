@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.0...v1.5.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **lifecycle:** allow cluster OIDC shutdown ([5ac34e9](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5ac34e9aa347725525e6ef7883649fdec366b927))
+
 # [1.5.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.4.0...v1.5.0) (2026-09-11)
 
 
