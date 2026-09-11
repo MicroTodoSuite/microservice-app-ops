@@ -65,6 +65,6 @@
 - [ ] **T011 Distinguish runtime EKS OIDC from durable GitHub OIDC during shutdown audit**
   - [X] Inspect the failed economical plan and identify the EKS issuer and exact resource address
   - [X] Commit a failing behavioral contract for runtime EKS OIDC, durable GitHub OIDC, and ECR
-  - [ ] Replace the broad provider-type match with a versioned address-aware durable filter
-  - [ ] Re-audit the captured economical plan without applying it
+  - [X] Replace the broad provider-type match with a versioned address-aware durable filter
+  - [X] Re-audit the captured economical plan without applying it
   - [ ] Verify a newly generated saved plan bundle and retain the apply gate

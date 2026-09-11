@@ -41,6 +41,7 @@ reject_text() {
 require_file "scripts/aws-profile-lifecycle.sh"
 require_file "scripts/aws-profile-durable-deletes.jq"
 require_file "docs/aws-profile-lifecycle.md"
+require_file ".github/workflows/aws-dev-foundation-checks.yml"
 
 [[ -x "$ENTRYPOINT" ]] || fail "scripts/aws-profile-lifecycle.sh is not executable"
 
@@ -87,6 +88,8 @@ reject_text "scripts/aws-profile-lifecycle.sh" 'auto-approve|kubectl[[:space:]]+
   "wrapper must not auto-approve Terraform or mutate GitOps-managed clusters"
 require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[[:space:]]+"\$DURABLE_DELETE_FILTER"' \
   "wrapper must audit shutdown plans with the versioned durable-delete filter"
+require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-durable-deletes\\.jq" \
+  "AWS foundation workflow must run when the durable-delete filter changes"
 
 runtime_oidc_plan="$(jq -n '
   {

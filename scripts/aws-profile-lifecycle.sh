@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLAN_ROOT="$ROOT_DIR/.aws-profile-plans"
 GITOPS_DIR="$(cd "$ROOT_DIR/.." && pwd)/microservice-app-gitops"
 EXPECTED_TERRAFORM_VERSION="$(tr -d '[:space:]' <"$ROOT_DIR/.terraform-version")"
+DURABLE_DELETE_FILTER="$ROOT_DIR/scripts/aws-profile-durable-deletes.jq"
 
 usage() {
   cat >&2 <<'EOF'
@@ -177,15 +178,8 @@ init_profile() {
 assert_no_durable_deletes() {
   local plan_json=$1
   local deleted
-  deleted="$(jq -r '
-    .resource_changes[]?
-    | select(.change.actions | index("delete"))
-    | select(
-        (.type | test("^aws_(ecr_repository|ecr_lifecycle_policy|secretsmanager_secret|secretsmanager_secret_version|route53_zone|route53_record|iam_openid_connect_provider)$"))
-        or (.address | test("(github_ecr_publisher|github_platform_mirror|dr_secret_seed)"))
-      )
-    | .address
-  ' "$plan_json")"
+  require_file "$DURABLE_DELETE_FILTER"
+  deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" "$plan_json")"
   [[ -z "$deleted" ]] || fail "Saved shutdown plan attempts to delete durable resources: ${deleted//$'\n'/, }."
 }
 

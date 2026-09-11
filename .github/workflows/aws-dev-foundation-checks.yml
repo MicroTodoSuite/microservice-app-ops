@@ -9,6 +9,7 @@ on:
       - 'aws/**'
       - 'scripts/aws-dev-foundation.sh'
       - 'scripts/aws-profile-lifecycle.sh'
+      - 'scripts/aws-profile-durable-deletes.jq'
       - 'tests/contract/aws-dev-foundation.sh'
       - 'tests/contract/aws-profile-lifecycle.sh'
       - 'tests/contract/aws-profile-lifecycle-make.sh'
