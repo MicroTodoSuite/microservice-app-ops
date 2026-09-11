@@ -41,3 +41,9 @@
   - [ ] Apply the approved shutdown bundle
   - [ ] Restore through a separately reviewed economical up bundle
   - [ ] Migrate and accept full-profile roots before their first replacement-account apply
+
+- [X] **T008 Make the operator lifecycle portable on the documented workstation**
+  - [X] Commit a failing contract that rejects a mandatory ripgrep dependency
+  - [X] Use stock GNU grep for wrapper state checks
+  - [X] Document ripgrep as optional rather than preinstalled
+  - [X] Verify economical preflight without ripgrep on `PATH`

@@ -15,16 +15,24 @@ require_file() {
 
 require_text() {
   local file=$1
-  local pattern=$2
-  local message=$3
-  rg -q -- "$pattern" "$ROOT/$file" || fail "$message"
+  shift
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+  local pattern=$1
+  local message=$2
+  grep -Eq -- "$pattern" "$ROOT/$file" || fail "$message"
 }
 
 reject_text() {
   local file=$1
-  local pattern=$2
-  local message=$3
-  if rg -n -- "$pattern" "$ROOT/$file" >/dev/null; then
+  shift
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+  local pattern=$1
+  local message=$2
+  if grep -En -- "$pattern" "$ROOT/$file" >/dev/null; then
     fail "$message"
   fi
 }
@@ -67,6 +75,12 @@ require_text "scripts/aws-profile-lifecycle.sh" 'runtime_enabled=false' \
   "foundation shutdown must use the runtime boundary"
 require_text "scripts/aws-profile-lifecycle.sh" 'plan[[:space:]]+-destroy' \
   "full shutdown must plan destruction of the ephemeral egress root"
+require_text "scripts/aws-profile-lifecycle.sh" 'require_command[[:space:]]+grep' \
+  "wrapper must preflight its portable grep dependency"
+require_text "scripts/aws-profile-lifecycle.sh" 'grep[[:space:]]+-Eq' \
+  "wrapper state checks must use portable extended grep"
+reject_text "scripts/aws-profile-lifecycle.sh" '(^|[[:space:]])rg([[:space:]]|$)' \
+  "wrapper must not require ripgrep for operator commands"
 reject_text "scripts/aws-profile-lifecycle.sh" 'auto-approve|kubectl[[:space:]]+(apply|delete|patch|scale)' \
   "wrapper must not auto-approve Terraform or mutate GitOps-managed clusters"
 

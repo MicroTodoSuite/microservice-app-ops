@@ -96,7 +96,7 @@ verify_toolchain() {
   require_command aws
   require_command git
   require_command jq
-  require_command rg
+  require_command grep
   require_command sha256sum
 
   local actual_version
@@ -231,7 +231,7 @@ plan_profile() {
 
     if [[ "$profile" == "full" && "$direction" == "up" && "$name" == "egress" ]]; then
       state_before="$(terraform -chdir="$root" state list 2>/dev/null || true)"
-      if ! rg -q 'module\.egress' <<<"$state_before"; then
+      if ! grep -Eq 'module\.egress' <<<"$state_before"; then
         full_up_egress_only=true
       else
         transit_gateway_id="$(terraform -chdir="$root" output -raw transit_gateway_id)"
@@ -383,9 +383,9 @@ status_profile() {
     root="$ROOT_DIR/$relative_root"
     init_root "$root" "$root/$backend_name" >/dev/null
     state="$(terraform -chdir="$root" state list 2>/dev/null || true)"
-    if [[ "$kind" == "foundation" ]] && rg -q 'module\.foundation\.module\.eks' <<<"$state"; then
+    if [[ "$kind" == "foundation" ]] && grep -Eq 'module\.foundation\.module\.eks' <<<"$state"; then
       printf 'UP    %s\n' "$name"
-    elif [[ "$kind" == "egress" ]] && rg -q 'module\.egress' <<<"$state"; then
+    elif [[ "$kind" == "egress" ]] && grep -Eq 'module\.egress' <<<"$state"; then
       printf 'UP    %s\n' "$name"
     else
       printf 'DOWN  %s\n' "$name"
