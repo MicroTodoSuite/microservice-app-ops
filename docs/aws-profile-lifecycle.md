@@ -104,13 +104,21 @@ Every variable file must contain a literal `expected_account_id`. Full-profile m
 
 ## Local tool installation
 
-The workstation already has the repository-pinned Terraform `1.15.8`, AWS CLI `2.36.19`, and kubectl `1.36.3`, plus Git, jq, ripgrep, GitHub CLI, Docker, and Azure CLI. The following tools are currently missing. The downloaded versions and checksums come from `microservice-app-gitops/scripts/managed/full-profile-toolchain.lock`.
+The lifecycle wrapper requires the repository-pinned Terraform `1.15.8`, AWS CLI v2, Git, jq, GNU grep, and `sha256sum`. Ripgrep is optional and is not used by the operator lifecycle commands. GNU Make is also optional; it can provide shorter task aliases but does not replace the wrapper's saved-plan and safety checks.
+
+The broader full-profile workflow additionally uses kubectl, GitHub CLI, Docker, Azure CLI, and the pinned tools below. Downloaded versions and checksums come from `microservice-app-gitops/scripts/managed/full-profile-toolchain.lock`.
 
 Install the base packages and ShellCheck:
 
 ```bash
 sudo apt-get update
-sudo apt-get install --yes ca-certificates curl gzip shellcheck tar
+sudo apt-get install --yes ca-certificates coreutils curl git grep gzip jq shellcheck tar
+```
+
+Install ripgrep only if you want it for interactive repository searches or other development tasks:
+
+```bash
+sudo apt-get install --yes ripgrep
 ```
 
 Install the pinned lifecycle, validation, and supply-chain binaries:

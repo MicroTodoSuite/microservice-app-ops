@@ -44,6 +44,6 @@
 
 - [ ] **T008 Make the operator lifecycle portable on the documented workstation**
   - [X] Commit a failing contract that rejects a mandatory ripgrep dependency
-  - [ ] Use stock GNU grep for wrapper state checks
-  - [ ] Document ripgrep as optional rather than preinstalled
+  - [X] Use stock GNU grep for wrapper state checks
+  - [X] Document ripgrep as optional rather than preinstalled
   - [ ] Verify economical preflight without ripgrep on `PATH`
