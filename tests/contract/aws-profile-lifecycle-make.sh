@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MAKEFILE="$ROOT/Makefile"
+WORKFLOW="$ROOT/.github/workflows/aws-dev-foundation-checks.yml"
 LIFECYCLE='./scripts/aws-profile-lifecycle.sh'
 
 fail() {
@@ -25,6 +26,13 @@ reject_makefile_text() {
   fi
 }
 
+require_file_text() {
+  local file=$1
+  local expected=$2
+  local message=$3
+  grep -Fq -- "$expected" "$file" || fail "$message"
+}
+
 dry_run() {
   make --no-print-directory --silent --dry-run -C "$ROOT" "$@"
 }
@@ -41,6 +49,14 @@ require_single_wrapper_command() {
 
 command -v make >/dev/null 2>&1 || fail "GNU Make is required for the operator interface contract"
 [[ -f "$MAKEFILE" ]] || fail "missing file: Makefile"
+[[ -f "$WORKFLOW" ]] || fail "missing AWS foundation workflow"
+
+require_file_text "$WORKFLOW" "- 'Makefile'" \
+  "AWS foundation workflow must run when the Makefile changes"
+require_file_text "$WORKFLOW" "- 'tests/contract/aws-profile-lifecycle-make.sh'" \
+  "AWS foundation workflow must run when the Make contract changes"
+require_file_text "$WORKFLOW" './tests/contract/aws-profile-lifecycle-make.sh' \
+  "AWS foundation workflow must execute the Make interface contract"
 
 reject_makefile_text '(^|[[:space:]])(terraform|kubectl)([[:space:]]|$)' \
   "Makefile must not invoke Terraform or kubectl directly"

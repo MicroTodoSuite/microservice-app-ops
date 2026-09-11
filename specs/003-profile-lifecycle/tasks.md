@@ -54,4 +54,5 @@
   - [X] Implement explicit profile, bundle, and GitOps revision validation
   - [X] Delegate each target to exactly one lifecycle-wrapper command
   - [X] Document Make as the primary operator interface
+  - [ ] Run the Make interface contract in the required AWS foundation gate
   - [ ] Verify dry runs and rejection paths without contacting AWS
