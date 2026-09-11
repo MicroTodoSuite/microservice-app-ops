@@ -64,6 +64,10 @@ make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
 
+`BUNDLE` may be relative to the current directory or absolute. The wrapper
+resolves it to a canonical absolute directory before Terraform changes to a
+root with `-chdir`, so inspection and apply read the same checksummed plan.
+
 Every apply first writes an external state backup under `~/backups-microtodosuite/`. A genuinely empty state gets a timestamped `no-prior-state` receipt instead.
 
 ## Full profile

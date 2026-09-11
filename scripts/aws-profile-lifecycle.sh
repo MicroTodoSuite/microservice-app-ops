@@ -35,6 +35,15 @@ require_file() {
   [[ -f "$1" ]] || fail "Missing local configuration: $1"
 }
 
+canonical_bundle_path() {
+  local bundle=$1
+  [[ -d "$bundle" ]] || fail "Saved plan bundle does not exist: $bundle."
+  (
+    cd "$bundle" || exit 1
+    pwd -P
+  )
+}
+
 validate_profile() {
   case "$1" in
     economical | full) ;;
@@ -288,8 +297,9 @@ metadata_value() {
 }
 
 inspect_bundle() {
-  local bundle=$1
+  local bundle
   local name relative_root plan_name
+  bundle="$(canonical_bundle_path "$1")"
   require_file "$bundle/metadata.tsv"
   require_file "$bundle/checksums.sha256"
   (cd "$bundle" && sha256sum -c checksums.sha256)
@@ -335,10 +345,12 @@ backup_state() {
 apply_bundle() {
   local requested_profile=$1
   local requested_direction=$2
-  local bundle=$3
+  local supplied_bundle=$3
+  local bundle
   local stored_profile stored_direction stored_account stored_commit active_account
   local name relative_root plan_name root
 
+  bundle="$(canonical_bundle_path "$supplied_bundle")"
   verify_toolchain
   verify_git_clean
   require_file "$bundle/metadata.tsv"

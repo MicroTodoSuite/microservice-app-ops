@@ -68,3 +68,8 @@
   - [X] Replace the broad provider-type match with a versioned address-aware durable filter
   - [X] Re-audit the captured economical plan without applying it
   - [X] Verify bundle `economical-down-20260911T151126Z` with 96 runtime deletes, zero durable deletes, and valid checksums; retain the apply gate
+
+- [X] **T012 Normalize saved-plan bundle paths before Terraform changes directory**
+  - [X] Reproduce the relative-bundle failure with a behavioral contract
+  - [X] Resolve relative and absolute bundle inputs to one canonical directory
+  - [X] Verify inspect and apply retain the saved-plan checksum and provenance gates

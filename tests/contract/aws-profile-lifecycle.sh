@@ -136,6 +136,98 @@ ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
 [[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
   fail "durable ECR repositories must remain protected"
 
+# A relative bundle path is valid at the operator interface. Terraform's
+# -chdir changes how it resolves a relative plan argument, so the wrapper must
+# canonicalize the bundle before invoking `terraform show` or `terraform apply`.
+relative_bundle=".aws-profile-plans/contract-relative-$$"
+fixture_bundle="$ROOT/$relative_bundle"
+fake_bin="$(mktemp -d)"
+capture_dir="$(mktemp -d)"
+cleanup_relative_bundle_fixture() {
+  rm -rf "$fixture_bundle" "$fake_bin" "$capture_dir"
+}
+trap cleanup_relative_bundle_fixture EXIT
+
+mkdir -p "$fixture_bundle"
+printf 'contract plan\n' >"$fixture_bundle/dev.tfplan"
+printf '%s\n' \
+  $'format\t1' \
+  $'profile\teconomical' \
+  $'direction\tup' \
+  $'account\t575172595729' \
+  $'commit\tabcdef1' \
+  $'gitops_revision\tabcdef1' \
+  $'root\tdev\taws/environments/dev/foundation\tdev.tfplan' \
+  >"$fixture_bundle/metadata.tsv"
+(
+  cd "$fixture_bundle"
+  sha256sum dev.tfplan metadata.tsv >checksums.sha256
+)
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  'if [[ "${1:-}" == version && "${2:-}" == -json ]]; then' \
+  '  printf '\''{"terraform_version":"1.15.8"}\n'\''' \
+  '  exit 0' \
+  'fi' \
+  '[[ "${1:-}" == -chdir=* ]] || exit 2' \
+  'terraform_root="${1#-chdir=}"' \
+  'if [[ "${2:-}" == state && "${3:-}" == pull ]]; then' \
+  '  printf '\''{"version":4}\n'\''' \
+  '  exit 0' \
+  'fi' \
+  'if [[ "${2:-}" == show ]]; then' \
+  '  plan_argument="${3:-}"' \
+  '  capture_name=inspect-plan-argument' \
+  'elif [[ "${2:-}" == apply && "${3:-}" == -input=false ]]; then' \
+  '  plan_argument="${4:-}"' \
+  '  capture_name=apply-plan-argument' \
+  'else' \
+  '  exit 2' \
+  'fi' \
+  'resolved_plan="$plan_argument"' \
+  '[[ "$resolved_plan" == /* ]] || resolved_plan="$terraform_root/$resolved_plan"' \
+  '[[ -f "$resolved_plan" ]] || { printf "missing plan: %s\n" "$resolved_plan" >&2; exit 1; }' \
+  'printf "%s\n" "$plan_argument" >"$LIFECYCLE_CAPTURE_DIR/$capture_name"' \
+  >"$fake_bin/terraform"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'if [[ "${1:-}" == --version ]]; then' \
+  '  printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n"' \
+  'else' \
+  '  printf "575172595729\n"' \
+  'fi' \
+  >"$fake_bin/aws"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'if [[ " $* " == *" rev-parse HEAD "* ]]; then printf "abcdef1\n"; fi' \
+  'exit 0' \
+  >"$fake_bin/git"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "operator:x:1000:1000::%s:/bin/bash\n" "$LIFECYCLE_TEST_HOME"' \
+  >"$fake_bin/getent"
+chmod +x "$fake_bin/terraform"
+chmod +x "$fake_bin/aws" "$fake_bin/git" "$fake_bin/getent"
+
+(
+  cd "$ROOT"
+  PATH="$fake_bin:$PATH" LIFECYCLE_CAPTURE_DIR="$capture_dir" \
+    "$ENTRYPOINT" inspect "$relative_bundle" >/dev/null
+)
+inspect_plan_argument="$(<"$capture_dir/inspect-plan-argument")"
+[[ "$inspect_plan_argument" == /* ]] || \
+  fail "inspect must pass an absolute saved-plan path after Terraform -chdir"
+(
+  cd "$ROOT"
+  AWS_PROFILE=contract PATH="$fake_bin:$PATH" \
+    LIFECYCLE_CAPTURE_DIR="$capture_dir" LIFECYCLE_TEST_HOME="$capture_dir/home" \
+    "$ENTRYPOINT" apply economical up "$relative_bundle" >/dev/null
+)
+apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
+[[ "$apply_plan_argument" == /* ]] || \
+  fail "apply must pass an absolute saved-plan path after Terraform -chdir"
+
 for root in dev demo-full full-dev full-prod; do
   require_text "aws/environments/${root}/foundation/variables.tf" 'variable "runtime_enabled"' \
     "${root} root is missing runtime_enabled"
