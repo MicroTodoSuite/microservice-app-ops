@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MAKEFILE="$ROOT/Makefile"
 WORKFLOW="$ROOT/.github/workflows/aws-dev-foundation-checks.yml"
+RUNBOOK="$ROOT/docs/aws-profile-lifecycle.md"
 LIFECYCLE='./scripts/aws-profile-lifecycle.sh'
 
 fail() {
@@ -50,6 +51,7 @@ require_single_wrapper_command() {
 command -v make >/dev/null 2>&1 || fail "GNU Make is required for the operator interface contract"
 [[ -f "$MAKEFILE" ]] || fail "missing file: Makefile"
 [[ -f "$WORKFLOW" ]] || fail "missing AWS foundation workflow"
+[[ -f "$RUNBOOK" ]] || fail "missing AWS lifecycle runbook"
 
 require_file_text "$WORKFLOW" "- 'Makefile'" \
   "AWS foundation workflow must run when the Makefile changes"
@@ -57,6 +59,10 @@ require_file_text "$WORKFLOW" "- 'tests/contract/aws-profile-lifecycle-make.sh'"
   "AWS foundation workflow must run when the Make contract changes"
 require_file_text "$WORKFLOW" './tests/contract/aws-profile-lifecycle-make.sh' \
   "AWS foundation workflow must execute the Make interface contract"
+require_file_text "$RUNBOOK" "only after \`make check PROFILE=full\` passes" \
+  "full-profile prose must use the primary Make check command"
+require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=full\` again" \
+  "full-profile prose must use the primary Make plan command"
 
 reject_makefile_text '(^|[[:space:]])(terraform|kubectl)([[:space:]]|$)' \
   "Makefile must not invoke Terraform or kubectl directly"
