@@ -28,8 +28,6 @@ The Azure Container Apps estate this repository used to operate was retired on 2
 - `specs/`: the Spec Kit lifecycle for this repository.
 
 ## Conventions
-- Treat `backend/`, `base-infrastructure/`, and `container-apps/` as independent Terraform roots; base and container state use separate Azure Blob keys.
-- Container environment values beginning with `secretref:` are converted by the local module into Azure Container App secret references.
 - Use short-lived branches merged into `main`. Kubernetes environment changes must go through commits to `microservice-app-gitops` and ArgoCD; never run `kubectl apply` against a GitOps-managed cluster.
 - Write everything in English — branch names, commit messages, pull-request titles and bodies, review comments, code comments, documentation, and specification text. No bilingual sections. Changing this rule takes a recorded decision in `microservice-app-docs`, not a remark in conversation.
 - Open every pull request through `.github/pull_request_template.md` and follow `microservice-app-docs/docs/Pull request and task tracking conventions.md`: one concern per short-lived `<type>/<summary>` branch, a Conventional Commit title with a scope, and every template section filled. Constitution principle 13 makes this binding, not advisory.
@@ -37,7 +35,7 @@ The Azure Container Apps estate this repository used to operate was retired on 2
 - Track every task. Name in the pull-request body the task IDs it advances, qualified by repository and spec, and update `tasks.md` in that same pull request rather than a follow-up. Mark a task `[X]` only after locating and inspecting its named artifact — never from a summary, a green check, a rendered manifest, or recollection. Annotate partial delivery instead of ticking it; work no register covers either gains a task or records in the PR body why none applies.
 - Reconcile, never quietly edit, when a register and reality disagree: a specification that pins a version nobody shipped is a maintainer decision, and `microservice-app-docs/full-platform/plan-reconciliation.md` is the worked example.
 - Before changing infrastructure code, the documentation MCP servers in `.mcp.json` MUST be connected and verified with `../microservice-app-ai-agents/scripts/check-mcp.sh terraform-aws .`; Codex users run `mcp/codex/setup-codex-mcp.sh terraform-aws` from that repository once. Every provider argument, version, service limit, and naming constraint is checked against them at the time of the change, never from memory, and the pull request lists what was consulted under "How it is verified" (`microservice-app-ai-agents/rules/mcp.md`, `rules/iac/MTS-IAC-108`). An agent that cannot reach them stops and reports.
-- Never merge with `--admin`, force-push to `main`, disable a branch protection rule to land your own work, or approve your own pull request. As an AI agent you may open, describe, and update a pull request; you may never approve one and never author an acceptance or approval artifact — only a named human unlocks a gate.
+- Never merge with `--admin`, force-push to `main`, disable a branch protection rule to land one's own work, or approve one's own pull request. An AI agent may open, describe, and update a pull request; it may never approve one and never author an acceptance or approval artifact — only a named human unlocks a gate.
 - Report outcomes faithfully in commits and pull-request bodies: name what is red, say what was skipped, and correct an earlier claim that turns out to be wrong rather than leaving the record wrong.
 
 ## Notes
