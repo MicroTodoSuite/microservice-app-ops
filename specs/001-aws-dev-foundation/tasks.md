@@ -253,8 +253,8 @@ invalid, without introducing a long-lived repository secret.
 
 - [ ] T065 Use the repository-scoped GitHub Actions token for semantic-release
   - [X] Commit a failing contract for explicit release permissions, full history, and native token use
-  - [ ] Replace the invalid custom `GH_TOKEN` dependency in `.github/workflows/release.yml`
-  - [ ] Run the release contract in the required pull-request workflow
+  - [X] Replace the invalid custom `GH_TOKEN` dependency in `.github/workflows/release.yml`
+  - [X] Run the release contract in the required pull-request workflow
   - [ ] Verify the merged `Release` workflow completes successfully on `main`
 
 ---
