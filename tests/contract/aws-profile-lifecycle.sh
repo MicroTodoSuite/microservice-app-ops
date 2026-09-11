@@ -136,6 +136,55 @@ ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
 [[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
   fail "durable ECR repositories must remain protected"
 
+# A relative bundle path is valid at the operator interface. Terraform's
+# -chdir changes how it resolves a relative plan argument, so the wrapper must
+# canonicalize the bundle before invoking `terraform show` or `terraform apply`.
+relative_bundle=".aws-profile-plans/contract-relative-$$"
+fixture_bundle="$ROOT/$relative_bundle"
+fake_bin="$(mktemp -d)"
+capture_dir="$(mktemp -d)"
+cleanup_relative_bundle_fixture() {
+  rm -rf "$fixture_bundle" "$fake_bin" "$capture_dir"
+}
+trap cleanup_relative_bundle_fixture EXIT
+
+mkdir -p "$fixture_bundle"
+printf 'contract plan\n' >"$fixture_bundle/dev.tfplan"
+printf '%s\n' \
+  $'format\t1' \
+  $'profile\teconomical' \
+  $'direction\tdown' \
+  $'account\t575172595729' \
+  $'commit\tcontract' \
+  $'gitops_revision\tcontract' \
+  $'root\tdev\taws/environments/dev/foundation\tdev.tfplan' \
+  >"$fixture_bundle/metadata.tsv"
+(
+  cd "$fixture_bundle"
+  sha256sum dev.tfplan metadata.tsv >checksums.sha256
+)
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  '[[ "${1:-}" == -chdir=* && "${2:-}" == show ]] || exit 2' \
+  'terraform_root="${1#-chdir=}"' \
+  'plan_argument="${3:-}"' \
+  'resolved_plan="$plan_argument"' \
+  '[[ "$resolved_plan" == /* ]] || resolved_plan="$terraform_root/$resolved_plan"' \
+  '[[ -f "$resolved_plan" ]] || { printf "missing plan: %s\n" "$resolved_plan" >&2; exit 1; }' \
+  'printf "%s\n" "$plan_argument" >"$LIFECYCLE_CAPTURE_DIR/plan-argument"' \
+  >"$fake_bin/terraform"
+chmod +x "$fake_bin/terraform"
+
+(
+  cd "$ROOT"
+  PATH="$fake_bin:$PATH" LIFECYCLE_CAPTURE_DIR="$capture_dir" \
+    "$ENTRYPOINT" inspect "$relative_bundle" >/dev/null
+)
+plan_argument="$(<"$capture_dir/plan-argument")"
+[[ "$plan_argument" == /* ]] || \
+  fail "inspect must pass an absolute saved-plan path after Terraform -chdir"
+
 for root in dev demo-full full-dev full-prod; do
   require_text "aws/environments/${root}/foundation/variables.tf" 'variable "runtime_enabled"' \
     "${root} root is missing runtime_enabled"
