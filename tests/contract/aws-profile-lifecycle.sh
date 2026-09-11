@@ -153,7 +153,7 @@ printf 'contract plan\n' >"$fixture_bundle/dev.tfplan"
 printf '%s\n' \
   $'format\t1' \
   $'profile\teconomical' \
-  $'direction\tdown' \
+  $'direction\tup' \
   $'account\t575172595729' \
   $'commit\tabcdef1' \
   $'gitops_revision\tabcdef1' \
@@ -222,7 +222,7 @@ inspect_plan_argument="$(<"$capture_dir/inspect-plan-argument")"
   cd "$ROOT"
   AWS_PROFILE=contract PATH="$fake_bin:$PATH" \
     LIFECYCLE_CAPTURE_DIR="$capture_dir" LIFECYCLE_TEST_HOME="$capture_dir/home" \
-    "$ENTRYPOINT" apply economical down "$relative_bundle" >/dev/null
+    "$ENTRYPOINT" apply economical up "$relative_bundle" >/dev/null
 )
 apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
 [[ "$apply_plan_argument" == /* ]] || \
