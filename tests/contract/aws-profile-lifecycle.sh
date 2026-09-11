@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENTRYPOINT="$ROOT/scripts/aws-profile-lifecycle.sh"
+DURABLE_DELETE_FILTER="$ROOT/scripts/aws-profile-durable-deletes.jq"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -38,7 +39,9 @@ reject_text() {
 }
 
 require_file "scripts/aws-profile-lifecycle.sh"
+require_file "scripts/aws-profile-durable-deletes.jq"
 require_file "docs/aws-profile-lifecycle.md"
+require_file ".github/workflows/aws-dev-foundation-checks.yml"
 
 [[ -x "$ENTRYPOINT" ]] || fail "scripts/aws-profile-lifecycle.sh is not executable"
 
@@ -83,6 +86,55 @@ reject_text "scripts/aws-profile-lifecycle.sh" '(^|[[:space:]])rg([[:space:]]|$)
   "wrapper must not require ripgrep for operator commands"
 reject_text "scripts/aws-profile-lifecycle.sh" 'auto-approve|kubectl[[:space:]]+(apply|delete|patch|scale)' \
   "wrapper must not auto-approve Terraform or mutate GitOps-managed clusters"
+require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[[:space:]]+"\$DURABLE_DELETE_FILTER"' \
+  "wrapper must audit shutdown plans with the versioned durable-delete filter"
+require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-durable-deletes\\.jq" \
+  "AWS foundation workflow must run when the durable-delete filter changes"
+
+runtime_oidc_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "module.foundation.module.eks[0].aws_iam_openid_connect_provider.oidc_provider[0]",
+      type: "aws_iam_openid_connect_provider",
+      change: {
+        actions: ["delete"],
+        before: {url: "oidc.eks.us-east-1.amazonaws.com/id/example"}
+      }
+    }]
+  }
+')"
+runtime_oidc_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$runtime_oidc_plan")"
+[[ -z "$runtime_oidc_deleted" ]] || \
+  fail "the cluster-scoped EKS OIDC provider must be removable with the runtime"
+
+github_oidc_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "module.foundation.aws_iam_openid_connect_provider.github_actions[0]",
+      type: "aws_iam_openid_connect_provider",
+      change: {
+        actions: ["delete"],
+        before: {url: "token.actions.githubusercontent.com"}
+      }
+    }]
+  }
+')"
+github_oidc_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$github_oidc_plan")"
+[[ "$github_oidc_deleted" == "module.foundation.aws_iam_openid_connect_provider.github_actions[0]" ]] || \
+  fail "the account-level GitHub Actions OIDC provider must remain protected"
+
+ecr_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "module.foundation.aws_ecr_repository.services[\"auth-api\"]",
+      type: "aws_ecr_repository",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
+[[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
+  fail "durable ECR repositories must remain protected"
 
 for root in dev demo-full full-dev full-prod; do
   require_text "aws/environments/${root}/foundation/variables.tf" 'variable "runtime_enabled"' \
