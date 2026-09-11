@@ -1,6 +1,6 @@
 # AWS Profile Lifecycle
 
-This runbook controls the cost-bearing AWS runtime while preserving durable Terraform-managed assets. It never changes Kubernetes resources directly: environment activation and quiescence remain GitOps changes reconciled by ArgoCD.
+This runbook controls the cost-bearing AWS runtime while preserving durable Terraform-managed assets. The repository-root Makefile is the primary operator interface and delegates to the lifecycle wrapper, which remains the single implementation of profile ordering, saved plans, and safety gates. Neither layer changes Kubernetes resources directly: environment activation and quiescence remain GitOps changes reconciled by ArgoCD.
 
 ## Resource boundary
 
@@ -30,21 +30,21 @@ The account in the last command must match every selected root's local `expected
 
 ```bash
 export AWS_PROFILE=microtodosuite-terraform-new
-scripts/aws-profile-lifecycle.sh check economical
-scripts/aws-profile-lifecycle.sh init economical
-scripts/aws-profile-lifecycle.sh status economical
+make check PROFILE=economical
+make init PROFILE=economical
+make status PROFILE=economical
 ```
 
-The same interface accepts `full`. Full-profile preflight intentionally stops while its gitignored input files are absent or still target a retired account. Do not copy an old account ID or invent transit-gateway, policy, or operator-CIDR values merely to make preflight green; complete the separately reviewed spec 009 account migration first.
+Every profile-sensitive target requires an explicit `PROFILE=economical|full`; there is no implicit default. Full-profile preflight intentionally stops while its gitignored input files are absent or still target a retired account. Do not copy an old account ID or invent transit-gateway, policy, or operator-CIDR values merely to make preflight green; complete the separately reviewed spec 009 account migration first.
 
 ## Start a profile
 
 Commit all infrastructure changes first. Create a saved plan, inspect it, and apply that exact bundle:
 
 ```bash
-scripts/aws-profile-lifecycle.sh plan economical up
-scripts/aws-profile-lifecycle.sh inspect .aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
-scripts/aws-profile-lifecycle.sh apply economical up .aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
+make plan-up PROFILE=economical
+make inspect BUNDLE=.aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
+make apply-up PROFILE=economical BUNDLE=.aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
 ```
 
 After Terraform recreates the runtime, bootstrap or reactivate it only through the repository's reviewed GitOps process. Do not use `kubectl apply` for workload or platform state.
@@ -59,9 +59,9 @@ Before planning shutdown:
 4. Create and inspect the shutdown bundle. The wrapper rejects any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities.
 
 ```bash
-scripts/aws-profile-lifecycle.sh plan economical down --gitops-revision GITOPS_COMMIT_SHA
-scripts/aws-profile-lifecycle.sh inspect .aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
-scripts/aws-profile-lifecycle.sh apply economical down .aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
+make plan-down PROFILE=economical GITOPS_REVISION=GITOPS_COMMIT_SHA
+make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
+make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
 
 Every apply first writes an external state backup under `~/backups-microtodosuite/`. A genuinely empty state gets a timestamped `no-prior-state` receipt instead.
@@ -76,14 +76,14 @@ The full profile uses dependency-safe ordering:
 Use the same commands with `full` only after `check full` passes:
 
 ```bash
-scripts/aws-profile-lifecycle.sh check full
-scripts/aws-profile-lifecycle.sh plan full up
-scripts/aws-profile-lifecycle.sh inspect .aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
-scripts/aws-profile-lifecycle.sh apply full up .aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
+make check PROFILE=full
+make plan-up PROFILE=full
+make inspect BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
+make apply-up PROFILE=full BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
 
-scripts/aws-profile-lifecycle.sh plan full down --gitops-revision GITOPS_COMMIT_SHA
-scripts/aws-profile-lifecycle.sh inspect .aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
-scripts/aws-profile-lifecycle.sh apply full down .aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
+make plan-down PROFILE=full GITOPS_REVISION=GITOPS_COMMIT_SHA
+make inspect BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
+make apply-down PROFILE=full BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
 ```
 
 On a first full-profile creation, the shared egress transit gateway must exist before a foundation plan can bind to its real ID. When the egress state is empty, `plan full up` intentionally creates an egress-only bundle. Apply that reviewed bundle, place its `transit_gateway_id` output in the gitignored full foundation inputs, and run `plan full up` again. The second bundle compares those inputs with the live egress output before planning the foundations. Never apply a saved foundation plan containing an obsolete transit gateway ID.
@@ -104,7 +104,7 @@ Every variable file must contain a literal `expected_account_id`. Full-profile m
 
 ## Local tool installation
 
-The lifecycle wrapper requires the repository-pinned Terraform `1.15.8`, AWS CLI v2, Git, jq, GNU grep, and `sha256sum`. Ripgrep is optional and is not used by the operator lifecycle commands. GNU Make is also optional; it can provide shorter task aliases but does not replace the wrapper's saved-plan and safety checks.
+The operator interface requires GNU Make. Its lifecycle wrapper requires the repository-pinned Terraform `1.15.8`, AWS CLI v2, Git, jq, GNU grep, and `sha256sum`. Ripgrep is optional and is not used by the operator lifecycle commands.
 
 The broader full-profile workflow additionally uses kubectl, GitHub CLI, Docker, Azure CLI, and the pinned tools below. Downloaded versions and checksums come from `microservice-app-gitops/scripts/managed/full-profile-toolchain.lock`.
 
@@ -112,7 +112,7 @@ Install the base packages and ShellCheck:
 
 ```bash
 sudo apt-get update
-sudo apt-get install --yes ca-certificates coreutils curl git grep gzip jq shellcheck tar
+sudo apt-get install --yes ca-certificates coreutils curl git grep gzip jq make shellcheck tar
 ```
 
 Install ripgrep only if you want it for interactive repository searches or other development tasks:

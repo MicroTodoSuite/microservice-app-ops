@@ -51,7 +51,7 @@
 - [ ] **T009 Add a Make-based operator interface without weakening lifecycle gates**
   - [X] Extend the specification and plan with the Make command contract
   - [X] Commit a failing contract for both profiles and every lifecycle phase
-  - [ ] Implement explicit profile, bundle, and GitOps revision validation
-  - [ ] Delegate each target to exactly one lifecycle-wrapper command
-  - [ ] Document Make as the primary operator interface
+  - [X] Implement explicit profile, bundle, and GitOps revision validation
+  - [X] Delegate each target to exactly one lifecycle-wrapper command
+  - [X] Document Make as the primary operator interface
   - [ ] Verify dry runs and rejection paths without contacting AWS
