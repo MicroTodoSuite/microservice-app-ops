@@ -12,9 +12,9 @@ maintainer's approval of an exact saved plan or operation before they run.
 ## Phase 1: Preserve
 
 - [ ] T004 Archive every object in the old state bucket and every local backup to `~/backups-microtodosuite/rebuild-<timestamp>/`, with checksums
-- [ ] T005 Snapshot the four observability volumes and record the snapshot IDs
-- [ ] T006 Export both log groups and the Route 53 record sets
-- [ ] T007 Record the live ArgoCD revision and Application health as the pre-rebuild baseline
+- [ ] T005 Snapshot the four observability volumes and record the snapshot IDs — **not delivered**: the volumes were deleted by the 2026-09-11 lifecycle teardown before a snapshot existed; the loss is recorded in `plan.md`
+- [ ] T006 Export both log groups and the Route 53 record sets — partial: the log groups were deleted with the runtime and cannot be exported; the Route 53 record sets remain exportable
+- [ ] T007 Record the live ArgoCD revision and Application health as the pre-rebuild baseline — **not delivered**: no cluster remained; the last reconciled GitOps revision is the quiescence commit of microservice-app-gitops#113
 
 ## Phase 2: Build (no destruction)
 
@@ -31,8 +31,8 @@ maintainer's approval of an exact saved plan or operation before they run.
 
 ## Phase 3: Rebuild window
 
-- [ ] T018 Pause ArgoCD auto-sync and CI publication; remove workloads and volumes through GitOps
-- [ ] T019 Destroy the `eco` foundation from a reviewed saved plan **[approval]**
+- [ ] T018 Pause ArgoCD auto-sync and CI publication; remove workloads and volumes through GitOps — partial: workloads were removed through GitOps quiescence (gitops#109, #112, #113); CI publication was not paused and still writes to the preserved ECR repositories
+- [ ] T019 Destroy the `eco` foundation from a reviewed saved plan **[approval]** — partial: the runtime was destroyed from a reviewed lifecycle bundle on 2026-09-11; the persistent resources remain under the dev foundation state until T026
 - [ ] T020 Apply the new roots in order from their saved plans **[approval]**
 - [ ] T021 Merge the GitOps branch and run the audited bootstrap for `lex-mts-eco-eks-main`
 - [ ] T022 Resume ArgoCD auto-sync and CI publication
