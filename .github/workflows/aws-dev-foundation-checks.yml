@@ -5,11 +5,13 @@ on:
     branches:
       - main
     paths:
+      - 'Makefile'
       - 'aws/**'
       - 'scripts/aws-dev-foundation.sh'
       - 'scripts/aws-profile-lifecycle.sh'
       - 'tests/contract/aws-dev-foundation.sh'
       - 'tests/contract/aws-profile-lifecycle.sh'
+      - 'tests/contract/aws-profile-lifecycle-make.sh'
       - 'docs/aws-profile-lifecycle.md'
       - 'specs/003-profile-lifecycle/**'
       - '.terraform-version'
@@ -78,6 +80,7 @@ jobs:
         run: |
           ./tests/contract/aws-dev-foundation.sh
           ./tests/contract/aws-profile-lifecycle.sh
+          ./tests/contract/aws-profile-lifecycle-make.sh
           shellcheck --severity=warning scripts/aws-dev-foundation.sh scripts/aws-profile-lifecycle.sh tests/contract/*.sh
 
       - name: Verify the root and workflow foundation contract
