@@ -42,8 +42,8 @@
   - [ ] Restore through a separately reviewed economical up bundle
   - [ ] Migrate and accept full-profile roots before their first replacement-account apply
 
-- [ ] **T008 Make the operator lifecycle portable on the documented workstation**
+- [X] **T008 Make the operator lifecycle portable on the documented workstation**
   - [X] Commit a failing contract that rejects a mandatory ripgrep dependency
   - [X] Use stock GNU grep for wrapper state checks
   - [X] Document ripgrep as optional rather than preinstalled
-  - [ ] Verify economical preflight without ripgrep on `PATH`
+  - [X] Verify economical preflight without ripgrep on `PATH`
