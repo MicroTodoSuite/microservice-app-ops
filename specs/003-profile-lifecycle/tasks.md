@@ -67,4 +67,4 @@
   - [X] Commit a failing behavioral contract for runtime EKS OIDC, durable GitHub OIDC, and ECR
   - [X] Replace the broad provider-type match with a versioned address-aware durable filter
   - [X] Re-audit the captured economical plan without applying it
-  - [ ] Verify a newly generated saved plan bundle and retain the apply gate
+  - [X] Verify bundle `economical-down-20260911T151126Z` with 96 runtime deletes, zero durable deletes, and valid checksums; retain the apply gate
