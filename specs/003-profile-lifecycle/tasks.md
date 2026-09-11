@@ -48,11 +48,11 @@
   - [X] Document ripgrep as optional rather than preinstalled
   - [X] Verify economical preflight without ripgrep on `PATH`
 
-- [ ] **T009 Add a Make-based operator interface without weakening lifecycle gates**
+- [X] **T009 Add a Make-based operator interface without weakening lifecycle gates**
   - [X] Extend the specification and plan with the Make command contract
   - [X] Commit a failing contract for both profiles and every lifecycle phase
   - [X] Implement explicit profile, bundle, and GitOps revision validation
   - [X] Delegate each target to exactly one lifecycle-wrapper command
   - [X] Document Make as the primary operator interface
   - [X] Run the Make interface contract in the required AWS foundation gate
-  - [ ] Verify dry runs and rejection paths without contacting AWS
+  - [X] Verify dry runs and rejection paths without contacting AWS
