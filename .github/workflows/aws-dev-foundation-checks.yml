@@ -16,7 +16,9 @@ on:
       - 'specs/003-profile-lifecycle/**'
       - '.terraform-version'
       - '.github/workflows/aws-dev-foundation-checks.yml'
+      - '.github/workflows/release.yml'
       - 'tests/workflows/foundation-checks.bats'
+      - 'tests/workflows/release-auth.sh'
       - 'config/**'
       - 'scripts/set-aws-account.sh'
       - 'tests/contract/aws-account-parameter.sh'
@@ -94,4 +96,6 @@ jobs:
         run: ./tests/contract/set-aws-account.sh
 
       - name: Verify the root and workflow foundation contract
-        run: ./tests/workflows/foundation-checks.bats
+        run: |
+          ./tests/workflows/foundation-checks.bats
+          ./tests/workflows/release-auth.sh
