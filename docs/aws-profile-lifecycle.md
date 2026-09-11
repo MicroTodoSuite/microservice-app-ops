@@ -73,7 +73,7 @@ The full profile uses dependency-safe ordering:
 - Up: shared egress, full-dev, demo-full (full staging), full-prod.
 - Down: full-prod, demo-full, full-dev, shared egress.
 
-Use the same commands with `full` only after `check full` passes:
+Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes:
 
 ```bash
 make check PROFILE=full
@@ -86,7 +86,7 @@ make inspect BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=full BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
 ```
 
-On a first full-profile creation, the shared egress transit gateway must exist before a foundation plan can bind to its real ID. When the egress state is empty, `plan full up` intentionally creates an egress-only bundle. Apply that reviewed bundle, place its `transit_gateway_id` output in the gitignored full foundation inputs, and run `plan full up` again. The second bundle compares those inputs with the live egress output before planning the foundations. Never apply a saved foundation plan containing an obsolete transit gateway ID.
+On a first full-profile creation, the shared egress transit gateway must exist before a foundation plan can bind to its real ID. When the egress state is empty, `make plan-up PROFILE=full` intentionally creates an egress-only bundle. Apply that reviewed bundle, place its `transit_gateway_id` output in the gitignored full foundation inputs, and run `make plan-up PROFILE=full` again. The second bundle compares those inputs with the live egress output before planning the foundations. Never apply a saved foundation plan containing an obsolete transit gateway ID.
 
 ## Required local files
 

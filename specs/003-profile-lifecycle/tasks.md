@@ -57,7 +57,7 @@
   - [X] Run the Make interface contract in the required AWS foundation gate
   - [X] Verify dry runs and rejection paths without contacting AWS
 
-- [ ] **T010 Keep full-profile prose on the primary Make interface**
+- [X] **T010 Keep full-profile prose on the primary Make interface**
   - [X] Commit a failing contract for the two stale direct-wrapper references
-  - [ ] Replace the stale check and plan syntax in the runbook
-  - [ ] Re-run the Make interface contract
+  - [X] Replace the stale check and plan syntax in the runbook
+  - [X] Re-run the Make interface contract

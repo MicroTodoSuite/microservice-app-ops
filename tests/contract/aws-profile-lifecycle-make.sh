@@ -59,9 +59,9 @@ require_file_text "$WORKFLOW" "- 'tests/contract/aws-profile-lifecycle-make.sh'"
   "AWS foundation workflow must run when the Make contract changes"
 require_file_text "$WORKFLOW" './tests/contract/aws-profile-lifecycle-make.sh' \
   "AWS foundation workflow must execute the Make interface contract"
-require_file_text "$RUNBOOK" 'only after `make check PROFILE=full` passes' \
+require_file_text "$RUNBOOK" "only after \`make check PROFILE=full\` passes" \
   "full-profile prose must use the primary Make check command"
-require_file_text "$RUNBOOK" 'run `make plan-up PROFILE=full` again' \
+require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=full\` again" \
   "full-profile prose must use the primary Make plan command"
 
 reject_makefile_text '(^|[[:space:]])(terraform|kubectl)([[:space:]]|$)' \
