@@ -29,6 +29,12 @@ Foundation down plans use `-var=runtime_enabled=false`. The final full-profile e
 
 Each plan command creates a gitignored directory containing one saved plan per root, plan JSON, SHA-256 checksums, and a metadata file recording profile, direction, active account, Git commit, root order, and GitOps quiescence revision for down transitions. Apply validates that metadata and then applies each saved plan in its recorded order.
 
+### Make operator interface
+
+The repository-root Makefile is a thin user interface over the lifecycle wrapper. It requires an explicit `PROFILE=economical|full` for profile-aware operations and maps each target to exactly one wrapper command. `plan-up` and `plan-down` only create saved bundles; `inspect` only renders an existing bundle; `apply-up` and `apply-down` accept only an explicit `BUNDLE`.
+
+The Makefile contains no Terraform or Kubernetes commands. This keeps resource classification and dependency ordering in the wrapper: foundation down transitions continue to set `runtime_enabled=false` so durable assets survive, while the full-profile egress root remains the only root planned with destroy mode. Make provides discoverability and shorter commands without creating a second orchestration implementation.
+
 ## Constitution Check (v3.1.0)
 
 | Principle | Verdict | How this feature complies |
@@ -48,6 +54,7 @@ Each plan command creates a gitignored directory containing one saved plan per r
 5. Run the existing economical and full foundation contracts.
 6. Run profile preflight against the renewed AWS session; report full-profile configuration blockers without bypassing them.
 7. Do not create a live plan until the address migrations and durable deletion guard have been independently reviewed.
+8. Dry-run every Make target for both profiles and prove that invalid or missing profile, bundle, and GitOps revision inputs fail before invoking the wrapper.
 
 ## Risks
 
@@ -58,3 +65,4 @@ Each plan command creates a gitignored directory containing one saved plan per r
 | Egress is removed before dependent clusters | Record and enforce inverse root order for full-profile down. |
 | PersistentVolume data is lost with the cluster/VPC | Require GitOps quiescence evidence and a human review of persistent-data disposition before applying a down plan. |
 | Full roots still target a retired account | Preflight each root against STS and stop; migration remains explicit separate work. |
+| Make bypasses wrapper safety or hides an apply | Contract-test exact one-target-to-one-wrapper-command mappings and reject direct Terraform, kubectl, and auto-approval commands. |

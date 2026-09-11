@@ -25,6 +25,13 @@
 - **Q**: Is the full profile ready to apply in the replacement AWS account as part of this feature?
   **A**: No. The wrapper exposes and validates the full profile, but it must stop if any root still targets another account or lacks its local backend/input configuration. Migrating and accepting the full-profile roots remains separate work under spec 009.
 
+### Session 2026-09-11
+
+- **Q**: Should operators invoke the lifecycle script directly for routine work?
+  **A**: No. A repository-root Makefile is the primary operator interface. It delegates every operation to the existing wrapper so profile validation, durable-resource guards, saved-plan provenance, and GitOps quiescence requirements remain centralized.
+- **Q**: May one Make target plan and apply an up or down transition automatically?
+  **A**: No. Make keeps planning, inspection, and applying as separate targets. Profile-sensitive targets require an explicit `PROFILE=economical|full`; apply targets require an explicit saved-plan `BUNDLE`, and down planning requires `GITOPS_REVISION`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Stop economical runtime spend without deleting durable assets (Priority: P1)
@@ -77,6 +84,9 @@ As a platform operator, I can use the same interface for the expensive full prof
 - **FR-012**: The wrapper MUST never invoke `kubectl`, edit the GitOps repository, or claim ArgoCD reconciliation.
 - **FR-013**: The wrapper MUST store plans and metadata in a gitignored local directory and verify profile, direction, account, commit, and plan-file checksums before apply.
 - **FR-014**: Documentation MUST distinguish the residual cost of durable services from the removed runtime cost and MUST warn about persistent-volume data before shutdown.
+- **FR-015**: The repository-root Makefile MUST expose `check`, `init`, `status`, `plan-up`, `plan-down`, `inspect`, `apply-up`, and `apply-down` as the primary operator targets.
+- **FR-016**: Make targets MUST delegate to the lifecycle wrapper and MUST NOT invoke Terraform, kubectl, plan-and-apply sequences, or auto-approval directly.
+- **FR-017**: Profile-sensitive Make targets MUST require an explicit `PROFILE` equal to `economical` or `full`; inspection and apply targets MUST require `BUNDLE`, and down planning MUST require `GITOPS_REVISION`.
 
 ## Success Criteria *(mandatory)*
 
@@ -85,6 +95,7 @@ As a platform operator, I can use the same interface for the expensive full prof
 - **SC-003**: A wrapper-created plan bundle can be inspected and applied only when its metadata matches the requested profile, direction, account, Git commit, and checksums.
 - **SC-004**: An economical shutdown plan contains no delete action for the documented durable resource classes.
 - **SC-005**: The full-profile preflight reports its current replacement-account readiness without applying or destroying infrastructure.
+- **SC-006**: Contract tests demonstrate the exact Make-to-wrapper command mapping for both profiles and prove that missing or invalid safety inputs stop before the wrapper runs.
 
 ## Out of Scope
 
@@ -92,3 +103,4 @@ As a platform operator, I can use the same interface for the expensive full prof
 - Migrating the inactive full-profile roots from a retired account.
 - Applying either profile during implementation of this feature.
 - Backing up application-level persistent volumes or databases.
+- Removing the lifecycle wrapper or adding a one-command plan-and-apply shortcut.
