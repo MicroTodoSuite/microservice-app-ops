@@ -119,7 +119,7 @@ sudo apt-get update
 sudo apt-get install --yes ca-certificates coreutils curl git grep gzip jq make shellcheck tar
 ```
 
-Install ripgrep only if you want it for interactive repository searches or other development tasks:
+ripgrep is optional; install it only for interactive repository searches or other development tasks:
 
 ```bash
 sudo apt-get install --yes ripgrep

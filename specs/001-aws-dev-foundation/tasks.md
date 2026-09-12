@@ -43,7 +43,7 @@ toolchain without altering the existing Azure roots.
 **Purpose**: Establish account, provider, naming, and metadata guards used by
 every story.
 
-**⚠️ CRITICAL**: Complete this phase before user-story implementation.
+**Critical**: Complete this phase before user-story implementation.
 
 - [x] T007 Configure AWS providers, caller-identity lookup, and expected-account preconditions in `aws/environments/dev/backend/providers.tf` and `aws/environments/dev/foundation/providers.tf`
 - [x] T008 Define the canonical `microtodosuite`/`dev` naming inputs, required Platform ownership tags, approved principal validation, and non-overridable metadata in `aws/modules/environment-foundation/variables.tf`, `aws/modules/state-backend/variables.tf`, `aws/environments/dev/backend/variables.tf`, and `aws/environments/dev/foundation/variables.tf`
@@ -53,7 +53,7 @@ only naming/tag conventions; no Azure state or resource is referenced.
 
 ---
 
-## Phase 3: User Story 1 - Preview an isolated dev foundation (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Preview an isolated dev foundation (Priority: P1), MVP
 
 **Goal**: Produce a complete, reviewable dev-only foundation plan from the
 repository root in no more than four commands.

@@ -36,7 +36,7 @@
 
 ### User Story 1 - Stop economical runtime spend without deleting durable assets (Priority: P1)
 
-As a platform operator, I can create and review a saved shutdown plan for the economical profile that removes its VPC, NAT gateways, EKS cluster, nodes, add-ons, and cluster-scoped identities while retaining state, images, secrets, and DNS.
+A platform operator can create and review a saved shutdown plan for the economical profile that removes its VPC, NAT gateways, EKS cluster, nodes, add-ons, and cluster-scoped identities while retaining state, images, secrets, and DNS.
 
 **Independent Test**: Plan the dev foundation with runtime disabled, inspect the plan JSON, and verify that every deletion belongs to the documented runtime allowlist while durable addresses are no-op.
 
@@ -48,7 +48,7 @@ As a platform operator, I can create and review a saved shutdown plan for the ec
 
 ### User Story 2 - Restore the economical runtime from durable state (Priority: P1)
 
-As a platform operator, I can generate a saved start plan for the economical profile and apply that exact reviewed artifact so Terraform recreates the runtime around the preserved durable resources.
+A platform operator can generate a saved start plan for the economical profile and apply that exact reviewed artifact so Terraform recreates the runtime around the preserved durable resources.
 
 **Acceptance Scenarios**:
 
@@ -58,7 +58,7 @@ As a platform operator, I can generate a saved start plan for the economical pro
 
 ### User Story 3 - Operate the full profile with dependency-safe ordering (Priority: P2)
 
-As a platform operator, I can use the same interface for the expensive full profile while preserving the ordering between the shared egress hub and its three environment foundations.
+A platform operator can use the same interface for the expensive full profile while preserving the ordering between the shared egress hub and its three environment foundations.
 
 **Acceptance Scenarios**:
 
