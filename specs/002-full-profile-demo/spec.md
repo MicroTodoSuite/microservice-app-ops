@@ -16,7 +16,7 @@
   **A**: It will be named `demo-full` to explicitly denote its purpose as a full-profile demonstration, avoiding any conflict with the logical namespaces used in the economical cluster.
 - **Q**: What is the network CIDR for this environment?
   **A**: As requested, it uses the already-reserved `10.20.0.0/16`.
-- **Q**: Do we modify the foundation module?
+- **Q**: Does the demonstration modify the foundation module?
   **A**: Reuse it and add only backward-compatible inputs whose defaults preserve the existing `dev` topology.
 - **Q**: What are the profile-specific parameters?
   **A**: Use stable On-Demand capacity and an environment-selectable NAT topology.
@@ -34,7 +34,7 @@
 
 ### User Story 1 - Preview the dedicated demonstration environment (Priority: P1)
 
-As a platform engineer, I can provide the documented demonstration inputs and preview the complete AWS foundation from the repository root without duplicating the foundation module logic.
+A platform engineer can provide the documented demonstration inputs and preview the complete AWS foundation from the repository root without duplicating the foundation module logic.
 
 **Independent Test**: From `aws/environments/demo-full/foundation`, follow the documented init and plan commands. The plan shows a dedicated VPC (10.20.0.0/16) and EKS cluster, with no mutations to the existing `dev` environment.
 
@@ -45,7 +45,7 @@ As a platform engineer, I can provide the documented demonstration inputs and pr
 
 ### User Story 2 - Share protected, isolated state (Priority: P2)
 
-As a platform team member, I can collaborate on the demonstration foundation through remote, recoverable state whose lock prevents concurrent writers and whose address cannot collide with the `dev` state.
+A platform team member can collaborate on the demonstration foundation through remote, recoverable state whose lock prevents concurrent writers and whose address cannot collide with the `dev` state.
 
 **Acceptance Scenarios**:
 1. **Given** two authorized operators target the `demo-full` state concurrently, **When** one holds the lock, **Then** the second stops without writing state.

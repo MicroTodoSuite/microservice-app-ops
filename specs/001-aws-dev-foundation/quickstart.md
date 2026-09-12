@@ -44,7 +44,7 @@ It contains bucket, key, region, KMS key ARN, encryption, and native lockfile
 settings only.
 
 Configuration preparation is a prerequisite, not an internal module-navigation
-step. Review the diff with a command that includes ignored files only in your
+step. Review the diff with a command that includes ignored files only in the
 local shell; never force-add either file.
 
 ## 3. Generate and review the foundation plan

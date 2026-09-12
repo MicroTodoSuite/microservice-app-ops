@@ -31,7 +31,7 @@
 
 ### User Story 1 - Preview an isolated dev foundation (Priority: P1)
 
-As a platform engineer, I can provide the documented development inputs and
+A platform engineer can provide the documented development inputs and
 preview the complete AWS foundation from the repository root without learning
 the internal module layout or changing an existing Azure infrastructure root.
 
@@ -56,7 +56,7 @@ resources.
 
 ### User Story 2 - Share protected, isolated state (Priority: P2)
 
-As a platform team member, I can collaborate on the dev foundation through
+A platform team member can collaborate on the dev foundation through
 remote, recoverable state whose lock prevents concurrent writers and whose
 address cannot collide with future staging or production state.
 
@@ -79,7 +79,7 @@ cannot acquire the same state while the first holds it.
 
 ### User Story 3 - Hand off cleanly to GitOps (Priority: P3)
 
-As a GitOps platform maintainer, I can use the dev foundation outputs to prepare
+A GitOps platform maintainer can use the dev foundation outputs to prepare
 a future value-only `clusters/eks-dev` registration without changing the
 shared cluster mechanism or provider-neutral platform add-on folders.
 
