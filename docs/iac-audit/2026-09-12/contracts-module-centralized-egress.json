@@ -1,0 +1,240 @@
+{
+  "checked": 1,
+  "findings": [
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "README.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "CHANGELOG.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": ".gitignore",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "providers.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "locals.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "data.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/terraform.tfvars",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/variables.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/data.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/locals.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/main.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/outputs.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/providers.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "sample/README.md",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/centralized-egress",
+      "address": "versions.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/centralized-egress",
+      "address": ".terraform.lock.hcl",
+      "message": "a module commits no lock file"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.aws_region",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.tags",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.environment",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/centralized-egress",
+      "address": "output.egress_public_ips",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/centralized-egress",
+      "address": "output.egress_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/centralized-egress",
+      "address": "main.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-004",
+      "path": "aws/modules/centralized-egress",
+      "address": "var.additional_tags",
+      "message": "a module that creates resources accepts additional_tags"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/centralized-egress",
+      "address": "required_providers.aws",
+      "message": "a module declares a minimum provider version with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "versions.tf",
+      "message": "required_providers.aws lists aws.project in configuration_aliases"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_kms_key.flow_logs",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_kms_alias.flow_logs",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_ec2_transit_gateway.this",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_ec2_transit_gateway_vpc_attachment.egress",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_ec2_transit_gateway_route_table.egress",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_ec2_transit_gateway_route_table_association.egress",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_ec2_transit_gateway_route_table.spoke",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_route.spoke_return",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "data.aws_caller_identity.current",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/centralized-egress",
+      "address": "data.aws_partition.current",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/centralized-egress",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/centralized-egress",
+      "address": "aws_route.spoke_return",
+      "message": "a service module receives this resource as an input"
+    }
+  ],
+  "waived": []
+}

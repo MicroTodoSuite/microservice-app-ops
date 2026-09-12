@@ -1,0 +1,1416 @@
+{
+  "checked": 6,
+  "findings": [
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_ami_release_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.github_oidc_subjects",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.environment_jwt_secret_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.kyverno_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.aws_load_balancer_controller_policy_arns",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.aws_load_balancer_controller_policy_arns",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "output.environment",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "output.foundation_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "output.availability_zones",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "release-secrets.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "module.foundation",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "module.environment_jwt_values",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/environments/demo-full/foundation",
+      "address": "",
+      "message": "the root 'foundation' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/backend",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/backend",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/backend",
+      "address": "var.environment",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/backend",
+      "address": "output.kms_alias",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/backend",
+      "address": "output.bootstrap_state_key",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/backend",
+      "address": "output.foundation_state_key",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/backend",
+      "address": "output.foundation_lock_key",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/dev/backend",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/dev/backend",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/environments/dev/backend",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-008",
+      "path": "aws/environments/dev/backend",
+      "address": "backend.local",
+      "message": "AWS roots use s3 and Azure roots azurerm"
+    },
+    {
+      "rule": "PC-IAC-008",
+      "path": "aws/environments/dev/backend",
+      "address": "backend.local",
+      "message": "the backend block is partial; values come from -backend-config"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/backend",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/backend",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/backend",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/dev/backend",
+      "address": "module.state_backend",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/environments/dev/backend",
+      "address": "",
+      "message": "the root 'backend' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_ami_release_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.github_oidc_subjects",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.environment_jwt_secret_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.kyverno_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.observability_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.security_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.outbound_mode",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.transit_gateway_id",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.transit_gateway_id",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.aws_load_balancer_controller_policy_arns",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.aws_load_balancer_controller_policy_arns",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.create_canonical_hosted_zone",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.canonical_destination_records",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.github_platform_mirror_job_workflow_refs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.additional_eks_oidc_issuers",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.full_profile_secret_versions",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.sonarqube_reader_issuer_label",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.consumer_jwt_environment",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.dr_secret_seed_subjects",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-016",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.dr_secret_seed_subjects",
+      "message": "a variable whose name marks a secret must set sensitive = true"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.dr_secret_seed_workflow_refs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-016",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.dr_secret_seed_workflow_refs",
+      "message": "a variable whose name marks a secret must set sensitive = true"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/dev/foundation",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/foundation",
+      "address": "output.environment",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/foundation",
+      "address": "output.foundation_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/foundation",
+      "address": "output.public_hosted_zone_name_servers",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/dev/foundation",
+      "address": "output.availability_zones",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/dev/foundation",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/dev/foundation",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/environments/dev/foundation",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/foundation",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/foundation",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/dev/foundation",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/dev/foundation",
+      "address": "module.foundation",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/dev/foundation",
+      "address": "module.environment_jwt_values",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/dev/foundation",
+      "address": "module.full_profile_secret_values",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/environments/dev/foundation",
+      "address": "",
+      "message": "the root 'foundation' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.aws_region",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.owner",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.common_tags",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.vpc_cidr",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.availability_zones",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.availability_zones",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.public_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.public_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.private_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.private_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_admin_principal_arns",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_ami_release_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.github_oidc_subjects",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.environment_jwt_secret_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.kyverno_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "output.environment",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "output.foundation_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "output.availability_zones",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "output.aws_load_balancer_controller_discovery",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "module.foundation",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "",
+      "message": "the root 'foundation' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "variables.tf:23",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "variables.tf:24",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "variables.tf:31",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-dev/foundation",
+      "address": "variables.tf:34",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.aws_region",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.owner",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.common_tags",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.vpc_cidr",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.availability_zones",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.availability_zones",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.public_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.public_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.private_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.private_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_admin_principal_arns",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_ami_release_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.neutral_service_names",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.github_oidc_subjects",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.environment_jwt_secret_version",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.kyverno_service_account_subject",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "output.environment",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "output.foundation_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "output.availability_zones",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "output.aws_load_balancer_controller_discovery",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "module.foundation",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "",
+      "message": "the root 'foundation' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "variables.tf:23",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "variables.tf:24",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "variables.tf:31",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/environments/full-prod/foundation",
+      "address": "variables.tf:34",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-102",
+      "path": "aws/modules/centralized-egress",
+      "address": "",
+      "message": "a live repository consumes modules by tag and holds no module"
+    },
+    {
+      "rule": "MTS-IAC-102",
+      "path": "aws/modules/environment-foundation",
+      "address": "",
+      "message": "a live repository consumes modules by tag and holds no module"
+    },
+    {
+      "rule": "MTS-IAC-102",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "",
+      "message": "a live repository consumes modules by tag and holds no module"
+    },
+    {
+      "rule": "MTS-IAC-102",
+      "path": "aws/modules/ephemeral-passwords",
+      "address": "",
+      "message": "a live repository consumes modules by tag and holds no module"
+    },
+    {
+      "rule": "MTS-IAC-102",
+      "path": "aws/modules/state-backend",
+      "address": "",
+      "message": "a live repository consumes modules by tag and holds no module"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.name",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.name",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.aws_region",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.vpc_cidr",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.vpc_cidr",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.availability_zones",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.availability_zones",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.public_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.public_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.private_subnet_cidrs",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.private_subnet_cidrs",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.spokes",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.spokes",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.owner",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.common_tags",
+      "message": "a non-boolean variable needs at least one validation block"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/shared/egress",
+      "address": "var.environment",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/shared/egress",
+      "address": "output.egress_public_ips",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/shared/egress",
+      "address": "output.egress_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/shared/egress",
+      "address": "main.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/shared/egress",
+      "address": "local.governance_prefix",
+      "message": "a root defines governance_prefix and derives every name from it"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/shared/egress",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/shared/egress",
+      "address": "provider.aws",
+      "message": "the root configures the alias \"principal\""
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/shared/egress",
+      "address": "provider.aws.(default)",
+      "message": "every root provider carries an alias"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/shared/egress",
+      "address": "provider.aws.(default)",
+      "message": "the provider declares assume_role"
+    },
+    {
+      "rule": "PC-IAC-015",
+      "path": "aws/shared/egress",
+      "address": "module.egress",
+      "message": "a live root consumes modules remotely, never by local path"
+    },
+    {
+      "rule": "PC-IAC-022",
+      "path": "aws/shared/egress",
+      "address": "",
+      "message": "the root 'egress' is not split by domain (security, networking, workload, state, registry, dns)"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/shared/egress",
+      "address": "variables.tf:12",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/shared/egress",
+      "address": "variables.tf:13",
+      "message": "an account ID arrives as var.aws_account_id, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/shared/egress",
+      "address": "variables.tf:20",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    },
+    {
+      "rule": "MTS-IAC-103",
+      "path": "aws/shared/egress",
+      "address": "variables.tf:23",
+      "message": "the region arrives from the environment's .tfvars, never as a literal"
+    }
+  ],
+  "waived": []
+}

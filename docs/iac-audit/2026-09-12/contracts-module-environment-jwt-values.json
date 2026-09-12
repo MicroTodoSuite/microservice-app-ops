@@ -1,0 +1,156 @@
+{
+  "checked": 1,
+  "findings": [
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "README.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "CHANGELOG.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": ".gitignore",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "providers.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "locals.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "data.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/terraform.tfvars",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/variables.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/data.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/locals.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/main.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/outputs.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/providers.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "sample/README.md",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "versions.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "variables.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "main.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "outputs.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-018",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "tests/",
+      "message": "the module has no terraform test file"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "var.project",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "var.environment",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "output.values",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "required_providers.random",
+      "message": "a module declares a minimum provider version with >="
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/environment-jwt-values",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    }
+  ],
+  "waived": []
+}

@@ -1,0 +1,1158 @@
+{
+  "checked": 1,
+  "findings": [
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "README.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "CHANGELOG.md",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": ".gitignore",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "providers.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "locals.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "main.tf",
+      "message": "the module lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "dr-secret-seed.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "ecr.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "eks.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "github-oidc.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "irsa.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "karpenter.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "kyverno-irsa.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "load-balancer-irsa.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "managed-secrets.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "network.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "observability-irsa.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "platform-mirror.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "route53.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "security-irsa.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "tooling-secrets.tf",
+      "message": "a module keeps its resources in the files PC-IAC-001 names"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/terraform.tfvars",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/variables.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/data.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/locals.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/main.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/outputs.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/providers.tf",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "sample/README.md",
+      "message": "the sample lacks a required file"
+    },
+    {
+      "rule": "PC-IAC-001",
+      "path": "aws/modules/environment-foundation",
+      "address": "versions.tf",
+      "message": "every module file carries a descriptive comment"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/environment-foundation",
+      "address": ".terraform.lock.hcl",
+      "message": "a module commits no lock file"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.public_hosted_zone_name",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.create_canonical_hosted_zone",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.bootstrap_node_instance_types",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.bootstrap_node_min_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.bootstrap_node_desired_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.bootstrap_node_max_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.bootstrap_node_volume_size",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.iam_permissions_boundary_arn",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.transit_gateway_id",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.aws_load_balancer_controller_policy_arns",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-016",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.dr_secret_seed_subjects",
+      "message": "a variable whose name marks a secret must set sensitive = true"
+    },
+    {
+      "rule": "PC-IAC-016",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.dr_secret_seed_workflow_refs",
+      "message": "a variable whose name marks a secret must set sensitive = true"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.neutral_service_names",
+      "message": "a variable that identifies or sizes infrastructure takes no default"
+    },
+    {
+      "rule": "PC-IAC-002",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.client",
+      "message": "the governance variable is missing"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.foundation_contract",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.aws_load_balancer_controller_discovery",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.public_hosted_zone_name_servers",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.canonical_hosted_zone_name_servers",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.availability_zones",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-007",
+      "path": "aws/modules/environment-foundation",
+      "address": "output.bootstrap_node_group_status",
+      "message": "output names are snake_case and end in what they return (_id, _ids, _arn, _arns, _name, _names, _url, _urls, _endpoint, _endpoints, _cidr, _cidrs, _data, _version)"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "dr-secret-seed.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "ecr.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "eks.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "github-oidc.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "irsa.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "karpenter.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "kyverno-irsa.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "managed-secrets.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "network.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "observability-irsa.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "platform-mirror.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "security-irsa.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "tooling-secrets.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-012",
+      "path": "aws/modules/environment-foundation",
+      "address": "variables.tf",
+      "message": "locals blocks belong only in locals.tf"
+    },
+    {
+      "rule": "PC-IAC-010",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.services",
+      "message": "a protected resource needs lifecycle { prevent_destroy = true }"
+    },
+    {
+      "rule": "PC-IAC-010",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.neutral_services",
+      "message": "a protected resource needs lifecycle { prevent_destroy = true }"
+    },
+    {
+      "rule": "PC-IAC-010",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.platform_mirror",
+      "message": "a protected resource needs lifecycle { prevent_destroy = true }"
+    },
+    {
+      "rule": "PC-IAC-010",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route53_zone.public",
+      "message": "a protected resource needs lifecycle { prevent_destroy = true }"
+    },
+    {
+      "rule": "PC-IAC-010",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route53_zone.canonical",
+      "message": "a protected resource needs lifecycle { prevent_destroy = true }"
+    },
+    {
+      "rule": "PC-IAC-004",
+      "path": "aws/modules/environment-foundation",
+      "address": "var.additional_tags",
+      "message": "a module that creates resources accepts additional_tags"
+    },
+    {
+      "rule": "PC-IAC-003",
+      "path": "aws/modules/environment-foundation",
+      "address": "",
+      "message": "the module's principal resource is named this"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/environment-foundation",
+      "address": "required_providers.aws",
+      "message": "a module declares a minimum provider version with >="
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "versions.tf",
+      "message": "required_providers.aws lists aws.project in configuration_aliases"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.dr_secret_seed",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.dr_secret_seed",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.services",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_lifecycle_policy.services",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.neutral_services",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_lifecycle_policy.neutral_services",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_eks_addon.vpc_cni",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_eks_addon.coredns",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_eks_addon.kube_proxy",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_eks_addon.ebs_csi",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_openid_connect_provider.github_actions",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.github_ecr_publisher",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.github_ecr_publisher",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.node",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.node",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.vpc_cni",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.vpc_cni",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.ebs_csi",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.ebs_csi",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_kms_key.karpenter_interruption",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_kms_alias.karpenter_interruption",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.kyverno_ecr_verifier",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.kyverno_ecr_verifier",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.aws_load_balancer_controller",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.aws_load_balancer_controller",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret.environment_jwt",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret_version.environment_jwt",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.environment_jwt_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.environment_jwt_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.consumer_jwt_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.consumer_jwt_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_kms_key.vpc_flow_logs",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_kms_alias.vpc_flow_logs",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route.private_transit_egress",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret.observability_slack_webhook",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.observability_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.observability_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.platform_mirror",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_lifecycle_policy.platform_mirror",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.github_platform_mirror",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.github_platform_mirror",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route53_zone.public",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route53_zone.canonical",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route53_record.canonical_destination",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret.security_slack_webhook",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.security_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.security_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret.tooling",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret_version.tooling",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.sonarqube_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.sonarqube_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_ecr_repository.neutral_services",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_openid_connect_provider.github_actions",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.github_ecr_publisher",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_partition.current",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_policy_document.karpenter_controller_irsa",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.kyverno_ecr_verifier",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.consumer_jwt",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.observability_slack_webhook",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.observability_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_ecr_repository.platform_mirror",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.security_slack_webhook",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-005",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.security_secrets_reader",
+      "message": "the block sets provider = aws.project"
+    },
+    {
+      "rule": "PC-IAC-006",
+      "path": "aws/modules/environment-foundation",
+      "address": "terraform.required_version",
+      "message": "required_version is a minimum declared with >="
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_ecr_repository.neutral_services",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_openid_connect_provider.github_actions",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.github_ecr_publisher",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.kyverno_ecr_verifier",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.consumer_jwt",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.observability_slack_webhook",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.observability_secrets_reader",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_ecr_repository.platform_mirror",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_secretsmanager_secret.security_slack_webhook",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-011",
+      "path": "aws/modules/environment-foundation",
+      "address": "data.aws_iam_role.security_secrets_reader",
+      "message": "a module looks nothing up; the root passes the value in"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.dr_secret_seed",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.dr_secret_seed",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.github_ecr_publisher",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.github_ecr_publisher",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.node",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.node",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.vpc_cni",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.vpc_cni",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.ebs_csi",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.ebs_csi",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.kyverno_ecr_verifier",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.kyverno_ecr_verifier",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.aws_load_balancer_controller",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy_attachment.aws_load_balancer_controller",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.environment_jwt_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.environment_jwt_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.consumer_jwt_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.consumer_jwt_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_route.private_transit_egress",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.observability_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.observability_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.github_platform_mirror",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.github_platform_mirror",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.security_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.security_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.sonarqube_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-023",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role_policy.sonarqube_secrets_reader",
+      "message": "a service module receives this resource as an input"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.services",
+      "message": "name is assembled from governance variables; the root builds names"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_ecr_repository.neutral_services",
+      "message": "name is assembled from governance variables; the root builds names"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_secretsmanager_secret.environment_jwt",
+      "message": "name is assembled from governance variables; the root builds names"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "aws_iam_role.environment_jwt_reader",
+      "message": "name is assembled from governance variables; the root builds names"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.dr_secret_seed_role_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.dr_secret_seed_secret_names",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.neutral_ecr_repository_arns",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.consumer_jwt_secret_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.observability_slack_webhook_secret_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.observability_secrets_reader_role_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.platform_mirror_repository_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.security_slack_webhook_secret_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.security_secrets_reader_role_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.full_profile_secret_names",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.sonarqube_secrets_reader_role_name",
+      "message": "only tag locals may use governance variables inside a module"
+    },
+    {
+      "rule": "PC-IAC-025",
+      "path": "aws/modules/environment-foundation",
+      "address": "local.cluster_name",
+      "message": "only tag locals may use governance variables inside a module"
+    }
+  ],
+  "waived": []
+}
