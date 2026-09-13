@@ -1,3 +1,11 @@
+# [1.9.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.8.0...v1.9.0) (2026-09-13)
+
+
+### Features
+
+* **shd:** add the shared security root ([#67](https://github.com/MicroTodoSuite/microservice-app-ops/issues/67)) ([656f0b3](https://github.com/MicroTodoSuite/microservice-app-ops/commit/656f0b35f6be378de3259cba54e56d125385d126))
+* **shd:** implement the shared security root ([bf3bdee](https://github.com/MicroTodoSuite/microservice-app-ops/commit/bf3bdee608f3e62ce31e0f4cc8a713b14dc6b780))
+
 # [1.8.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.7.0...v1.8.0) (2026-09-13)
 
 
