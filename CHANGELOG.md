@@ -1,3 +1,11 @@
+# [1.14.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.13.0...v1.14.0) (2026-09-13)
+
+
+### Features
+
+* **eco:** add the economical workload root ([#74](https://github.com/MicroTodoSuite/microservice-app-ops/issues/74)) ([d967ac1](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d967ac182b85a5a1de3fbaddd51dabf8af9dd8df)), closes [#73](https://github.com/MicroTodoSuite/microservice-app-ops/issues/73) [terraform-aws-modules#35](https://github.com/terraform-aws-modules/issues/35)
+* **eco:** implement the economical workload root ([ab7aaa7](https://github.com/MicroTodoSuite/microservice-app-ops/commit/ab7aaa7c120da42e01daa744bb926baeb766c443))
+
 # [1.13.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.12.0...v1.13.0) (2026-09-13)
 
 
