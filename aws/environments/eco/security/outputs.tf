@@ -9,6 +9,11 @@ output "node_role_arn" {
   value       = module.node_role.role_arn
 }
 
+output "addon_role_arns" {
+  description = "Pod Identity role ARNs of the cluster add-ons, keyed by vpccni and ebscsi."
+  value       = { for key, role in module.addon_roles : key => role.role_arn }
+}
+
 output "secrets_key_arn" {
   description = "ARN of the key that encrypts the cluster's Kubernetes secrets."
   value       = module.secrets_key.key_arn

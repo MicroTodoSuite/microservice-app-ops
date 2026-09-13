@@ -8,6 +8,8 @@ needs before it can create the cluster.
 | --- | --- | --- |
 | Control-plane role: `AmazonEKSClusterPolicy`, and use of the secrets key | `iam-role-v1.0.0` | `lex-mts-eco-role-cluster` |
 | Managed nodes' role: `AmazonEKSWorkerNodePolicy`, `AmazonEC2ContainerRegistryPullOnly` | `iam-role-v1.0.0` | `lex-mts-eco-role-node` |
+| Pod Identity role of the `vpc-cni` add-on: `AmazonEKS_CNI_Policy` | `iam-role-v1.0.0` | `lex-mts-eco-role-vpccni` |
+| Pod Identity role of the `aws-ebs-csi-driver` add-on: `AmazonEBSCSIDriverPolicy` | `iam-role-v1.0.0` | `lex-mts-eco-role-ebscsi` |
 | Key for Kubernetes secrets | `kms-key-v1.0.0` | `alias/lex-mts-eco-kms-eks` |
 | Key for the control-plane log group | `kms-key-v1.0.0` | `alias/lex-mts-eco-kms-ekslogs` |
 | Extra control-plane security group | `security-group-v1.0.0` | `lex-mts-eco-sg-cluster` |
@@ -37,9 +39,20 @@ webhooks are supplied by a person.
 
 **The VPC** is read from `eco/networking` by its standard name.
 
+**The add-on roles** use EKS Pod Identity, not IRSA. A Pod Identity role
+trusts `pods.eks.amazonaws.com` and needs no OIDC provider. It can therefore
+exist before the cluster, and the CNI is authorized from the first node's boot.
+Each role's trust admits only its add-on's service account in
+`lex-mts-eco-eks-main`, through the session tags Pod Identity sets
+(`eks-cluster-arn`, `kubernetes-namespace`, `kubernetes-service-account`).
+`eco/workload` associates the roles through `eks-cluster`'s
+`pod_identity_associations`, with the `eks-pod-identity-agent` add-on.
+
 **Not here, because they come in the IRSA pass after `eco/workload`** (it
-needs the cluster's OIDC issuer): the IRSA roles for the VPC CNI, the EBS CSI
-driver, the load balancer controller, and the secret readers.
+needs the cluster's OIDC issuer): the IRSA roles of the in-cluster
+applications, the load balancer controller, the secret readers, and the
+Kyverno image verifier. Their GitOps service-account annotations keep their
+form.
 
 ## Plan and apply
 
@@ -57,6 +70,7 @@ records a `no-prior-state` receipt.
 ## Outputs
 
 - `cluster_role_arn`, `node_role_arn`
+- `addon_role_arns`, keyed by `vpccni` and `ebscsi`
 - `secrets_key_arn`, `logs_key_arn`
 - `cluster_security_group_id`, `node_security_group_id`
 - `jwt_secret_arns`, `webhook_secret_arns`
