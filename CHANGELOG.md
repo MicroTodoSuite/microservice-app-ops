@@ -1,3 +1,11 @@
+# [1.12.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.11.0...v1.12.0) (2026-09-13)
+
+
+### Features
+
+* **eco:** add the economical security root ([#72](https://github.com/MicroTodoSuite/microservice-app-ops/issues/72)) ([dcf7037](https://github.com/MicroTodoSuite/microservice-app-ops/commit/dcf7037f745da91f40d3c11d5fbe6ed2070f726d)), closes [#71](https://github.com/MicroTodoSuite/microservice-app-ops/issues/71)
+* **eco:** implement the economical security root ([94c3c46](https://github.com/MicroTodoSuite/microservice-app-ops/commit/94c3c46fd9daf148a935e395d38c8eac3b20e0da))
+
 # [1.11.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.10.0...v1.11.0) (2026-09-13)
 
 
