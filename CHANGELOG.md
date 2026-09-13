@@ -1,3 +1,11 @@
+# [1.7.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.6.0...v1.7.0) (2026-09-13)
+
+
+### Features
+
+* **irsa:** add a read-only ecr role for trivy operator ([1271f0b](https://github.com/MicroTodoSuite/microservice-app-ops/commit/1271f0bda2c7be049193de338c230334443d1a42)), closes [#133](https://github.com/MicroTodoSuite/microservice-app-ops/issues/133)
+* **irsa:** add a read-only ecr role for trivy operator ([#63](https://github.com/MicroTodoSuite/microservice-app-ops/issues/63)) ([70ece00](https://github.com/MicroTodoSuite/microservice-app-ops/commit/70ece00356a319de3efb94c0736ea6d1ad2e709e)), closes [MicroTodoSuite/microservice-app-gitops#133](https://github.com/MicroTodoSuite/microservice-app-gitops/issues/133) [#133](https://github.com/MicroTodoSuite/microservice-app-ops/issues/133)
+
 # [1.6.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.2...v1.6.0) (2026-09-13)
 
 
