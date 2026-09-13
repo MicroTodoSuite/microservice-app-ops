@@ -1,3 +1,11 @@
+# [1.13.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.12.0...v1.13.0) (2026-09-13)
+
+
+### Features
+
+* **eco:** add pod identity roles for the cluster add-ons ([62e1493](https://github.com/MicroTodoSuite/microservice-app-ops/commit/62e14939f0aaba96f88a3335706b09c692a2a17a))
+* **eco:** add pod identity roles for the cluster add-ons ([#73](https://github.com/MicroTodoSuite/microservice-app-ops/issues/73)) ([12c11a4](https://github.com/MicroTodoSuite/microservice-app-ops/commit/12c11a40011b2f43f305c51478aa0b25641e5431))
+
 # [1.12.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.11.0...v1.12.0) (2026-09-13)
 
 
