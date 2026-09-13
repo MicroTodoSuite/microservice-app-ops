@@ -94,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           keys=$(grep -h '^key' \
-            aws/environments/*/foundation/*.s3.tfbackend.example \
+            aws/environments/*/*/*.s3.tfbackend.example \
             aws/shared/*/*.s3.tfbackend.example \
             | sed -E 's/^key[[:space:]]*=[[:space:]]*//' | tr -d '"')
           total=$(printf '%s\n' "$keys" | wc -l)
