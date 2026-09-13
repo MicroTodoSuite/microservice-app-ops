@@ -63,6 +63,30 @@ run "grants_each_role_only_its_documented_trust_and_policies" {
   }
 }
 
+run "trusts_only_each_addon_service_account_through_pod_identity" {
+  command = plan
+
+  assert {
+    condition     = local.addon_pod_identities["vpccni"].role_name == "lex-mts-eco-role-vpccni" && local.addon_pod_identities["ebscsi"].role_name == "lex-mts-eco-role-ebscsi"
+    error_message = "The add-on roles must carry their spec 004 names."
+  }
+
+  assert {
+    condition     = jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Principal.Service == "pods.eks.amazonaws.com" && toset(jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Action) == toset(["sts:AssumeRole", "sts:TagSession"])
+    error_message = "Only EKS Pod Identity may assume an add-on role, with the two actions it uses."
+  }
+
+  assert {
+    condition     = jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Condition.StringEquals == { "aws:RequestTag/eks-cluster-arn" = "arn:aws:eks:us-east-1:123456789012:cluster/lex-mts-eco-eks-main", "aws:RequestTag/kubernetes-namespace" = "kube-system", "aws:RequestTag/kubernetes-service-account" = "aws-node" }
+    error_message = "The CNI role must trust only kube-system/aws-node in this cluster."
+  }
+
+  assert {
+    condition     = jsondecode(local.addon_trust_policies["ebscsi"]).Statement[0].Condition.StringEquals["aws:RequestTag/kubernetes-service-account"] == "ebs-csi-controller-sa" && local.addon_pod_identities["ebscsi"].policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" && local.addon_pod_identities["vpccni"].policy_arn == "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+    error_message = "Each add-on role must get only its AWS managed policy, for its own service account."
+  }
+}
+
 run "limits_the_logs_key_to_the_control_plane_log_group" {
   command = plan
 
