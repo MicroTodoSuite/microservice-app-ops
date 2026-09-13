@@ -1,3 +1,11 @@
+# [1.6.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.2...v1.6.0) (2026-09-13)
+
+
+### Features
+
+* **lifecycle:** snapshot persistent volumes before quiescence ([2fc2486](https://github.com/MicroTodoSuite/microservice-app-ops/commit/2fc24862db6fda5c64a8cb1c689b46bbb3cb66d9))
+* **lifecycle:** snapshot persistent volumes before quiescence ([#61](https://github.com/MicroTodoSuite/microservice-app-ops/issues/61)) ([6acc370](https://github.com/MicroTodoSuite/microservice-app-ops/commit/6acc37046c06adda1b6d80cbb1460ae5dc8bf748)), closes [gitops#109](https://github.com/gitops/issues/109)
+
 ## [1.5.2](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.5.1...v1.5.2) (2026-09-11)
 
 
