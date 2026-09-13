@@ -55,7 +55,7 @@ for direction in up down; do
     "wrapper is missing the ${direction} direction"
 done
 
-for command in check init plan inspect apply status; do
+for command in check init plan inspect apply status snapshot-volumes; do
   require_text "scripts/aws-profile-lifecycle.sh" "^[[:space:]]*${command}\)" \
     "wrapper is missing the ${command} command"
 done
@@ -86,6 +86,16 @@ reject_text "scripts/aws-profile-lifecycle.sh" '(^|[[:space:]])rg([[:space:]]|$)
   "wrapper must not require ripgrep for operator commands"
 reject_text "scripts/aws-profile-lifecycle.sh" 'auto-approve|kubectl[[:space:]]+(apply|delete|patch|scale)' \
   "wrapper must not auto-approve Terraform or mutate GitOps-managed clusters"
+require_text "scripts/aws-profile-lifecycle.sh" 'Name=tag-key,Values=ebs\.csi\.aws\.com/cluster,CSIVolumeName' \
+  "wrapper must find persistent volumes by the tags the EBS CSI driver sets"
+require_text "scripts/aws-profile-lifecycle.sh" 'ec2[[:space:]]+create-snapshot' \
+  "wrapper must snapshot persistent volumes before GitOps quiescence"
+require_text "scripts/aws-profile-lifecycle.sh" 'ec2[[:space:]]+wait[[:space:]]+snapshot-completed' \
+  "wrapper must wait for volume snapshots to complete"
+require_text "scripts/aws-profile-lifecycle.sh" -- '--volume-record' \
+  "down plans must require a persistent-volume record"
+reject_text "scripts/aws-profile-lifecycle.sh" 'kubectl' \
+  "wrapper must never invoke kubectl (spec 003 FR-012)"
 require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[[:space:]]+"\$DURABLE_DELETE_FILTER"' \
   "wrapper must audit shutdown plans with the versioned durable-delete filter"
 require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-durable-deletes\\.jq" \
@@ -146,7 +156,13 @@ capture_dir="$(mktemp -d)"
 cleanup_relative_bundle_fixture() {
   rm -rf "$fixture_bundle" "$fake_bin" "$capture_dir"
 }
-trap cleanup_relative_bundle_fixture EXIT
+volume_sandbox="$(mktemp -d)"
+volume_bin="$(mktemp -d)"
+cleanup_lifecycle_fixtures() {
+  cleanup_relative_bundle_fixture
+  rm -rf "$volume_sandbox" "$volume_bin"
+}
+trap cleanup_lifecycle_fixtures EXIT
 
 mkdir -p "$fixture_bundle"
 printf 'contract plan\n' >"$fixture_bundle/dev.tfplan"
@@ -227,6 +243,115 @@ inspect_plan_argument="$(<"$capture_dir/inspect-plan-argument")"
 apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
 [[ "$apply_plan_argument" == /* ]] || \
   fail "apply must pass an absolute saved-plan path after Terraform -chdir"
+
+# Persistent volumes (spec 003 FR-018 to FR-020). snapshot-volumes records a
+# completed snapshot, or explicit consent, for every EBS CSI volume. A down plan
+# accepts only a record that predates the GitOps quiescence commit and still
+# covers every volume. The sandbox is a copy of the wrapper with real Git
+# repositories and fake AWS and Terraform binaries, so nothing reaches AWS.
+sandbox_ops="$volume_sandbox/ops"
+sandbox_gitops="$volume_sandbox/microservice-app-gitops"
+mkdir -p "$sandbox_ops/scripts" "$sandbox_ops/aws/environments/dev/foundation" "$sandbox_gitops"
+cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$sandbox_ops/scripts/"
+cp "$ROOT/.terraform-version" "$ROOT/.gitignore" "$sandbox_ops/"
+printf '%s\n' 'expected_account_id = "575172595729"' 'aws_region          = "us-east-1"' \
+  >"$sandbox_ops/aws/environments/dev/foundation/dev.tfvars"
+printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/dev/foundation/dev.s3.tfbackend"
+contract_git() {
+  git -c user.name=contract -c user.email=contract@example.invalid -c commit.gpgsign=false "$@"
+}
+contract_git -C "$sandbox_ops" init -q
+contract_git -C "$sandbox_ops" add -A
+contract_git -C "$sandbox_ops" commit -q -m contract
+now="$(date -u +%s)"
+contract_git -C "$sandbox_gitops" init -q
+GIT_COMMITTER_DATE="@$((now - 86400)) +0000" GIT_AUTHOR_DATE="@$((now - 86400)) +0000" \
+  contract_git -C "$sandbox_gitops" commit -q --allow-empty -m 'quiescence merged before the record'
+stale_revision="$(git -C "$sandbox_gitops" rev-parse HEAD)"
+GIT_COMMITTER_DATE="@$((now + 3600)) +0000" GIT_AUTHOR_DATE="@$((now + 3600)) +0000" \
+  contract_git -C "$sandbox_gitops" commit -q --allow-empty -m 'quiescence merged after the record'
+quiescence_revision="$(git -C "$sandbox_gitops" rev-parse HEAD)"
+git -C "$sandbox_gitops" update-ref refs/remotes/origin/main "$quiescence_revision"
+
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  'printf "%s\n" "$*" >>"$VOLUME_CAPTURE/aws.log"' \
+  'case "$*" in' \
+  '  --version) printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n" ;;' \
+  '  "sts get-caller-identity"*) printf "575172595729\n" ;;' \
+  '  *"ec2 describe-volumes"*)' \
+  '    printf "vol-0aaa\t10\tpvc-prometheus\nvol-0bbb\t2\tpvc-grafana\n"' \
+  '    if [[ -n "${EXTRA_VOLUME:-}" ]]; then printf "%s\t5\tpvc-new\n" "$EXTRA_VOLUME"; fi ;;' \
+  '  *"ec2 create-snapshot"*) printf "snap-0aaa\n" ;;' \
+  '  *"ec2 wait snapshot-completed"*) ;;' \
+  '  *"ec2 describe-snapshots"*) printf "snap-0aaa\tcompleted\n" ;;' \
+  '  *) exit 2 ;;' \
+  'esac' \
+  >"$volume_bin/aws"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  'if [[ "${1:-}" == version ]]; then printf '\''{"terraform_version":"1.15.8"}\n'\''; exit 0; fi' \
+  '[[ "${1:-}" == -chdir=* ]] || exit 2' \
+  'case "${2:-}" in' \
+  '  init) ;;' \
+  '  plan) for argument in "$@"; do [[ "$argument" != -out=* ]] || printf "plan\n" >"${argument#-out=}"; done ;;' \
+  '  show) printf '\''{"resource_changes":[]}\n'\'' ;;' \
+  '  *) exit 2 ;;' \
+  'esac' \
+  >"$volume_bin/terraform"
+chmod +x "$volume_bin/aws" "$volume_bin/terraform"
+
+in_sandbox() {
+  (
+    cd "$sandbox_ops"
+    AWS_PROFILE=contract PATH="$volume_bin:$PATH" VOLUME_CAPTURE="$volume_sandbox" "$@"
+  )
+}
+
+in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes economical --consent vol-0bbb >/dev/null
+volume_record="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'volumes-economical-*' | head -n 1)"
+[[ -n "$volume_record" && -f "$volume_record/record.tsv" ]] || \
+  fail "snapshot-volumes must write a volume record"
+grep -Fxq $'volume\tvol-0aaa\tpvc-prometheus\t10\tsnapshot\tsnap-0aaa' "$volume_record/record.tsv" || \
+  fail "the volume record must name the completed snapshot of each unconsented volume"
+grep -Fxq $'volume\tvol-0bbb\tpvc-grafana\t2\tconsent\t-' "$volume_record/record.tsv" || \
+  fail "the volume record must keep explicit consent instead of a snapshot"
+[[ "$(grep -c 'ec2 create-snapshot' "$volume_sandbox/aws.log")" == 1 ]] || \
+  fail "only volumes without consent may be snapshotted"
+grep -Eq 'ec2 create-snapshot .*--volume-id vol-0aaa' "$volume_sandbox/aws.log" || \
+  fail "the snapshot must come from the unconsented volume"
+grep -Eq 'ec2 wait snapshot-completed .*snap-0aaa' "$volume_sandbox/aws.log" || \
+  fail "snapshot-volumes must wait for its snapshots to complete"
+(cd "$volume_record" && sha256sum -c --quiet checksums.sha256) || \
+  fail "the volume record must be checksummed"
+
+if in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes economical --consent vol-0zzz >/dev/null 2>&1; then
+  fail "consent naming a volume that does not exist must be rejected"
+fi
+if in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down --gitops-revision "$quiescence_revision" >/dev/null 2>&1; then
+  fail "a down plan without a volume record must be rejected"
+fi
+if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --gitops-revision "$stale_revision" --volume-record "$volume_record" 2>&1)"; then
+  fail "a volume record newer than the GitOps quiescence commit must be rejected"
+fi
+grep -q 'predate' <<<"$output" || fail "the stale-record rejection must explain the ordering"
+if in_sandbox env EXTRA_VOLUME=vol-0ccc ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null 2>&1; then
+  fail "a volume missing from the record must block the down plan"
+fi
+in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null || \
+  fail "a record that predates quiescence and covers every volume must allow the down plan"
+down_bundle="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'economical-down-*' | head -n 1)"
+grep -q $'^volume_record\t' "$down_bundle/metadata.tsv" || \
+  fail "the down bundle must record which volume record it relied on"
+cmp -s "$volume_record/record.tsv" "$down_bundle/volume-record.tsv" || \
+  fail "the down bundle must carry a copy of the volume record"
+(cd "$down_bundle" && sha256sum -c --quiet checksums.sha256) || \
+  fail "the down bundle checksums must cover the volume record"
 
 for root in dev demo-full full-dev full-prod; do
   require_text "aws/environments/${root}/foundation/variables.tf" 'variable "runtime_enabled"' \

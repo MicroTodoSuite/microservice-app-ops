@@ -63,6 +63,8 @@ require_file_text "$RUNBOOK" "only after \`make check PROFILE=full\` passes" \
   "full-profile prose must use the primary Make check command"
 require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=full\` again" \
   "full-profile prose must use the primary Make plan command"
+require_file_text "$RUNBOOK" "make snapshot-volumes PROFILE=" \
+  "the runbook must snapshot persistent volumes before GitOps quiescence"
 
 reject_makefile_text '(^|[[:space:]])(terraform|kubectl)([[:space:]]|$)' \
   "Makefile must not invoke Terraform or kubectl directly"
@@ -72,7 +74,7 @@ reject_makefile_text 'PROFILE[[:space:]]*\?=[[:space:]]*(economical|full)' \
   "Makefile must not silently select a lifecycle profile"
 
 help_output="$(make --no-print-directory --silent -C "$ROOT" help)"
-for target in check init status plan-up plan-down inspect apply-up apply-down; do
+for target in check init status snapshot-volumes plan-up plan-down inspect apply-up apply-down; do
   require_output "$help_output" "$target" "help is missing the $target target"
 done
 require_output "$help_output" 'PROFILE=economical|full' \
@@ -91,9 +93,17 @@ for profile in economical full; do
   require_single_wrapper_command "$output" "$LIFECYCLE plan $profile up" \
     "plan-up must create only the $profile up plan"
 
-  output="$(dry_run plan-down "PROFILE=$profile" GITOPS_REVISION=abcdef1)"
-  require_single_wrapper_command "$output" "$LIFECYCLE plan $profile down --gitops-revision \"abcdef1\"" \
-    "plan-down must pass GitOps quiescence evidence for $profile"
+  output="$(dry_run snapshot-volumes "PROFILE=$profile")"
+  require_single_wrapper_command "$output" "$LIFECYCLE snapshot-volumes $profile" \
+    "snapshot-volumes must delegate the $profile profile to the wrapper"
+
+  output="$(dry_run snapshot-volumes "PROFILE=$profile" "CONSENT=vol-0aaa vol-0bbb")"
+  require_single_wrapper_command "$output" "$LIFECYCLE snapshot-volumes $profile --consent vol-0aaa --consent vol-0bbb" \
+    "snapshot-volumes must pass each consented volume for $profile"
+
+  output="$(dry_run plan-down "PROFILE=$profile" GITOPS_REVISION=abcdef1 VOLUME_RECORD=.aws-profile-plans/volumes-example)"
+  require_single_wrapper_command "$output" "$LIFECYCLE plan $profile down --gitops-revision \"abcdef1\" --volume-record \".aws-profile-plans/volumes-example\"" \
+    "plan-down must pass GitOps quiescence and volume evidence for $profile"
 
   output="$(dry_run apply-up "PROFILE=$profile" BUNDLE=.aws-profile-plans/example-up)"
   require_single_wrapper_command "$output" "$LIFECYCLE apply $profile up \".aws-profile-plans/example-up\"" \
@@ -131,5 +141,11 @@ if output="$(make --no-print-directory --silent -C "$ROOT" plan-down PROFILE=eco
 fi
 require_output "$output" 'GITOPS_REVISION is required' \
   "missing GitOps revision rejection must be actionable"
+
+if output="$(make --no-print-directory --silent -C "$ROOT" plan-down PROFILE=economical GITOPS_REVISION=abcdef1 2>&1)"; then
+  fail "plan-down must reject a missing VOLUME_RECORD"
+fi
+require_output "$output" 'VOLUME_RECORD is required' \
+  "missing volume record rejection must be actionable"
 
 printf 'PASS: AWS profile lifecycle Make interface contract\n'
