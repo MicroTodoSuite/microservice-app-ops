@@ -73,3 +73,11 @@
   - [X] Reproduce the relative-bundle failure with a behavioral contract
   - [X] Resolve relative and absolute bundle inputs to one canonical directory
   - [X] Verify inspect and apply retain the saved-plan checksum and provenance gates
+
+- [X] **T013 Snapshot persistent volumes before GitOps quiescence (ai-agents specs/001 T038)**
+  - [X] Record the 2026-09-11 loss mechanism and the maintainer's decision in the specification and plan
+  - [X] Commit failing contracts for the snapshot command, the down-plan record gate, and the Make interface
+  - [X] Snapshot every EBS CSI volume through the EC2 API, with explicit consent as the only alternative
+  - [X] Require a record that predates quiescence, covers every present volume, and has completed snapshots
+  - [X] Carry the record in the checksummed down bundle and require it at apply
+  - [X] Document the ordering in the runbook

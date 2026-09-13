@@ -53,13 +53,24 @@ After Terraform recreates the runtime, bootstrap or reactivate it only through t
 
 Before planning shutdown:
 
-1. Decide whether each PersistentVolume may be deleted or requires an application-level backup. Recreating an EKS cluster does not restore application data automatically.
-2. Commit a GitOps change that quiesces the selected environment without deleting durable AWS assets.
+1. Snapshot every PersistentVolume while the workloads still run: `make snapshot-volumes PROFILE=economical`.
+   - It finds every EBS volume that the EBS CSI driver created in the profile's region, through the EC2 API.
+   - It snapshots each one and waits for the snapshots to complete.
+   - It writes a checksummed record under `.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ/`.
+   - A volume whose data may be lost is named with `CONSENT="vol-..."`; the record keeps that consent instead of a snapshot.
+2. Only then commit a GitOps change that quiesces the selected environment without deleting durable AWS assets. Quiescence prunes the PersistentVolumeClaims. With the `Delete` reclaim policy, the driver then deletes their volumes, as it did to four observability volumes on 2026-09-11.
 3. Merge the change, wait for ArgoCD reconciliation, and record the merged commit SHA.
-4. Create and inspect the shutdown bundle. The wrapper rejects any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities.
+4. Create and inspect the shutdown bundle. The wrapper rejects:
+   - a volume record created after the quiescence commit;
+   - a record that misses a volume still present;
+   - a record whose snapshots are not complete;
+   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities.
+
+Recreating an EKS cluster restores no data by itself. Restoring a volume from its snapshot is a separate, reviewed GitOps change; the lifecycle does not restore data.
 
 ```bash
-make plan-down PROFILE=economical GITOPS_REVISION=GITOPS_COMMIT_SHA
+make snapshot-volumes PROFILE=economical
+make plan-down PROFILE=economical GITOPS_REVISION=GITOPS_COMMIT_SHA VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
 make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
@@ -85,7 +96,8 @@ make plan-up PROFILE=full
 make inspect BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
 make apply-up PROFILE=full BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
 
-make plan-down PROFILE=full GITOPS_REVISION=GITOPS_COMMIT_SHA
+make snapshot-volumes PROFILE=full
+make plan-down PROFILE=full GITOPS_REVISION=GITOPS_COMMIT_SHA VOLUME_RECORD=.aws-profile-plans/volumes-full-YYYYMMDDTHHMMSSZ
 make inspect BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=full BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
 ```

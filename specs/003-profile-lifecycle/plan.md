@@ -35,6 +35,23 @@ The repository-root Makefile is a thin user interface over the lifecycle wrapper
 
 The Makefile contains no Terraform or Kubernetes commands. This keeps resource classification and dependency ordering in the wrapper: foundation down transitions continue to set `runtime_enabled=false` so durable assets survive, while the full-profile egress root remains the only root planned with destroy mode. Make provides discoverability and shorter commands without creating a second orchestration implementation.
 
+### Persistent-volume protection
+
+The 2026-09-11 teardown shows the order of loss. gitops#109 merged at 18:50:58 UTC. Within a minute, the EBS CSI driver deleted the four observability volumes, because quiescence pruned their claims and the StorageClass reclaim policy is `Delete`. The Terraform plan came after that. Protection therefore has to run before quiescence, and it cannot use the Kubernetes API (FR-012).
+
+**`snapshot-volumes`**
+- It lists the volumes that the driver's IAM policy lets it create and delete, tagged `ebs.csi.aws.com/cluster` or `CSIVolumeName`, in the region of the profile's foundation roots. The foundation attaches `AmazonEBSCSIDriverPolicy`, whose conditions name exactly those tags.
+- It snapshots each volume not consented away and waits for completion.
+- It then writes `record.tsv` and its checksum.
+
+**`plan down`**
+- It compares the record's creation time with the committer time of the GitOps quiescence commit.
+- It re-lists the volumes, so a volume created after the record blocks the plan.
+- It confirms that every recorded snapshot is completed.
+- It copies the record into the bundle, whose checksums cover it.
+
+The scope is the whole region, so a snapshot may also cover a volume of another profile. That costs snapshot storage, not data.
+
 ## Constitution Check (v3.1.0)
 
 | Principle | Verdict | How this feature complies |

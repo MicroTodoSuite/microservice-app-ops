@@ -12,13 +12,15 @@ usage() {
 Usage:
   scripts/aws-profile-lifecycle.sh check {economical|full}
   scripts/aws-profile-lifecycle.sh init {economical|full}
-  scripts/aws-profile-lifecycle.sh plan {economical|full} {up|down} [--gitops-revision REVISION]
+  scripts/aws-profile-lifecycle.sh snapshot-volumes {economical|full} [--consent VOLUME_ID]...
+  scripts/aws-profile-lifecycle.sh plan {economical|full} {up|down} [--gitops-revision REVISION --volume-record RECORD_DIRECTORY]
   scripts/aws-profile-lifecycle.sh inspect BUNDLE_DIRECTORY
   scripts/aws-profile-lifecycle.sh apply {economical|full} {up|down} BUNDLE_DIRECTORY
   scripts/aws-profile-lifecycle.sh status {economical|full}
 
 Planning never applies. Applying accepts only an unchanged saved-plan bundle.
-A down plan requires the commit of a reviewed, merged GitOps quiescence change.
+A down plan requires the commit of a reviewed, merged GitOps quiescence change and
+a persistent-volume record that snapshot-volumes wrote before that change merged.
 EOF
 }
 
@@ -192,10 +194,185 @@ assert_no_durable_deletes() {
   [[ -z "$deleted" ]] || fail "Saved shutdown plan attempts to delete durable resources: ${deleted//$'\n'/, }."
 }
 
+contains_value() {
+  local needle=$1
+  shift
+  local value
+  for value in "$@"; do
+    [[ "$value" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+# Every foundation root of a profile names one literal aws_region; the EC2 calls
+# that find and snapshot persistent volumes use it.
+profile_region() {
+  local profile=$1
+  local region="" root_region
+  local name relative_root backend_name variables_name kind
+  while IFS='|' read -r name relative_root backend_name variables_name kind; do
+    [[ "$kind" == "foundation" ]] || continue
+    root_region="$(read_literal_string "$ROOT_DIR/$relative_root/$variables_name" aws_region)"
+    [[ "$root_region" =~ ^[a-z]{2}(-[a-z]+)+-[0-9]+$ ]] || \
+      fail "No literal aws_region was found in $relative_root/$variables_name."
+    if [[ -n "$region" && "$region" != "$root_region" ]]; then
+      fail "$profile mixes AWS regions $region and $root_region."
+    fi
+    region="$root_region"
+  done < <(profile_records "$profile" down)
+  printf '%s\n' "$region"
+}
+
+# The EBS CSI driver creates every dynamically provisioned volume with the
+# ebs.csi.aws.com/cluster or CSIVolumeName tag (AmazonEBSCSIDriverPolicy), so
+# persistent volumes are found through the EC2 API, never the Kubernetes API.
+# Each line is the volume ID, its size in GiB, and its PersistentVolume name.
+list_csi_volumes() {
+  local region=$1
+  # shellcheck disable=SC2016 # The backticks are a JMESPath literal, not a shell expansion.
+  aws ec2 describe-volumes \
+    --region "$region" \
+    --filters 'Name=tag-key,Values=ebs.csi.aws.com/cluster,CSIVolumeName' \
+    --query 'Volumes[].[VolumeId,Size,Tags[?Key==`kubernetes.io/created-for/pv/name`]|[0].Value]' \
+    --output text
+}
+
+record_value() {
+  local record=$1
+  local key=$2
+  awk -F '\t' -v key="$key" '$1 == key { print $2; exit }' "$record/record.tsv"
+}
+
+# GitOps quiescence prunes PersistentVolumeClaims, and the Delete reclaim policy
+# then lets the driver delete their volumes before any Terraform plan runs (the
+# 2026-09-11 teardown lost four that way). This runs while the workloads still
+# do: it snapshots every volume not explicitly consented away, waits for the
+# snapshots, and records the disposition of each volume.
+snapshot_volumes() {
+  local profile=$1
+  shift
+  local -a consent=("$@")
+  local region active_account line volume size pv name_tag snapshot attempt timestamp record
+  local -a volumes=() volume_ids=() rows=() snapshots=()
+
+  verify_profile "$profile" down
+  region="$(profile_region "$profile")"
+  active_account="$(caller_account)"
+  mapfile -t volumes < <(list_csi_volumes "$region" | awk 'NF')
+  for line in "${volumes[@]}"; do
+    volume_ids+=("${line%%$'\t'*}")
+  done
+
+  for volume in "${consent[@]}"; do
+    contains_value "$volume" "${volume_ids[@]}" || \
+      fail "Consent names $volume, which is not an EBS CSI volume in $region."
+  done
+
+  for line in "${volumes[@]}"; do
+    IFS=$'\t' read -r volume size pv <<<"$line"
+    if contains_value "$volume" "${consent[@]}"; then
+      rows+=("$(printf 'volume\t%s\t%s\t%s\tconsent\t-' "$volume" "$pv" "$size")")
+      printf 'CONSENT   %s (%s, %s GiB) is recorded without a snapshot.\n' "$volume" "$pv" "$size"
+      continue
+    fi
+    name_tag=$pv
+    [[ "$name_tag" != None ]] || name_tag=$volume
+    snapshot="$(aws ec2 create-snapshot \
+      --region "$region" \
+      --volume-id "$volume" \
+      --description "Lifecycle snapshot of $name_tag before the $profile profile goes down" \
+      --tag-specifications "ResourceType=snapshot,Tags=[{Key=Name,Value=$name_tag},{Key=ManagedBy,Value=aws-profile-lifecycle},{Key=LifecycleProfile,Value=$profile},{Key=SourceVolume,Value=$volume}]" \
+      --query SnapshotId \
+      --output text)"
+    [[ "$snapshot" =~ ^snap-[0-9a-f]+$ ]] || fail "Creating a snapshot of $volume returned '$snapshot'."
+    snapshots+=("$snapshot")
+    rows+=("$(printf 'volume\t%s\t%s\t%s\tsnapshot\t%s' "$volume" "$pv" "$size" "$snapshot")")
+    printf 'SNAPSHOT  %s (%s, %s GiB) -> %s\n' "$volume" "$pv" "$size" "$snapshot"
+  done
+
+  # Each waiter polls for ten minutes; twelve rounds allow two hours.
+  if [[ ${#snapshots[@]} -gt 0 ]]; then
+    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      if aws ec2 wait snapshot-completed --region "$region" --snapshot-ids "${snapshots[@]}"; then
+        break
+      fi
+      [[ "$attempt" -lt 12 ]] || fail "The snapshots did not complete: ${snapshots[*]}."
+    done
+  fi
+
+  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  record="$PLAN_ROOT/volumes-${profile}-${timestamp}"
+  mkdir -p "$record"
+  chmod 700 "$PLAN_ROOT" "$record"
+  umask 077
+  {
+    printf 'format\t1\n'
+    printf 'profile\t%s\n' "$profile"
+    printf 'account\t%s\n' "$active_account"
+    printf 'region\t%s\n' "$region"
+    printf 'created_epoch\t%s\n' "$(date -u +%s)"
+    if [[ ${#rows[@]} -gt 0 ]]; then
+      printf '%s\n' "${rows[@]}"
+    fi
+  } >"$record/record.tsv"
+  (cd "$record" && sha256sum record.tsv >checksums.sha256)
+  printf 'Volume record: %s\n' "$record"
+  printf 'Merge the GitOps quiescence change only now; plan-down rejects a record newer than that commit.\n'
+}
+
+# Prints the canonical record directory when the record is fit for a down plan.
+verify_volume_record() {
+  local profile=$1
+  local gitops_revision=$2
+  local supplied_record=$3
+  local record region stored_profile stored_account created_epoch quiescence_epoch
+  local volume size pv snapshot states
+  local -a snapshots=()
+
+  [[ -n "$supplied_record" && -d "$supplied_record" ]] || \
+    fail "Volume record does not exist: ${supplied_record:-none}. Run snapshot-volumes before merging GitOps quiescence."
+  record="$(cd "$supplied_record" && pwd -P)"
+  require_file "$record/record.tsv"
+  require_file "$record/checksums.sha256"
+  (cd "$record" && sha256sum -c --quiet checksums.sha256) || fail "Volume record $record fails its checksum."
+
+  stored_profile="$(record_value "$record" profile)"
+  stored_account="$(record_value "$record" account)"
+  region="$(record_value "$record" region)"
+  created_epoch="$(record_value "$record" created_epoch)"
+  [[ "$stored_profile" == "$profile" ]] || fail "Volume record profile is $stored_profile, not $profile."
+  [[ "$stored_account" == "$(caller_account)" ]] || fail "Volume record account $stored_account is not the active AWS account."
+  [[ "$region" == "$(profile_region "$profile")" ]] || fail "Volume record region $region is not the $profile region."
+  quiescence_epoch="$(git -C "$GITOPS_DIR" show -s --format=%ct "$gitops_revision")"
+  [[ "$created_epoch" =~ ^[0-9]+$ && "$created_epoch" -lt "$quiescence_epoch" ]] || \
+    fail "Volume record $record must predate GitOps quiescence commit $gitops_revision. Snapshot the volumes before merging quiescence."
+
+  while IFS=$'\t' read -r volume size pv; do
+    [[ -n "$volume" ]] || continue
+    awk -F '\t' -v id="$volume" '$1 == "volume" && $2 == id { found = 1 } END { exit !found }' "$record/record.tsv" || \
+      fail "EBS CSI volume $volume ($pv, $size GiB) is not in volume record $record. Snapshot it or record consent before planning down."
+  done < <(list_csi_volumes "$region")
+
+  mapfile -t snapshots < <(awk -F '\t' '$1 == "volume" && $5 == "snapshot" { print $6 }' "$record/record.tsv")
+  if [[ ${#snapshots[@]} -gt 0 ]]; then
+    states="$(aws ec2 describe-snapshots \
+      --region "$region" \
+      --snapshot-ids "${snapshots[@]}" \
+      --query 'Snapshots[].[SnapshotId,State]' \
+      --output text)"
+    for snapshot in "${snapshots[@]}"; do
+      grep -Eq "^${snapshot}[[:space:]]+completed$" <<<"$states" || fail "Recorded snapshot $snapshot is not completed."
+    done
+  fi
+  printf '%s\n' "$record"
+}
+
 plan_profile() {
   local profile=$1
   local direction=$2
   local gitops_revision=$3
+  local supplied_volume_record=${4:-}
+  local volume_record=""
   local timestamp bundle active_account commit
   local name relative_root backend_name variables_name kind root plan_file json_file
   local configured_transit_gateway full_up_egress_only=false transit_gateway_id="" state_before
@@ -205,6 +382,7 @@ plan_profile() {
   verify_profile "$profile" "$direction"
   if [[ "$direction" == "down" ]]; then
     verify_gitops_revision "$gitops_revision"
+    volume_record="$(verify_volume_record "$profile" "$gitops_revision" "$supplied_volume_record")"
   fi
 
   active_account="$(caller_account)"
@@ -222,7 +400,13 @@ plan_profile() {
     printf 'account\t%s\n' "$active_account"
     printf 'commit\t%s\n' "$commit"
     printf 'gitops_revision\t%s\n' "$gitops_revision"
+    if [[ -n "$volume_record" ]]; then
+      printf 'volume_record\t%s\n' "$volume_record"
+    fi
   } >"$bundle/metadata.tsv"
+  if [[ -n "$volume_record" ]]; then
+    cp "$volume_record/record.tsv" "$bundle/volume-record.tsv"
+  fi
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
     root="$ROOT_DIR/$relative_root"
@@ -284,7 +468,11 @@ plan_profile() {
 
   (
     cd "$bundle"
-    sha256sum ./*.tfplan ./*.json metadata.tsv >checksums.sha256
+    checksum_files=(./*.tfplan ./*.json metadata.tsv)
+    if [[ -f volume-record.tsv ]]; then
+      checksum_files+=(volume-record.tsv)
+    fi
+    sha256sum "${checksum_files[@]}" >checksums.sha256
   )
   printf 'Saved plan bundle: %s\n' "$bundle"
   printf 'Inspect it before apply: %s inspect %s\n' "$0" "$bundle"
@@ -309,6 +497,7 @@ inspect_bundle() {
   printf 'Account: %s\n' "$(metadata_value "$bundle" account)"
   printf 'Commit: %s\n' "$(metadata_value "$bundle" commit)"
   printf 'GitOps revision: %s\n' "$(metadata_value "$bundle" gitops_revision)"
+  printf 'Volume record: %s\n' "$(metadata_value "$bundle" volume_record)"
 
   while IFS=$'\t' read -r marker name relative_root plan_name; do
     [[ "$marker" == "root" ]] || continue
@@ -367,6 +556,8 @@ apply_bundle() {
   [[ "$stored_commit" == "$(git -C "$ROOT_DIR" rev-parse HEAD)" ]] || fail "The checked-out commit differs from the plan bundle commit. Re-plan."
   if [[ "$requested_direction" == "down" ]]; then
     verify_gitops_revision "$(metadata_value "$bundle" gitops_revision)"
+    [[ -n "$(metadata_value "$bundle" volume_record)" && -f "$bundle/volume-record.tsv" ]] || \
+      fail "The down bundle carries no persistent-volume record. Re-plan with --volume-record."
   fi
   (cd "$bundle" && sha256sum -c checksums.sha256)
 
@@ -417,13 +608,15 @@ case "$command" in
     validate_profile "$profile"
     validate_direction "$direction"
     gitops_revision=""
+    volume_record=""
     if [[ "$direction" == "down" ]]; then
-      [[ "${4:-}" == "--gitops-revision" && -n "${5:-}" && -z "${6:-}" ]] || { usage; exit 2; }
+      [[ "${4:-}" == "--gitops-revision" && -n "${5:-}" && "${6:-}" == "--volume-record" && -n "${7:-}" && -z "${8:-}" ]] || { usage; exit 2; }
       gitops_revision=$5
+      volume_record=$7
     else
       [[ -z "${4:-}" ]] || { usage; exit 2; }
     fi
-    plan_profile "$profile" "$direction" "$gitops_revision"
+    plan_profile "$profile" "$direction" "$gitops_revision" "$volume_record"
     ;;
   inspect)
     [[ -n "${2:-}" && -z "${3:-}" ]] || { usage; exit 2; }
@@ -442,6 +635,18 @@ case "$command" in
     profile=${2:-}
     validate_profile "$profile"
     status_profile "$profile"
+    ;;
+  snapshot-volumes)
+    profile=${2:-}
+    validate_profile "$profile"
+    consent=()
+    set -- "${@:3}"
+    while [[ $# -gt 0 ]]; do
+      [[ "$1" == "--consent" && -n "${2:-}" ]] || { usage; exit 2; }
+      consent+=("$2")
+      shift 2
+    done
+    snapshot_volumes "$profile" "${consent[@]}"
     ;;
   *)
     usage

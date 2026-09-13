@@ -3,11 +3,13 @@ LIFECYCLE := ./scripts/aws-profile-lifecycle.sh
 PROFILE ?=
 BUNDLE ?=
 GITOPS_REVISION ?=
+VOLUME_RECORD ?=
+CONSENT ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check init status plan-up plan-down inspect apply-up apply-down
-.PHONY: require-profile require-bundle require-gitops-revision
+.PHONY: help check init status snapshot-volumes plan-up plan-down inspect apply-up apply-down
+.PHONY: require-profile require-bundle require-gitops-revision require-volume-record
 
 help:
 	@printf '%s\n' \
@@ -22,12 +24,14 @@ help:
 		'' \
 		'Saved-plan workflow:' \
 		'  make plan-up PROFILE=economical|full' \
-		'  make plan-down PROFILE=economical|full GITOPS_REVISION=<merged-commit>' \
+		'  make snapshot-volumes PROFILE=economical|full [CONSENT="<volume-id> ..."]' \
+		'  make plan-down PROFILE=economical|full GITOPS_REVISION=<merged-commit> VOLUME_RECORD=<volume-record-directory>' \
 		'  make inspect BUNDLE=<saved-plan-directory>' \
 		'  make apply-up PROFILE=economical|full BUNDLE=<saved-plan-directory>' \
 		'  make apply-down PROFILE=economical|full BUNDLE=<saved-plan-directory>' \
 		'' \
 		'Resource boundary: down removes runtime/ephemeral resources and preserves durable assets.' \
+		'PersistentVolume data survives only as a snapshot taken by snapshot-volumes before GitOps quiescence.' \
 		'Planning, inspection, and applying are always separate operations.'
 
 require-profile:
@@ -48,6 +52,12 @@ require-gitops-revision:
 		exit 2; \
 	fi
 
+require-volume-record:
+	@if [ -z "$(VOLUME_RECORD)" ]; then \
+		printf 'ERROR: VOLUME_RECORD is required for plan-down; run make snapshot-volumes before merging GitOps quiescence.\n' >&2; \
+		exit 2; \
+	fi
+
 check: require-profile
 	@$(LIFECYCLE) check $(PROFILE)
 
@@ -60,8 +70,11 @@ status: require-profile
 plan-up: require-profile
 	@$(LIFECYCLE) plan $(PROFILE) up
 
-plan-down: require-profile require-gitops-revision
-	@$(LIFECYCLE) plan $(PROFILE) down --gitops-revision "$(GITOPS_REVISION)"
+snapshot-volumes: require-profile
+	@$(strip $(LIFECYCLE) snapshot-volumes $(PROFILE) $(addprefix --consent ,$(CONSENT)))
+
+plan-down: require-profile require-gitops-revision require-volume-record
+	@$(LIFECYCLE) plan $(PROFILE) down --gitops-revision "$(GITOPS_REVISION)" --volume-record "$(VOLUME_RECORD)"
 
 inspect: require-bundle
 	@$(LIFECYCLE) inspect "$(BUNDLE)"

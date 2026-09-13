@@ -31,6 +31,8 @@
   **A**: No. A repository-root Makefile is the primary operator interface. It delegates every operation to the existing wrapper so profile validation, durable-resource guards, saved-plan provenance, and GitOps quiescence requirements remain centralized.
 - **Q**: May one Make target plan and apply an up or down transition automatically?
   **A**: No. Make keeps planning, inspection, and applying as separate targets. Profile-sensitive targets require an explicit `PROFILE=economical|full`; apply targets require an explicit saved-plan `BUNDLE`, and down planning requires `GITOPS_REVISION`.
+- **Q**: How is PersistentVolume data protected when a profile goes down?
+  **A**: GitOps quiescence prunes PersistentVolumeClaims. With the `Delete` reclaim policy, the EBS CSI driver then deletes their volumes before any Terraform plan runs; the 2026-09-11 teardown lost four observability volumes that way. The wrapper therefore snapshots every EBS CSI volume through the EC2 API before quiescence, and records a snapshot or explicit consent per volume. A down plan requires that record (maintainer decision, 2026-09-13; ai-agents specs/001 T038).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -86,6 +88,9 @@ A platform operator can use the same interface for the expensive full profile wh
 - **FR-014**: Documentation MUST distinguish the residual cost of durable services from the removed runtime cost and MUST warn about persistent-volume data before shutdown.
 - **FR-015**: The repository-root Makefile MUST expose `check`, `init`, `status`, `plan-up`, `plan-down`, `inspect`, `apply-up`, and `apply-down` as the primary operator targets.
 - **FR-016**: Make targets MUST delegate to the lifecycle wrapper and MUST NOT invoke Terraform, kubectl, plan-and-apply sequences, or auto-approval directly.
+- **FR-018**: The wrapper MUST provide `snapshot-volumes {economical|full}`. It finds every EBS volume in the profile's region that carries the `ebs.csi.aws.com/cluster` or `CSIVolumeName` tag, through the EC2 API, and snapshots each volume that `--consent` does not name. It waits for the snapshots to complete, then writes a checksummed record: the profile, account, region, and creation time, and each volume's snapshot ID or consent.
+- **FR-019**: A down plan MUST require `--volume-record`. It MUST reject a record whose checksum, profile, account, or region does not match; one created after the GitOps quiescence commit; one that omits an EBS CSI volume still present; and one whose snapshots are not completed. It MUST copy the record into the checksummed bundle, and an apply-down MUST require it there.
+- **FR-020**: The Makefile MUST expose `snapshot-volumes` with an optional `CONSENT` list of volume IDs, and `plan-down` MUST require `VOLUME_RECORD`.
 - **FR-017**: Profile-sensitive Make targets MUST require an explicit `PROFILE` equal to `economical` or `full`; inspection and apply targets MUST require `BUNDLE`, and down planning MUST require `GITOPS_REVISION`.
 
 ## Success Criteria *(mandatory)*
