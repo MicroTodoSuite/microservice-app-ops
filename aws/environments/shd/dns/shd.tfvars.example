@@ -1,0 +1,10 @@
+# Copy to shd.tfvars (gitignored); fill the account from config/aws-account.env and the
+# zone ID from the legacy dev root's public_hosted_zone_id output.
+client           = "lex"
+project          = "mts"
+environment      = "shd"
+aws_account_id   = "123456789012"
+aws_region       = "us-east-1"
+deploy_role_arn  = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+public_zone_name = "microtodosuite.abrdns.com"
+public_zone_id   = "Z0000000000000000000"
