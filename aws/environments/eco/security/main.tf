@@ -1,7 +1,8 @@
 # The eco/security root, second in the PC-IAC-022 order: the cluster and node roles, the
-# keys for Kubernetes secrets and control-plane logs, the extra cluster and node security
-# groups, and the Secrets Manager containers. IRSA roles need the cluster's OIDC issuer and
-# come in the pass after eco/workload.
+# Pod Identity roles of the AWS add-ons, the keys for Kubernetes secrets and control-plane
+# logs, the extra cluster and node security groups, and the Secrets Manager containers. The
+# applications' IRSA roles need the cluster's OIDC issuer and come in the pass after
+# eco/workload.
 module "cluster_role" {
   source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//iam-role?ref=iam-role-v1.0.0"
 
@@ -34,6 +35,24 @@ module "node_role" {
   description              = "Least-privilege role of the ${local.cluster_name} managed nodes: the worker policy and pull-only ECR."
   assume_role_policy       = local.node_trust_policy
   managed_policy_arns      = local.node_managed_policy_arns
+  permissions_boundary_arn = ""
+}
+
+module "addon_roles" {
+  source   = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//iam-role?ref=iam-role-v1.0.0"
+  for_each = local.addon_pod_identities
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client                   = var.client
+  project                  = var.project
+  environment              = var.environment
+  role_name                = each.value.role_name
+  description              = each.value.description
+  assume_role_policy       = local.addon_trust_policies[each.key]
+  managed_policy_arns      = [each.value.policy_arn]
   permissions_boundary_arn = ""
 }
 

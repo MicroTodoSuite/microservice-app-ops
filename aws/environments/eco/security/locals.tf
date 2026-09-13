@@ -37,11 +37,54 @@ locals {
 
   cluster_managed_policy_arns = ["arn:${local.partition}:iam::aws:policy/AmazonEKSClusterPolicy"]
 
-  # The CNI policy is left to the vpc-cni role of the IRSA pass, as the legacy nodes had it.
+  # The CNI policy is left to the vpc-cni add-on's own role below, as the legacy nodes had it.
   node_managed_policy_arns = [
     "arn:${local.partition}:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly",
     "arn:${local.partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
   ]
+
+  cluster_arn = "arn:${local.partition}:eks:${var.aws_region}:${var.aws_account_id}:cluster/${local.cluster_name}"
+
+  # The AWS add-ons that call AWS APIs take their roles through EKS Pod Identity. It needs no
+  # OIDC provider, so the roles exist before the cluster and the CNI is authorized from the
+  # first node's boot. Each role gets only its AWS managed policy.
+  addon_pod_identities = {
+    vpccni = {
+      role_name       = "${local.governance_prefix}-role-vpccni"
+      namespace       = "kube-system"
+      service_account = "aws-node"
+      policy_arn      = "arn:${local.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+      description     = "Pod Identity role of the vpc-cni add-on, kube-system/aws-node, on ${local.cluster_name}."
+    }
+    ebscsi = {
+      role_name       = "${local.governance_prefix}-role-ebscsi"
+      namespace       = "kube-system"
+      service_account = "ebs-csi-controller-sa"
+      policy_arn      = "arn:${local.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      description     = "Pod Identity role of the aws-ebs-csi-driver add-on, kube-system/ebs-csi-controller-sa, on ${local.cluster_name}."
+    }
+  }
+
+  # EKS Pod Identity assumes the role with session tags; the trust admits only the add-on's
+  # own service account in this cluster (EKS user guide, pod-id-role).
+  addon_trust_policies = {
+    for key, addon in local.addon_pod_identities : key => jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Sid       = "AllowEksPodIdentityForTheAddonServiceAccount"
+        Effect    = "Allow"
+        Principal = { Service = "pods.eks.amazonaws.com" }
+        Action    = ["sts:AssumeRole", "sts:TagSession"]
+        Condition = {
+          StringEquals = {
+            "aws:RequestTag/eks-cluster-arn"            = local.cluster_arn
+            "aws:RequestTag/kubernetes-namespace"       = addon.namespace
+            "aws:RequestTag/kubernetes-service-account" = addon.service_account
+          }
+        }
+      }]
+    })
+  }
 
   # The control plane encrypts and decrypts Kubernetes secrets with the secrets key.
   cluster_policies = {
