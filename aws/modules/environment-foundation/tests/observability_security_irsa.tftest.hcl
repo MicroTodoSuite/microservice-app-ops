@@ -79,6 +79,16 @@ override_resource {
   }
 }
 
+# The role ARN is only known after apply; a known value lets the output
+# assertion below be evaluated at plan.
+override_resource {
+  target          = aws_iam_role.security_trivy_ecr_reader[0]
+  override_during = plan
+  values = {
+    arn = "arn:aws:iam::995253610162:role/microtodosuite-security-trivy-ecr-reader"
+  }
+}
+
 run "observability_security_secrets_reader_contract" {
   command = plan
 
