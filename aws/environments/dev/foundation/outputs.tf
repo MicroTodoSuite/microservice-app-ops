@@ -152,3 +152,8 @@ output "karpenter_security_group_id" {
   description = "Single node security group tagged for future Karpenter discovery."
   value       = module.foundation.karpenter_security_group_id
 }
+
+output "security_trivy_ecr_reader_role_arn" {
+  description = "Trivy Operator private-ECR reader role ARN."
+  value       = module.foundation.security_trivy_ecr_reader_role_arn
+}
