@@ -1,3 +1,13 @@
+# [1.10.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.9.0...v1.10.0) (2026-09-13)
+
+
+### Features
+
+* **shd:** add the shared dns root ([#69](https://github.com/MicroTodoSuite/microservice-app-ops/issues/69)) ([fb841b9](https://github.com/MicroTodoSuite/microservice-app-ops/commit/fb841b98212bc7572ef3723ca572131f9d836ddc)), closes [#68](https://github.com/MicroTodoSuite/microservice-app-ops/issues/68) [#67](https://github.com/MicroTodoSuite/microservice-app-ops/issues/67)
+* **shd:** add the shared registry root ([#68](https://github.com/MicroTodoSuite/microservice-app-ops/issues/68)) ([d7993e0](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d7993e0fbd8d3678b15c1319ab18fa647c7d7c0c)), closes [#67](https://github.com/MicroTodoSuite/microservice-app-ops/issues/67)
+* **shd:** implement the shared DNS root ([ebc9401](https://github.com/MicroTodoSuite/microservice-app-ops/commit/ebc940171e99fd84c0401680c6ec4070c071ccb1))
+* **shd:** implement the shared registry root ([9d757cd](https://github.com/MicroTodoSuite/microservice-app-ops/commit/9d757cd663ad767894b8a08c5425ec0c7a8859a5))
+
 # [1.9.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.8.0...v1.9.0) (2026-09-13)
 
 
