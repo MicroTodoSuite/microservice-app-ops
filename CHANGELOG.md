@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.10.0...v1.11.0) (2026-09-13)
+
+
+### Features
+
+* **eco:** add the economical network root ([#70](https://github.com/MicroTodoSuite/microservice-app-ops/issues/70)) ([310bda9](https://github.com/MicroTodoSuite/microservice-app-ops/commit/310bda9dbe233af1f6bdbf84cd6e1dac980ca5ba)), closes [#67](https://github.com/MicroTodoSuite/microservice-app-ops/issues/67)
+* **eco:** implement the economical network root ([5b4d388](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5b4d3888ed5d9810360f79829449e572ae9fbc01))
+
 # [1.10.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.9.0...v1.10.0) (2026-09-13)
 
 
