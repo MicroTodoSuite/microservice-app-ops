@@ -1,3 +1,11 @@
+# [1.8.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.7.0...v1.8.0) (2026-09-13)
+
+
+### Features
+
+* **shd:** add the shared state root ([507f0d7](https://github.com/MicroTodoSuite/microservice-app-ops/commit/507f0d7ba8cab78a6c7e75ad3193b77064c57cd8))
+* **shd:** add the shared state root ([#66](https://github.com/MicroTodoSuite/microservice-app-ops/issues/66)) ([13a1636](https://github.com/MicroTodoSuite/microservice-app-ops/commit/13a163615aec9d2329614df1e18ced41165c1461)), closes [.github#17](https://github.com/.github/issues/17) [terraform-aws-modules#2](https://github.com/terraform-aws-modules/issues/2)
+
 # [1.7.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.6.0...v1.7.0) (2026-09-13)
 
 
