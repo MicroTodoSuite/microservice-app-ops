@@ -20,7 +20,7 @@ maintainer's approval of an exact saved plan or operation before they run.
 
 - [ ] T008 Add failing contracts for the naming, tag, domain, and module-source rules against the plan JSON in `tests/contract/`
 - [ ] T009 Decompose `environment-foundation` into the modules of the target layout, each with the PC-IAC-001 layout, `sample/`, and `tests/`
-- [ ] T010 Write the `shd` roots, with the GitHub OIDC provider and the public zone imported rather than created
+- [ ] T010 Write the `shd` roots, with the GitHub OIDC provider and the public zone imported rather than created — partial: `shd/state` is written, consuming `state-backend-v1.0.0`, and the reusable IaC gate runs on `aws/environments/shd`; `shd/security`, `shd/registry`, and `shd/dns` follow
 - [ ] T011 Write the `eco` roots in the PC-IAC-022 domain order, consuming the account through `var.aws_account_id`
 - [ ] T012 Restructure the `fdev`, `fstg`, `fprd`, and egress roots in code to the same layout
 - [ ] T013 Create the new ECR repositories and copy every image, signature, and attestation by digest; verify each with Cosign **[approval]**

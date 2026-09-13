@@ -1,0 +1,39 @@
+name: iac-checks
+
+# Runs the organization's infrastructure-as-code gate on the rebuilt roots
+# (ai-agents specs/001-governance-and-iac-program T025, PC-IAC-018): the rule
+# contracts, terraform fmt, validate, and test, tflint, and Trivy. The legacy
+# roots under aws/environments/{dev,demo-full,full-dev,full-prod} and aws/shared
+# predate the rules and are replaced by these, so the gate covers only the new
+# environment directories; each joins the matrix as its first root lands. The
+# gate is pinned to the commit that MicroTodoSuite/.github#17 merged.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws/environments/shd/**'
+      - '.github/workflows/iac-checks.yml'
+      - '.terraform-version'
+  push:
+    branches: [main]
+    paths:
+      - 'aws/environments/shd/**'
+      - '.github/workflows/iac-checks.yml'
+      - '.terraform-version'
+
+permissions:
+  contents: read
+
+jobs:
+  iac:
+    name: iac ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [shd]
+    uses: MicroTodoSuite/.github/.github/workflows/iac-checks.yml@192204bcdbdc34576d27c6a63270b13a4d2648ef # .github#17
+    with:
+      kind: live
+      working-directory: aws/environments/${{ matrix.environment }}
+      terraform-version-file: ../../../.terraform-version
