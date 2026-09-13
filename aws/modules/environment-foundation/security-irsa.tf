@@ -108,3 +108,83 @@ moved {
   from = aws_iam_role_policy.security_secrets_reader
   to   = aws_iam_role_policy.security_secrets_reader[0]
 }
+
+# Trivy Operator (gitops spec 008 User Story 4) scans the private neutral images
+# its scan Jobs pull. Nodes set an IMDS hop limit of 1, so pods cannot use the
+# node role; the scanner gets its own read-only role instead.
+locals {
+  security_trivy_ecr_reader_role_name = "${var.project}-security-trivy-ecr-reader"
+  security_trivy_ecr_reader_role_arn = one(concat(
+    aws_iam_role.security_trivy_ecr_reader[*].arn,
+    data.aws_iam_role.security_trivy_ecr_reader[*].arn,
+  ))
+}
+
+data "aws_iam_role" "security_trivy_ecr_reader" {
+  count = !var.create_shared_resources && var.runtime_enabled ? 1 : 0
+
+  name = local.security_trivy_ecr_reader_role_name
+}
+
+resource "aws_iam_role" "security_trivy_ecr_reader" {
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
+
+  name                 = local.security_trivy_ecr_reader_role_name
+  description          = "Pull the neutral private ECR images Trivy Operator scans through ${var.trivy_service_account_subject}"
+  permissions_boundary = var.iam_permissions_boundary_arn
+
+  # One statement per reviewed cluster issuer, as for the other shared IRSA
+  # roles; index 0 is this foundation's own cluster.
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      for index, issuer in local.shared_irsa_issuers : {
+        Sid    = index == 0 ? "AllowExactTrivyOperatorServiceAccount" : "AllowExactTrivyOperatorServiceAccount${index}"
+        Effect = "Allow"
+        Principal = {
+          Federated = issuer.provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${issuer.issuer_host}:aud" = "sts.amazonaws.com"
+            "${issuer.issuer_host}:sub" = var.trivy_service_account_subject
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.tags, {
+    Environment = "shared"
+  })
+}
+
+resource "aws_iam_role_policy" "security_trivy_ecr_reader" {
+  count = var.create_shared_resources && length(local.shared_irsa_issuers) > 0 ? 1 : 0
+
+  name = "pull-neutral-ecr-images"
+  role = aws_iam_role.security_trivy_ecr_reader[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AuthenticateToEcr"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        # The pull actions of AmazonEC2ContainerRegistryPullOnly, without its
+        # pull-through-cache import, on the five neutral repositories only.
+        Sid    = "PullNeutralImages"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = local.neutral_ecr_repository_arns
+      },
+    ]
+  })
+}

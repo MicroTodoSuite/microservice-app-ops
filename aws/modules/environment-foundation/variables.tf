@@ -739,3 +739,14 @@ resource "terraform_data" "eks_input_guard" {
     }
   }
 }
+
+variable "trivy_service_account_subject" {
+  description = "Exact EKS service-account subject allowed to pull neutral ECR images for Trivy Operator scans."
+  type        = string
+  default     = "system:serviceaccount:security:trivy-operator"
+
+  validation {
+    condition     = var.trivy_service_account_subject == "system:serviceaccount:security:trivy-operator"
+    error_message = "trivy_service_account_subject must identify only the security namespace's trivy-operator ServiceAccount."
+  }
+}

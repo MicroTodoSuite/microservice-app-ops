@@ -392,3 +392,8 @@ output "security_secrets_reader_role_arn" {
   description = "Exact External Secrets reader role ARN for the security namespace."
   value       = local.security_secrets_reader_role_arn
 }
+
+output "security_trivy_ecr_reader_role_arn" {
+  description = "Exact Trivy Operator role allowed to pull the neutral private ECR images it scans."
+  value       = local.security_trivy_ecr_reader_role_arn
+}
