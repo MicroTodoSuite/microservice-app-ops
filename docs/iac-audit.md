@@ -164,6 +164,18 @@ permissions.
 
   They are removed by T042, with the SonarQube images coordinated with the open
   SonarQube hardening pull request, gitops#118.
+
+  **Correction, 2026-09-13.** Only three of the four were real. The audit
+  read the source manifests, not their render.
+  - `infrastructure/keda/kustomization.yaml` has replaced the `pause` tag with
+    a digest since gitops 383f8ff (2026-08-09), so the rendered capability
+    check was already pinned.
+  - The three SonarQube references were real. gitops#118 resolved them on
+    2026-09-12: it pinned `sonarqube` and `postgres` through the kustomization
+    and removed the `busybox` init container.
+
+  `kubectl kustomize` now renders every image in both directories by digest,
+  and T042 is closed on that evidence.
 - The account parameter (MTS-IAC-103) in gitops is enforced by the repository's
   own `tests/contract/aws-account-parameter.sh`.
 
