@@ -162,6 +162,48 @@ run "observability_security_secrets_reader_contract" {
     condition     = aws_iam_role.observability_secrets_reader[0].name != aws_iam_role.security_secrets_reader[0].name
     error_message = "Observability and security must never share a reader role."
   }
+
+  # Spec 008 T032 (gitops): Trivy Operator reads the private neutral ECR images
+  # it scans through its own ServiceAccount, never the node role.
+  assert {
+    condition     = aws_iam_role.security_trivy_ecr_reader[0].name == "microtodosuite-security-trivy-ecr-reader"
+    error_message = "Trivy must use the exact ECR reader role name that gitops annotates on its ServiceAccount."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role.security_trivy_ecr_reader[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:sub"] == "system:serviceaccount:security:trivy-operator"
+    error_message = "The Trivy ECR reader role must trust only the security namespace's trivy-operator ServiceAccount."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role.security_trivy_ecr_reader[0].assume_role_policy).Statement[0].Condition.StringEquals["oidc.eks.us-east-1.amazonaws.com/id/test:aud"] == "sts.amazonaws.com"
+    error_message = "The Trivy ECR reader role must require the STS audience."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.security_trivy_ecr_reader[0].policy).Statement[0].Action == "ecr:GetAuthorizationToken" && jsondecode(aws_iam_role_policy.security_trivy_ecr_reader[0].policy).Statement[0].Resource == "*"
+    error_message = "Only the ECR authorization call may use a wildcard resource."
+  }
+
+  assert {
+    condition     = toset(jsondecode(aws_iam_role_policy.security_trivy_ecr_reader[0].policy).Statement[1].Action) == toset(["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"])
+    error_message = "The Trivy ECR reader may only pull image manifests and layers."
+  }
+
+  assert {
+    condition     = toset(jsondecode(aws_iam_role_policy.security_trivy_ecr_reader[0].policy).Statement[1].Resource) == toset([for service in ["auth-api", "frontend", "log-message-processor", "todos-api", "users-api"] : "arn:aws:ecr:us-east-1:995253610162:repository/microtodosuite/${service}"])
+    error_message = "The Trivy ECR reader must be limited to the five neutral service repositories."
+  }
+
+  assert {
+    condition     = aws_iam_role.security_trivy_ecr_reader[0].name != aws_iam_role.security_secrets_reader[0].name
+    error_message = "The Trivy ECR reader and the Falcosidekick secrets reader must never share a role."
+  }
+
+  assert {
+    condition     = output.security_trivy_ecr_reader_role_arn == aws_iam_role.security_trivy_ecr_reader[0].arn
+    error_message = "The module must output the Trivy ECR reader role ARN."
+  }
 }
 
 # ---------------------------------------------------------------------------
