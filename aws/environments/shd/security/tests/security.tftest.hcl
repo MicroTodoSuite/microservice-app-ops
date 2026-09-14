@@ -10,6 +10,10 @@ mock_provider "aws" {
   mock_resource "aws_kms_key" {
     defaults = { arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
   }
+
+  mock_data "aws_s3_bucket" {
+    defaults = { arn = "arn:aws:s3:::lex-mts-shd-s3-tfstate-123456789012" }
+  }
 }
 
 # A mock provider cannot import, so the adopted OIDC provider is overridden instead.
@@ -139,6 +143,59 @@ run "limits_flow_log_delivery_to_this_account_and_its_flow_log_groups" {
     condition     = jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement[1].Resource == "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000" && jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement[1].Condition.StringEquals["kms:ViaService"] == "logs.us-east-1.amazonaws.com"
     error_message = "The flow-log role may use only the flow-log key, and only through CloudWatch Logs."
   }
+}
+
+run "records_every_access_to_the_state_bucket" {
+  command = plan
+
+  assert {
+    condition     = local.cloudtrail_trail_name == "lex-mts-shd-ct-tfstate" && local.cloudtrail_bucket_name == "lex-mts-shd-s3-cloudtrail" && local.cloudtrail_key_name == "lex-mts-shd-kms-cloudtrail"
+    error_message = "The trail, its log bucket, and its key must carry their standard names (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = local.cloudtrail_object_arn_prefixes == ["arn:aws:s3:::lex-mts-shd-s3-tfstate-123456789012/"]
+    error_message = "The trail must record the objects of shd/state's bucket, read by its name, and no other bucket's."
+  }
+
+  assert {
+    condition     = local.cloudtrail_log_retention == { current_days = 365, noncurrent_days = 30 }
+    error_message = "Access records must be kept for the retention this root chooses, a year by default."
+  }
+}
+
+run "lets_only_the_state_trail_use_its_key" {
+  command = plan
+
+  assert {
+    condition     = [for statement in jsondecode(local.cloudtrail_key_policy).Statement : statement.Sid] == ["EnableAccountAdministration", "AllowCloudTrailEncryptLogs", "AllowCloudTrailDescribeKey"]
+    error_message = "The key policy must carry the account delegation and the two statements the CloudTrail User Guide requires, and nothing else."
+  }
+
+  assert {
+    condition     = jsondecode(local.cloudtrail_key_policy).Statement[1].Principal.Service == "cloudtrail.amazonaws.com" && jsondecode(local.cloudtrail_key_policy).Statement[1].Action == "kms:GenerateDataKey*" && jsondecode(local.cloudtrail_key_policy).Statement[1].Condition.StringEquals == { "aws:SourceArn" = "arn:aws:cloudtrail:us-east-1:123456789012:trail/lex-mts-shd-ct-tfstate" } && jsondecode(local.cloudtrail_key_policy).Statement[1].Condition.StringLike == { "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:aws:cloudtrail:*:123456789012:trail/*" }
+    error_message = "CloudTrail may generate data keys only for the state trail, and only for this account's trails."
+  }
+
+  assert {
+    condition     = jsondecode(local.cloudtrail_key_policy).Statement[2].Action == "kms:DescribeKey" && jsondecode(local.cloudtrail_key_policy).Statement[2].Condition.StringEquals == { "aws:SourceArn" = "arn:aws:cloudtrail:us-east-1:123456789012:trail/lex-mts-shd-ct-tfstate" }
+    error_message = "CloudTrail may describe the key only for the state trail."
+  }
+
+  assert {
+    condition     = !anytrue([for statement in jsondecode(local.cloudtrail_key_policy).Statement : can(statement.Principal.Service) && contains(flatten([statement.Action]), "kms:Decrypt")])
+    error_message = "No service may decrypt through the key policy; readers of the logs are granted decrypt in IAM."
+  }
+}
+
+run "rejects_a_trail_log_retention_below_a_day" {
+  command = plan
+
+  variables {
+    trail_log_retention_in_days = 0
+  }
+
+  expect_failures = [var.trail_log_retention_in_days]
 }
 
 run "rejects_an_environment_other_than_shd" {
