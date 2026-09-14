@@ -1,0 +1,17 @@
+# Copy to shd.tfvars (gitignored) and fill the account from
+# config/aws-account.env. The network values retain the reviewed shared hub.
+client               = "lex"
+project              = "mts"
+environment          = "shd"
+aws_account_id       = "123456789012"
+aws_region           = "us-east-1"
+deploy_role_arn      = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+vpc_cidr             = "10.50.0.0/16"
+availability_zones   = ["us-east-1a"]
+public_subnet_cidrs  = ["10.50.0.0/24"]
+private_subnet_cidrs = ["10.50.16.0/20"]
+spoke_vpc_cidrs = {
+  fdev = "10.40.0.0/16"
+  fstg = "10.20.0.0/16"
+  fprd = "10.30.0.0/16"
+}
