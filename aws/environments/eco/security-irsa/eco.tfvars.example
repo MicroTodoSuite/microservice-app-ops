@@ -1,0 +1,15 @@
+# Copy to eco.tfvars (gitignored) and fill the account from config/aws-account.env. The
+# namespaces are the GitOps application environments' (microservice-app-gitops environments/*).
+client          = "lex"
+project         = "mts"
+environment     = "eco"
+aws_account_id  = "123456789012"
+aws_region      = "us-east-1"
+deploy_role_arn = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+jwt_reader_namespaces = {
+  dev = "microtodo-dev"
+  stg = "microtodo-staging"
+  prd = "microtodo-prod"
+  dmo = "microtodo-demo"
+}
+service_image_keys = ["authapi", "frontend", "logmsgproc", "todosapi", "usersapi"]

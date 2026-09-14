@@ -24,8 +24,9 @@ Physical names use the client code `lex` (Lexfield Legal); the first draft used
 | `microtodosuite-dev-node`, `-dev-cluster-…`, `-dev-ebs-csi`, `-dev-vpc-cni` | IAM roles | `lex-mts-eco-role-{node,cluster,ebscsi,vpccni}` | Recreate |
 | `microtodosuite-{dev,staging,prod,demo}-jwt-reader` | IRSA roles | `lex-mts-eco-role-jwt{dev,stg,prd,dmo}` | Recreate |
 | `microtodosuite-observability-secrets-reader`, `-security-secrets-reader` | IRSA roles | `lex-mts-eco-role-obssecret`, `-secsecret` | Recreate |
+| `microtodosuite-security-trivy-ecr-reader` | IRSA role | `lex-mts-eco-role-trivyecr` | Recreate in `eco/security-irsa`; added on reconciliation, 2026-09-13: the dev root created it and GitOps annotates `security/trivy-operator` with it, but this inventory had omitted it |
 | `microtodosuite-github-ecr-publisher` | IAM role | `lex-mts-shd-role-ecrpublish` | Recreate |
-| `microtodosuite-kyverno-ecr-verifier` | IAM role | `lex-mts-shd-role-kyvernoecr` | Recreate |
+| `microtodosuite-kyverno-ecr-verifier` | IRSA role | `lex-mts-eco-role-kyvernoecr` | Recreate in `eco/security-irsa`, one verifier per environment; reconciled 2026-09-13 from `lex-mts-shd-role-kyvernoecr`, because its trust needs the cluster's OIDC issuer, which `shd/security` applies before |
 | `microtodosuite-terraform-dev` | Deploy role | `lex-mts-shd-role-tfdeploy` | Create first, retire last |
 | 2 customer policies | IAM | `lex-mts-eco-pol-…` | Recreate |
 | EKS OIDC provider | IAM | issuer URL | Recreate with the cluster |
