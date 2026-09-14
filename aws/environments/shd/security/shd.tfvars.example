@@ -1,4 +1,5 @@
-# Copy to shd.tfvars (gitignored) and fill the account from config/aws-account.env.
+# Copy to shd.tfvars (gitignored) and fill the account from config/aws-account.env and the
+# operators' IAM principals by hand.
 client              = "lex"
 project             = "mts"
 environment         = "shd"
@@ -13,4 +14,5 @@ image_publisher_repositories = [
   "microservice-app-todos-api",
   "microservice-app-users-api",
 ]
-service_image_keys = ["authapi", "frontend", "logmsgproc", "todosapi", "usersapi"]
+service_image_keys        = ["authapi", "frontend", "logmsgproc", "todosapi", "usersapi"]
+deploy_role_operator_arns = ["arn:aws:iam::123456789012:user/<operator>"]

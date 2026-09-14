@@ -90,6 +90,16 @@ variable "service_image_keys" {
   }
 }
 
+variable "deploy_role_operator_arns" {
+  type        = list(string)
+  description = "IAM users or roles of the operators allowed to assume the Terraform deploy role, always with MFA. Real ARNs belong only in the gitignored shd.tfvars."
+
+  validation {
+    condition     = length(var.deploy_role_operator_arns) > 0 && length(distinct(var.deploy_role_operator_arns)) == length(var.deploy_role_operator_arns) && alltrue([for arn in var.deploy_role_operator_arns : can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:(user|role)/[A-Za-z0-9+=,.@_/-]+$", arn))])
+    error_message = "Name at least one distinct IAM user or role ARN."
+  }
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

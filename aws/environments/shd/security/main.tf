@@ -1,6 +1,6 @@
-# The shd/security root: the account's GitHub OIDC trust, the role that publishes service
-# images, and the key and role every environment's VPC flow logs use (PC-IAC-022). The
-# deploy role and the Kyverno image verifier follow in their own changes.
+# The shd/security root: the account's GitHub OIDC trust, the Terraform deploy role, the role
+# that publishes service images, and the key and role every environment's VPC flow logs use
+# (PC-IAC-022). The Kyverno image verifier lives in each environment's IRSA pass.
 
 # The GitHub OIDC provider already exists in the account; it is adopted, not created
 # (ops spec 004 T010).
@@ -22,6 +22,26 @@ module "github_oidc" {
   url           = "https://${local.github_oidc_host}"
   client_ids    = ["sts.amazonaws.com"]
   standard_name = local.github_oidc_name
+}
+
+# Created first by an account IAM administrator, then used for every other root; its deny
+# statements keep it from changing itself, so later changes to it need that administrator.
+module "deploy_role" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//iam-role?ref=iam-role-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client                   = var.client
+  project                  = var.project
+  environment              = var.environment
+  role_name                = local.deploy_role_name
+  description              = "Runs reviewed Terraform plans and applies for the rebuilt roots; named operators assume it with MFA, and it cannot change itself."
+  assume_role_policy       = local.deploy_role_trust_policy
+  inline_policies          = local.deploy_role_policies
+  managed_policy_arns      = local.deploy_role_managed_policy_arns
+  permissions_boundary_arn = ""
 }
 
 module "ecr_publisher_role" {
