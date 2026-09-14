@@ -1,0 +1,24 @@
+# Copy to fdev.tfvars (gitignored). Fill the account from config/aws-account.env and the
+# operator addresses by hand; the versions and sizes are the legacy dev cluster's.
+client                       = "lex"
+project                      = "mts"
+environment                  = "fdev"
+aws_account_id               = "123456789012"
+aws_region                   = "us-east-1"
+deploy_role_arn              = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+kubernetes_version           = "1.35"
+service_ipv4_cidr            = "172.20.0.0/16"
+endpoint_public_access_cidrs = ["203.0.113.10/32"]
+cluster_admin_principal_arns = ["arn:aws:iam::123456789012:role/<terraform-deploy-role>"]
+addon_versions = {
+  vpc_cni            = "v1.23.0-eksbuild.1"
+  kube_proxy         = "v1.35.3-eksbuild.18"
+  coredns            = "v1.14.3-eksbuild.3"
+  aws_ebs_csi_driver = "v1.64.0-eksbuild.1"
+  # aws eks describe-addon-versions --addon-name eks-pod-identity-agent --kubernetes-version 1.35
+  pod_identity_agent = "<version from describe-addon-versions>"
+}
+node_release_version      = "1.35.6-20260818"
+node_instance_types       = ["m7i-flex.large"]
+node_scaling              = { min_size = 2, desired_size = 2, max_size = 4 }
+node_root_volume_size_gib = 50
