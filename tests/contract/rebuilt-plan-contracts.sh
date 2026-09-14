@@ -197,9 +197,10 @@ valid_environment() {
   esac
 }
 
-valid_domain() {
+contract_domain() {
   case "$1" in
-    state | security | registry | dns | networking | workload) return 0 ;;
+    security-irsa) printf 'security\n' ;;
+    state | security | registry | dns | networking | workload) printf '%s\n' "$1" ;;
     *) return 1 ;;
   esac
 }
@@ -208,6 +209,7 @@ check_operator_plans() {
   local plan_directory=$1
   local root
   local environment
+  local root_domain
   local domain
   local plan
   local roots=0
@@ -217,22 +219,22 @@ check_operator_plans() {
 
   while IFS= read -r root; do
     environment="$(basename "$(dirname "$root")")"
-    domain="$(basename "$root")"
+    root_domain="$(basename "$root")"
     valid_environment "$environment" || continue
     roots=$((roots + 1))
 
-    if ! valid_domain "$domain"; then
-      fail "unsupported rebuilt root domain: aws/environments/$environment/$domain"
+    if ! domain="$(contract_domain "$root_domain")"; then
+      fail "unsupported rebuilt root domain: aws/environments/$environment/$root_domain"
       continue
     fi
 
-    plan="$plan_directory/$environment/$domain.json"
+    plan="$plan_directory/$environment/$root_domain.json"
     if [[ ! -f "$plan" ]]; then
-      fail "missing plan JSON for aws/environments/$environment/$domain at $plan"
+      fail "missing plan JSON for aws/environments/$environment/$root_domain at $plan"
       continue
     fi
 
-    echo "=== aws/environments/$environment/$domain ==="
+    echo "=== aws/environments/$environment/$root_domain ==="
     check_plan "$plan" "$domain" || failures=$((failures + 1))
   done < <(
     find "$ROOT/aws/environments" -mindepth 2 -maxdepth 2 -type d -exec sh -c 'find "$1" -maxdepth 1 -type f -name "*.tf" -print -quit | grep -q .' _ {} \; -print | sort
