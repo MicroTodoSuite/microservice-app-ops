@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "configuration": {
+    "root_module": {
+      "module_calls": {
+        "network": {
+          "source": "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//network?ref=main"
+        }
+      }
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "module.network.aws_vpc.this",
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "this",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "lex-mts-fdev-vpc-main",
+          "tags_all": {
+            "Name": "lex-mts-fdev-vpc-main",
+            "Client": "lex",
+            "Project": "mts",
+            "Environment": "fdev",
+            "Owner": "infrastructure",
+            "CostCenter": "mts-full",
+            "ManagedBy": "terraform",
+            "Repository": "microservice-app-ops"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}

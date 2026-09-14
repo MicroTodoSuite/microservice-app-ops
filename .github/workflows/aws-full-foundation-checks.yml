@@ -16,6 +16,8 @@ on:
       - main
     paths:
       - 'aws/**'
+      - 'tests/contract/rebuilt-plan-contracts.sh'
+      - 'tests/contract/fixtures/rebuilt-plans/**'
       - '.terraform-version'
       - '.github/workflows/aws-full-foundation-checks.yml'
 
@@ -23,6 +25,19 @@ permissions:
   contents: read
 
 jobs:
+  rebuilt-plan-contracts:
+    name: Rebuilt plan contract self-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Prove each plan fixture passes or fails as specified
+        run: tests/contract/rebuilt-plan-contracts.sh --self-test
+
   validate:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest

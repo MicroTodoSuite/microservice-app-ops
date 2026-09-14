@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "configuration": {
+    "root_module": {
+      "module_calls": {
+        "state_backend": {
+          "source": "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//state-backend?ref=state-backend-v1.0.0"
+        }
+      }
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "module.state_backend.aws_s3_bucket.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "this",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "lex-mts-shd-s3-tfstate-575172595729",
+          "tags_all": {
+            "Name": "lex-mts-shd-s3-tfstate",
+            "Client": "lex",
+            "Project": "mts",
+            "Environment": "shd",
+            "Owner": "infrastructure",
+            "CostCenter": "mts-shared",
+            "ManagedBy": "terraform",
+            "Repository": "microservice-app-ops"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}
