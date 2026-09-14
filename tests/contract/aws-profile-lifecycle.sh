@@ -336,7 +336,8 @@ cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$EGRESS_DELETE_FILTER" "$sandbox_ops/
 cp "$ROOT/.terraform-version" "$ROOT/.gitignore" "$sandbox_ops/"
 printf 'AWS_ACCOUNT_ID=575172595729\n' >"$sandbox_ops/config/aws-account.env"
 for root in eco/networking eco/workload eco/security-irsa shd/networking \
-  fdev/networking fdev/workload fstg/networking fstg/workload fprd/networking fprd/workload; do
+  fdev/networking fdev/workload fdev/security-irsa fstg/networking fstg/workload fstg/security-irsa \
+  fprd/networking fprd/workload fprd/security-irsa; do
   environment="${root%%/*}"
   domain="${root##*/}"
   mkdir -p "$sandbox_ops/aws/environments/$root"
@@ -587,7 +588,7 @@ fresh_transition
 in_sandbox env HUB_PRESENT=1 ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null || \
   fail "a full up plan with the hub must succeed"
 [[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking fdev-networking fstg-networking fprd-networking fdev-workload fstg-workload fprd-workload" ]] || \
-  fail "the full up bundle must plan the hub, then the three spokes, then the three clusters"
+  fail "without a cluster, the full up bundle must plan the hub, the three spokes, and the three clusters, and defer the three IRSA passes"
 for environment in fdev fstg fprd; do
   grep -Eq "^${environment}/networking plan .*-var=transit_enabled=true" "$terraform_log" || \
     fail "the full up transition must restore the transit egress of $environment"
@@ -595,6 +596,15 @@ done
 if grep -Eq 'plan -destroy' "$terraform_log"; then
   fail "the full up bundle must destroy nothing"
 fi
+if grep -Eq '^f(dev|stg|prd)/security-irsa plan ' "$terraform_log"; then
+  fail "the IRSA passes read their cluster's issuer, so they wait for the second up bundle"
+fi
+
+fresh_transition
+in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null || \
+  fail "a full up plan with the hub and the clusters must succeed"
+[[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking fdev-networking fstg-networking fprd-networking fdev-workload fstg-workload fprd-workload fdev-security-irsa fstg-security-irsa fprd-security-irsa" ]] || \
+  fail "with the clusters, the full up bundle must also plan the three IRSA passes"
 
 # Full down destroys the clusters, removes each spoke's transit egress, and
 # destroys the hub last, once no attachment remains. The spokes are never
@@ -607,9 +617,11 @@ fresh_transition
 in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan full down \
   --gitops-revision "$quiescence_revision" --volume-record "$full_volume_record" >/dev/null || \
   fail "a full down plan against unprotected clusters must succeed"
-[[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-workload fstg-workload fdev-workload fprd-networking fstg-networking fdev-networking shd-networking" ]] || \
-  fail "the full down bundle must destroy the clusters, then remove the spokes' transit egress, then destroy the hub"
+[[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-security-irsa fstg-security-irsa fdev-security-irsa fprd-workload fstg-workload fdev-workload fprd-networking fstg-networking fdev-networking shd-networking" ]] || \
+  fail "the full down bundle must destroy the IRSA passes, then the clusters, then remove the spokes' transit egress, then destroy the hub"
 for environment in fdev fstg fprd; do
+  grep -Eq "^${environment}/security-irsa plan -destroy " "$terraform_log" || \
+    fail "the $environment IRSA pass must be planned for destruction"
   grep -Eq "^${environment}/workload plan -destroy " "$terraform_log" || \
     fail "the $environment cluster must be planned for destruction"
   grep -Eq "^${environment}/networking plan .*-var=transit_enabled=false" "$terraform_log" || \
@@ -655,6 +667,9 @@ for environment in eco fdev fstg fprd; do
     "$environment/workload must pass its deletion protection to the cluster module"
 done
 for environment in fdev fstg fprd; do
+  require_file "aws/environments/$environment/security-irsa/main.tf"
+  require_text "aws/environments/$environment/security-irsa/main.tf" 'iam-oidc-provider\?ref=iam-oidc-provider-v' \
+    "$environment/security-irsa must register its cluster's OIDC issuer"
   require_text "aws/environments/$environment/networking/variables.tf" 'variable "transit_enabled"' \
     "$environment/networking must expose the transit egress switch the lifecycle plans"
   require_variable_default "aws/environments/$environment/networking/variables.tf" transit_enabled true \
