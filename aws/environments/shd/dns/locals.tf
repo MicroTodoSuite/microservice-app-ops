@@ -7,6 +7,11 @@ locals {
   # its tags.
   public_zone_comment = "Public hosted zone for ${var.public_zone_name}; registrar delegation remains manual."
 
+  # The canonical zone of gitops spec 009 FR-044, created here rather than adopted. Its name
+  # servers are delegated at the registrar by hand, as the legacy zone's are.
+  canonical_zone_standard_name = "${local.governance_prefix}-dns-canonical"
+  canonical_zone_comment       = "Canonical public hosted zone for ${var.canonical_zone_name}; registrar delegation remains manual."
+
   common_tags = {
     Client      = var.client
     Project     = var.project
