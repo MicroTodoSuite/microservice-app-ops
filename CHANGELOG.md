@@ -1,3 +1,11 @@
+# [1.28.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.27.0...v1.28.0) (2026-09-14)
+
+
+### Features
+
+* **fprd:** implement full-profile workload root ([cdda8c2](https://github.com/MicroTodoSuite/microservice-app-ops/commit/cdda8c2cb565100a3aab5cab19ea76466013fec9))
+* **fprd:** implement full-profile workload root ([#95](https://github.com/MicroTodoSuite/microservice-app-ops/issues/95)) ([90b97cb](https://github.com/MicroTodoSuite/microservice-app-ops/commit/90b97cbff3fa3f57ea22be1af84da94cbcb4554c))
+
 # [1.27.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.26.0...v1.27.0) (2026-09-14)
 
 
