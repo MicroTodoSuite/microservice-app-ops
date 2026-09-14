@@ -15,7 +15,7 @@ module "network" {
   public_route_table_name = "${local.governance_prefix}-rtb-public"
   subnets                 = local.subnets
   nat_gateways            = local.nat_gateways
-  transit_gateway_id      = data.aws_ec2_transit_gateway.shared.id
+  transit_gateway_id      = var.transit_enabled ? data.aws_ec2_transit_gateway.shared[0].id : ""
   transit_attachment      = local.transit_attachment
   flow_log                = local.flow_log
 }

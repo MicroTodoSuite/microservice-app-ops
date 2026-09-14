@@ -62,34 +62,43 @@ validate_direction() {
   esac
 }
 
-# Records are name|root|backend|variables|kind. The order is the apply order.
-# Only runtime roots appear: shd/state, shd/security, shd/registry, shd/dns, and
-# eco/security hold the persistent resources and are never planned here. A
-# networking root keeps its VPC and switches its NAT egress; a cluster root and
-# an identity root (the IRSA pass) are destroyed when the profile goes down.
+# Records are name|root|backend|variables|kind, listed in the up order; down is the
+# reverse. Only runtime roots appear: shd/state, shd/security, shd/registry, shd/dns,
+# and every environment's security root hold the persistent resources and are never
+# planned here. A networking root keeps its VPC and switches its NAT egress; a spoke
+# keeps its VPC and switches its transit egress; a hub, a cluster root, and an
+# identity root (the IRSA pass) are destroyed when the profile goes down.
 profile_records() {
   local profile=$1
   local direction=${2:-up}
+  local -a records
+  local index
 
-  [[ "$profile" == "economical" ]] || return 0
-  if [[ "$direction" == "up" ]]; then
-    printf '%s\n' \
-      'eco-networking|aws/environments/eco/networking|networking.s3.tfbackend|eco.tfvars|networking' \
-      'eco-workload|aws/environments/eco/workload|workload.s3.tfbackend|eco.tfvars|cluster' \
-      'eco-security-irsa|aws/environments/eco/security-irsa|security-irsa.s3.tfbackend|eco.tfvars|identity'
-  else
-    printf '%s\n' \
-      'eco-security-irsa|aws/environments/eco/security-irsa|security-irsa.s3.tfbackend|eco.tfvars|identity' \
-      'eco-workload|aws/environments/eco/workload|workload.s3.tfbackend|eco.tfvars|cluster' \
+  if [[ "$profile" == "economical" ]]; then
+    records=(
       'eco-networking|aws/environments/eco/networking|networking.s3.tfbackend|eco.tfvars|networking'
+      'eco-workload|aws/environments/eco/workload|workload.s3.tfbackend|eco.tfvars|cluster'
+      'eco-security-irsa|aws/environments/eco/security-irsa|security-irsa.s3.tfbackend|eco.tfvars|identity'
+    )
+  else
+    records=(
+      'shd-networking|aws/environments/shd/networking|networking.s3.tfbackend|shd.tfvars|hub'
+      'fdev-networking|aws/environments/fdev/networking|networking.s3.tfbackend|fdev.tfvars|spoke'
+      'fstg-networking|aws/environments/fstg/networking|networking.s3.tfbackend|fstg.tfvars|spoke'
+      'fprd-networking|aws/environments/fprd/networking|networking.s3.tfbackend|fprd.tfvars|spoke'
+      'fdev-workload|aws/environments/fdev/workload|workload.s3.tfbackend|fdev.tfvars|cluster'
+      'fstg-workload|aws/environments/fstg/workload|workload.s3.tfbackend|fstg.tfvars|cluster'
+      'fprd-workload|aws/environments/fprd/workload|workload.s3.tfbackend|fprd.tfvars|cluster'
+    )
   fi
-}
 
-# The full profile's rebuilt roots, shd/networking and the fdev, fstg, and fprd
-# roots, are written by ops spec 004 T012; their records arrive with them.
-require_mapped_profile() {
-  [[ "$1" == "economical" ]] || \
-    fail "The $1 profile is not mapped yet: its records join the wrapper once ops spec 004 T012 completes shd/networking and the fdev, fstg, and fprd roots."
+  if [[ "$direction" == "up" ]]; then
+    printf '%s\n' "${records[@]}"
+  else
+    for ((index = ${#records[@]} - 1; index >= 0; index--)); do
+      printf '%s\n' "${records[index]}"
+    done
+  fi
 }
 
 # The single AWS account the repository declares (MTS-IAC-103).
@@ -150,7 +159,6 @@ verify_profile() {
   local active_account declared root_account
   local name relative_root backend_name variables_name kind root backend_file variables_file
 
-  require_mapped_profile "$profile"
   verify_toolchain
   declared="$(declared_account)"
   active_account="$(caller_account)"
@@ -203,14 +211,14 @@ assert_no_durable_deletes() {
   [[ -z "$deleted" ]] || fail "Saved shutdown plan attempts to delete durable resources: ${deleted//$'\n'/, }."
 }
 
-# A networking root goes down by losing its NAT egress only; its VPC, subnets,
-# and route tables hold eco/security's security groups.
+# A networking root or a spoke goes down by losing its egress only; its VPC,
+# subnets, and route tables hold the environment's security groups.
 assert_only_egress_deletes() {
   local plan_json=$1
   local deleted
   require_file "$EGRESS_DELETE_FILTER"
   deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" "$plan_json")"
-  [[ -z "$deleted" ]] || fail "Saved networking plan deletes more than the NAT egress: ${deleted//$'\n'/, }."
+  [[ -z "$deleted" ]] || fail "Saved networking plan deletes more than its egress: ${deleted//$'\n'/, }."
 }
 
 assert_no_deletes() {
@@ -230,6 +238,17 @@ cluster_state() {
     | if length == 0 then "absent"
       elif any(.[]; .values.deletion_protection == true) then "protected"
       else "unprotected" end'
+}
+
+# Succeeds when a root's state lists an address matching the pattern.
+state_holds() {
+  local root=$1
+  local backend_file=$2
+  local pattern=$3
+  local state
+  init_root "$root" "$backend_file" >/dev/null
+  state="$(terraform -chdir="$root" state list 2>/dev/null || true)"
+  grep -Eq "$pattern" <<<"$state"
 }
 
 contains_value() {
@@ -410,10 +429,11 @@ plan_profile() {
   local gitops_revision=$3
   local supplied_volume_record=${4:-}
   local volume_record=""
-  local timestamp bundle active_account commit cluster pass=complete
-  local cluster_relative_root cluster_backend_name
+  local timestamp bundle active_account commit pass="complete"
+  local any_protected=false any_absent=false has_identity=false has_hub=false hub_present=false
   local name relative_root backend_name variables_name kind root plan_file json_file
   local -a plan_args
+  local -A cluster_of=()
 
   verify_git_clean
   verify_profile "$profile" "$direction"
@@ -422,17 +442,34 @@ plan_profile() {
     volume_record="$(verify_volume_record "$profile" "$gitops_revision" "$supplied_volume_record")"
   fi
 
-  # Two transitions take a second bundle. Amazon EKS refuses to delete a cluster
-  # whose deletion protection is on, so a down transition first turns it off in a
-  # bundle of its own. The IRSA pass reads the cluster's issuer, so an up
-  # transition without a cluster creates the network and the cluster first.
-  IFS='|' read -r _ cluster_relative_root cluster_backend_name _ _ < <(
-    profile_records "$profile" up | awk -F '|' '$5 == "cluster"'
-  ) || fail "The $profile profile has no cluster root."
-  cluster="$(cluster_state "$ROOT_DIR/$cluster_relative_root" "$ROOT_DIR/$cluster_relative_root/$cluster_backend_name")"
-  if [[ "$direction" == "down" && "$cluster" == "protected" ]]; then
+  # Three transitions take a second bundle. Amazon EKS refuses to delete a
+  # protected cluster, so a down transition first turns the protection off in a
+  # bundle of its own. The spokes read the hub's transit gateway at plan time, so
+  # an up transition without the hub creates the hub first. The IRSA pass reads
+  # its cluster's issuer, so an up transition without a cluster creates the
+  # cluster first.
+  while IFS='|' read -r name relative_root backend_name variables_name kind; do
+    root="$ROOT_DIR/$relative_root"
+    case "$kind" in
+      cluster)
+        cluster_of[$name]="$(cluster_state "$root" "$root/$backend_name")"
+        [[ "${cluster_of[$name]}" != "protected" ]] || any_protected=true
+        [[ "${cluster_of[$name]}" != "absent" ]] || any_absent=true
+        ;;
+      identity) has_identity=true ;;
+      hub)
+        has_hub=true
+        if state_holds "$root" "$root/$backend_name" '\.aws_ec2_transit_gateway\.this$'; then
+          hub_present=true
+        fi
+        ;;
+    esac
+  done < <(profile_records "$profile" up)
+  if [[ "$direction" == "down" && "$any_protected" == true ]]; then
     pass="unprotect"
-  elif [[ "$direction" == "up" && "$cluster" == "absent" ]]; then
+  elif [[ "$direction" == "up" && "$has_hub" == true && "$hub_present" == false ]]; then
+    pass="hub-first"
+  elif [[ "$direction" == "up" && "$has_identity" == true && "$any_absent" == true ]]; then
     pass="cluster-first"
   fi
 
@@ -461,9 +498,11 @@ plan_profile() {
   fi
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
-    if [[ "$pass" == "unprotect" && "$kind" != "cluster" ]] || [[ "$pass" == "cluster-first" && "$kind" == "identity" ]]; then
-      continue
-    fi
+    case "$pass" in
+      unprotect) [[ "$kind" == "cluster" && "${cluster_of[$name]:-}" == "protected" ]] || continue ;;
+      hub-first) [[ "$kind" == "hub" ]] || continue ;;
+      cluster-first) [[ "$kind" != "identity" ]] || continue ;;
+    esac
     root="$ROOT_DIR/$relative_root"
     plan_file="$bundle/$name.tfplan"
     json_file="$bundle/$name.json"
@@ -485,6 +524,12 @@ plan_profile() {
       networking:down)
         terraform -chdir="$root" plan "${plan_args[@]}" -var=nat_gateways_enabled=false
         ;;
+      spoke:up)
+        terraform -chdir="$root" plan "${plan_args[@]}" -var=transit_enabled=true
+        ;;
+      spoke:down)
+        terraform -chdir="$root" plan "${plan_args[@]}" -var=transit_enabled=false
+        ;;
       cluster:down)
         if [[ "$pass" == "unprotect" ]]; then
           terraform -chdir="$root" plan "${plan_args[@]}" -var=cluster_deletion_protection=false
@@ -492,7 +537,7 @@ plan_profile() {
           terraform -chdir="$root" plan -destroy "${plan_args[@]}"
         fi
         ;;
-      identity:down)
+      identity:down | hub:down)
         terraform -chdir="$root" plan -destroy "${plan_args[@]}"
         ;;
       *)
@@ -503,7 +548,7 @@ plan_profile() {
     terraform -chdir="$root" show -json "$plan_file" >"$json_file"
     if [[ "$direction" == "down" ]]; then
       assert_no_durable_deletes "$json_file"
-      if [[ "$kind" == "networking" ]]; then
+      if [[ "$kind" == "networking" || "$kind" == "spoke" ]]; then
         assert_only_egress_deletes "$json_file"
       elif [[ "$pass" == "unprotect" ]]; then
         assert_no_deletes "$json_file"
@@ -523,8 +568,12 @@ plan_profile() {
   printf 'Saved plan bundle: %s\n' "$bundle"
   case "$pass" in
     unprotect)
-      printf 'The cluster refuses deletion, so this bundle only turns its deletion protection off.\n'
+      printf 'A cluster refuses deletion, so this bundle only turns deletion protection off on each protected cluster.\n'
       printf 'Apply it, then plan down again with the same GitOps revision and volume record for the destroy bundle.\n'
+      ;;
+    hub-first)
+      printf 'The egress hub does not exist yet and the spokes read its transit gateway, so this bundle holds only the hub.\n'
+      printf 'Apply it, then plan up again for the spokes and the clusters.\n'
       ;;
     cluster-first)
       printf 'The cluster does not exist yet and the IRSA pass reads it, so this bundle holds the network and the cluster.\n'
@@ -629,22 +678,23 @@ apply_bundle() {
 }
 
 # A root is up when its state holds what the down transition removes: the NAT
-# gateways of a networking root, the cluster, or the IRSA pass's roles.
+# gateways of a networking root, a spoke's transit attachment, the hub's transit
+# gateway, the cluster, or the IRSA pass's roles.
 status_profile() {
   local profile=$1
-  local name relative_root backend_name variables_name kind root state pattern
+  local name relative_root backend_name variables_name kind root pattern
   verify_profile "$profile" up
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
     root="$ROOT_DIR/$relative_root"
-    init_root "$root" "$root/$backend_name" >/dev/null
-    state="$(terraform -chdir="$root" state list 2>/dev/null || true)"
     case "$kind" in
       networking) pattern='\.aws_nat_gateway\.' ;;
+      spoke) pattern='\.aws_ec2_transit_gateway_vpc_attachment\.' ;;
+      hub) pattern='\.aws_ec2_transit_gateway\.' ;;
       cluster) pattern='\.aws_eks_cluster\.' ;;
       *) pattern='\.aws_iam_role\.' ;;
     esac
-    if grep -Eq "$pattern" <<<"$state"; then
+    if state_holds "$root" "$root/$backend_name" "$pattern"; then
       printf 'UP    %s\n' "$name"
     else
       printf 'DOWN  %s\n' "$name"

@@ -111,6 +111,12 @@ variable "flow_log_retention_in_days" {
   }
 }
 
+variable "transit_enabled" {
+  type        = bool
+  description = "Whether the private subnets leave through the shared hub's transit gateway. The lifecycle's full down transition plans false, which removes only this spoke's attachment, its route table association, its transit routes, and the private default routes, and reads nothing from the hub."
+  default     = true
+}
+
 variable "owner" {
   type        = string
   description = "Owning team recorded in tags."

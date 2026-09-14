@@ -4,7 +4,7 @@ This runbook controls the cost-bearing AWS runtime while preserving the persiste
 
 ## Resource boundary
 
-The economical profile operates the rebuilt `eco` roots (ops spec 004). The lifecycle never plans a persistent root.
+Both profiles operate the rebuilt roots of ops spec 004: the economical profile the `eco` roots, the full profile the egress hub and the `fdev`, `fstg`, and `fprd` roots. The lifecycle never plans a persistent root.
 
 | Root | Class | When the profile is down |
 | --- | --- | --- |
@@ -16,8 +16,14 @@ The economical profile operates the rebuilt `eco` roots (ops spec 004). The life
 | `eco/networking` | Persistent, with runtime egress | The VPC, subnets, route tables, internet gateway, and flow log remain. The NAT gateways, their Elastic IPs, and the private default routes are removed. |
 | `eco/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, and the control-plane log group are destroyed. |
 | `eco/security-irsa` | Runtime | The cluster's OIDC provider and the IRSA roles are destroyed. |
+| `fdev/security`, `fstg/security`, `fprd/security` | Persistent | The cluster, node, and add-on roles, the EKS keys, the security groups, and the secrets remain. |
+| `fdev/networking`, `fstg/networking`, `fprd/networking` | Persistent, with runtime egress | The VPC, subnets, route tables, internet gateway, and flow log remain. The transit attachment, its route table association, its two transit routes, and the private default routes are removed. |
+| `fdev/workload`, `fstg/workload`, `fprd/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, and the control-plane log group are destroyed. |
+| `shd/networking` | Runtime | The egress hub is destroyed: its VPC, NAT gateway, Elastic IP, transit gateway, and transit route tables. |
 
 `eco/networking` is never destroyed, because `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged by the hour, so they go down with the cluster.
+
+The spokes are never destroyed either, for the same reason: each environment's security groups belong to its VPC. Every transit gateway attachment is billed by the hour, and a transit gateway cannot be deleted while an attachment remains, so each spoke detaches before the hub is destroyed.
 
 Persistent services still charge for storage, keys, secrets, and the hosted zone. `down` removes the dominant runtime spend; it does not promise a zero-dollar account.
 
@@ -103,7 +109,16 @@ Every apply first writes an external state backup under `~/backups-microtodosuit
 
 ## Full profile
 
-The full profile will operate `shd/networking` and the `fdev`, `fstg`, and `fprd` roots, which ops spec 004 T012 writes. Until their records join the wrapper, every full-profile command that reads state stops and names that task. Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes.
+Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes.
+
+- **Up** plans `shd/networking`, then `fdev`, `fstg`, and `fprd` networking with their transit egress, then their workload roots.
+- **Down** destroys the three clusters, plans each spoke without its transit egress, and destroys the hub last, once no attachment remains. The spokes' plans must pass the same egress filter as `eco/networking`.
+
+**While the hub does not exist, up takes two bundles.** The spokes read the hub's transit gateway at plan time. When `shd/networking`'s state holds no transit gateway, the up bundle holds only the hub, and `inspect` shows `Pass: hub-first`. Apply it, then run `make plan-up PROFILE=full` again for the spokes and the clusters.
+
+**Protected clusters take two bundles on the way down,** exactly as in the economical profile: the first holds only the protected clusters, each planned with its deletion protection off.
+
+**What the full profile does not cover yet.** The full environments have no IRSA pass and no Karpenter prerequisites. When those roots land, their records join the wrapper. The first creation of every root is the rebuild's own reviewed apply; the lifecycle starts and stops what already exists.
 
 ## Legacy roots
 
@@ -122,6 +137,9 @@ The wrapper refuses to guess missing values. Each root needs its real gitignored
 | `aws/environments/eco/networking` | `networking.s3.tfbackend` | `eco.tfvars` |
 | `aws/environments/eco/workload` | `workload.s3.tfbackend` | `eco.tfvars` |
 | `aws/environments/eco/security-irsa` | `security-irsa.s3.tfbackend` | `eco.tfvars` |
+| `aws/environments/shd/networking` | `networking.s3.tfbackend` | `shd.tfvars` |
+| `aws/environments/{fdev,fstg,fprd}/networking` | `networking.s3.tfbackend` | `<environment>.tfvars` |
+| `aws/environments/{fdev,fstg,fprd}/workload` | `workload.s3.tfbackend` | `<environment>.tfvars` |
 
 Every variable file sets a literal `aws_account_id`, equal to `AWS_ACCOUNT_ID` in `config/aws-account.env`, and a literal `aws_region`. All roots of a profile use one region.
 

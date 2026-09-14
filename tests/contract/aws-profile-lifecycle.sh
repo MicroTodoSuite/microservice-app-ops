@@ -87,7 +87,7 @@ require_text "scripts/aws-profile-lifecycle.sh" 'gitops[_-]revision' \
 require_text "scripts/aws-profile-lifecycle.sh" 'get-caller-identity' \
   "wrapper must verify the active AWS identity"
 require_text "scripts/aws-profile-lifecycle.sh" 'plan[[:space:]]+-destroy' \
-  "the cluster and its IRSA pass must be planned for destruction"
+  "the clusters, the IRSA pass, and the egress hub must be planned for destruction"
 require_text "scripts/aws-profile-lifecycle.sh" 'require_command[[:space:]]+grep' \
   "wrapper must preflight its portable grep dependency"
 require_text "scripts/aws-profile-lifecycle.sh" 'grep[[:space:]]+-Eq' \
@@ -111,15 +111,19 @@ require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[
 require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-durable-deletes\\.jq" \
   "AWS foundation workflow must run when the durable-delete filter changes"
 
-# The economical profile maps onto the rebuilt eco roots (spec 003 FR-021 to FR-025).
+# Both profiles map onto the rebuilt roots (spec 003 FR-021 to FR-025, FR-027 to FR-029).
 require_text "scripts/aws-profile-lifecycle.sh" 'nat_gateways_enabled=false' \
   "the economical down transition must remove only the NAT egress of eco/networking"
 require_text "scripts/aws-profile-lifecycle.sh" 'nat_gateways_enabled=true' \
   "the economical up transition must restore the NAT egress of eco/networking"
+require_text "scripts/aws-profile-lifecycle.sh" 'transit_enabled=false' \
+  "the full down transition must remove only the transit egress of each spoke"
+require_text "scripts/aws-profile-lifecycle.sh" 'transit_enabled=true' \
+  "the full up transition must restore the transit egress of each spoke"
 require_text "scripts/aws-profile-lifecycle.sh" 'cluster_deletion_protection=false' \
   "a protected cluster must lose its deletion protection in a bundle of its own"
 require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[[:space:]]+"\$EGRESS_DELETE_FILTER"' \
-  "wrapper must audit the networking down plan with the versioned egress filter"
+  "wrapper must audit the networking down plans with the versioned egress filter"
 require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-egress-deletes\\.jq" \
   "AWS foundation workflow must run when the egress filter changes"
 require_text "scripts/aws-profile-lifecycle.sh" 'config/aws-account\.env' \
@@ -128,8 +132,8 @@ reject_text "scripts/aws-profile-lifecycle.sh" 'expected_account_id|runtime_enab
   "wrapper must not read the inputs of the retired foundation roots"
 reject_text "scripts/aws-profile-lifecycle.sh" 'aws/environments/(dev|demo-full|full-dev|full-prod)/foundation|aws/shared/egress' \
   "wrapper must not plan the retired foundation and egress roots"
-reject_text "scripts/aws-profile-lifecycle.sh" 'aws/environments/shd/|aws/environments/eco/security\|' \
-  "wrapper must never plan a shared root or eco/security, which hold the persistent resources"
+reject_text "scripts/aws-profile-lifecycle.sh" 'aws/environments/shd/(state|security|registry|dns)|aws/environments/(eco|fdev|fstg|fprd)/security\|' \
+  "wrapper must never plan a root that holds persistent resources"
 
 runtime_oidc_plan="$(jq -n '
   {
@@ -176,7 +180,7 @@ ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
 [[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
   fail "durable ECR repositories must remain protected"
 
-# The networking down plan may delete the NAT egress and nothing else.
+# A networking down plan may delete its NAT or transit egress and nothing else.
 egress_plan="$(jq -n '
   {
     resource_changes: [
@@ -191,17 +195,33 @@ egress_deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" <<<"$egress_plan")"
 [[ -z "$egress_deleted" ]] || \
   fail "the networking down plan must be allowed to delete the NAT gateways, their Elastic IPs, and their private routes"
 
+transit_plan="$(jq -n '
+  {
+    resource_changes: [
+      {address: "module.network.aws_ec2_transit_gateway_vpc_attachment.this[0]", type: "aws_ec2_transit_gateway_vpc_attachment", change: {actions: ["delete"]}},
+      {address: "module.network.aws_ec2_transit_gateway_route_table_association.this[0]", type: "aws_ec2_transit_gateway_route_table_association", change: {actions: ["delete"]}},
+      {address: "module.network.aws_ec2_transit_gateway_route.to_hub[0]", type: "aws_ec2_transit_gateway_route", change: {actions: ["delete"]}},
+      {address: "module.network.aws_ec2_transit_gateway_route.hub_return[0]", type: "aws_ec2_transit_gateway_route", change: {actions: ["delete"]}},
+      {address: "module.network.aws_route.private_transit[\"priva\"]", type: "aws_route", change: {actions: ["delete"]}}
+    ]
+  }
+')"
+transit_deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" <<<"$transit_plan")"
+[[ -z "$transit_deleted" ]] || \
+  fail "a spoke down plan must be allowed to delete its transit attachment, association, transit routes, and private transit routes"
+
 beyond_egress_plan="$(jq -n '
   {
     resource_changes: [
       {address: "module.network.aws_route.public_internet", type: "aws_route", change: {actions: ["delete"]}},
-      {address: "module.network.aws_subnet.this[\"priva\"]", type: "aws_subnet", change: {actions: ["delete", "create"]}}
+      {address: "module.network.aws_subnet.this[\"priva\"]", type: "aws_subnet", change: {actions: ["delete", "create"]}},
+      {address: "module.transit_egress.aws_ec2_transit_gateway_route_table.spoke[\"fdev\"]", type: "aws_ec2_transit_gateway_route_table", change: {actions: ["delete"]}}
     ]
   }
 ')"
 beyond_egress_deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" <<<"$beyond_egress_plan")"
-[[ "$beyond_egress_deleted" == $'module.network.aws_route.public_internet\nmodule.network.aws_subnet.this["priva"]' ]] || \
-  fail "a networking down plan that deletes the public route or replaces a subnet must be rejected"
+[[ "$beyond_egress_deleted" == $'module.network.aws_route.public_internet\nmodule.network.aws_subnet.this["priva"]\nmodule.transit_egress.aws_ec2_transit_gateway_route_table.spoke["fdev"]' ]] || \
+  fail "a networking down plan that deletes the public route, replaces a subnet, or deletes a transit route table must be rejected"
 
 # A relative bundle path is valid at the operator interface. Terraform's
 # -chdir changes how it resolves a relative plan argument, so the wrapper must
@@ -301,12 +321,13 @@ apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
 [[ "$apply_plan_argument" == /* ]] || \
   fail "apply must pass an absolute saved-plan path after Terraform -chdir"
 
-# The sandbox is a copy of the wrapper with the three runtime eco roots, real Git
-# repositories, and fake AWS and Terraform binaries, so nothing reaches AWS. The
-# fake Terraform logs every call as "<domain> <arguments>". CLUSTER_PROTECTION
-# unset means eco/workload's state holds no cluster; true or false is the
-# deletion protection of the cluster it holds. PLAN_JSON replaces every saved
-# plan's JSON.
+# The sandbox is a copy of the wrapper with the runtime roots of both profiles,
+# real Git repositories, and fake AWS and Terraform binaries, so nothing reaches
+# AWS. The fake Terraform logs every call as "<environment>/<domain> <arguments>".
+# CLUSTER_PROTECTION unset means no cluster root's state holds a cluster; true or
+# false is the deletion protection of the cluster each holds. HUB_PRESENT set
+# means shd/networking's state holds the transit gateway. PLAN_JSON replaces
+# every saved plan's JSON.
 sandbox_ops="$volume_sandbox/ops"
 sandbox_gitops="$volume_sandbox/microservice-app-gitops"
 terraform_log="$volume_sandbox/terraform.log"
@@ -314,11 +335,14 @@ mkdir -p "$sandbox_ops/scripts" "$sandbox_ops/config" "$sandbox_gitops"
 cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$EGRESS_DELETE_FILTER" "$sandbox_ops/scripts/"
 cp "$ROOT/.terraform-version" "$ROOT/.gitignore" "$sandbox_ops/"
 printf 'AWS_ACCOUNT_ID=575172595729\n' >"$sandbox_ops/config/aws-account.env"
-for domain in networking workload security-irsa; do
-  mkdir -p "$sandbox_ops/aws/environments/eco/$domain"
+for root in eco/networking eco/workload eco/security-irsa shd/networking \
+  fdev/networking fdev/workload fstg/networking fstg/workload fprd/networking fprd/workload; do
+  environment="${root%%/*}"
+  domain="${root##*/}"
+  mkdir -p "$sandbox_ops/aws/environments/$root"
   printf '%s\n' 'aws_account_id = "575172595729"' 'aws_region     = "us-east-1"' \
-    >"$sandbox_ops/aws/environments/eco/$domain/eco.tfvars"
-  printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/eco/$domain/$domain.s3.tfbackend"
+    >"$sandbox_ops/aws/environments/$root/$environment.tfvars"
+  printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/$root/$domain.s3.tfbackend"
 done
 contract_git() {
   git -c user.name=contract -c user.email=contract@example.invalid -c commit.gpgsign=false "$@"
@@ -357,9 +381,9 @@ cat >"$volume_bin/terraform" <<'FAKE'
 set -euo pipefail
 if [[ "${1:-}" == version ]]; then printf '{"terraform_version":"1.15.8"}\n'; exit 0; fi
 [[ "${1:-}" == -chdir=* ]] || exit 2
-domain="${1#-chdir=}"
-domain="${domain##*/}"
-printf '%s %s\n' "$domain" "${*:2}" >>"$VOLUME_CAPTURE/terraform.log"
+root="${1#-chdir=}"
+root="$(basename "$(dirname "$root")")/$(basename "$root")"
+printf '%s %s\n' "$root" "${*:2}" >>"$VOLUME_CAPTURE/terraform.log"
 case "${2:-}" in
   init) ;;
   plan)
@@ -372,15 +396,17 @@ case "${2:-}" in
       plan_json="${PLAN_JSON:-}"
       [[ -n "$plan_json" ]] || plan_json='{"resource_changes":[]}'
       printf '%s\n' "$plan_json"
-    elif [[ "$domain" == workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
+    elif [[ "$root" == */workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
       printf '{"values":{"root_module":{"child_modules":[{"address":"module.eks_cluster","resources":[{"address":"module.eks_cluster.aws_eks_cluster.this","mode":"managed","type":"aws_eks_cluster","values":{"deletion_protection":%s}}]}]}}}\n' "$CLUSTER_PROTECTION"
     else
       printf '{"format_version":"1.0"}\n'
     fi
     ;;
   state)
-    if [[ "$domain" == workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
+    if [[ "$root" == */workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
       printf 'module.eks_cluster.aws_eks_cluster.this\n'
+    elif [[ "$root" == shd/networking && -n "${HUB_PRESENT:-}" ]]; then
+      printf 'module.transit_egress.aws_ec2_transit_gateway.this\n'
     fi
     ;;
   *) exit 2 ;;
@@ -398,22 +424,24 @@ in_sandbox() {
 # Each transition starts from no saved bundle and an empty Terraform log, so two
 # plans created within the same second cannot share a bundle directory.
 fresh_transition() {
-  rm -rf "$sandbox_ops"/.aws-profile-plans/economical-*
+  rm -rf "$sandbox_ops"/.aws-profile-plans/economical-* "$sandbox_ops"/.aws-profile-plans/full-*
   : >"$terraform_log"
 }
 
 latest_bundle() {
-  find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name "economical-$1-*" | sort | tail -n 1
+  find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name "$1-$2-*" | sort | tail -n 1
 }
 
 bundle_roots() {
   awk -F '\t' '$1 == "root" { print $2 }' "$1/metadata.tsv" | paste -sd ' ' -
 }
 
-# The profile's roots are ready only when each names the declared account
-# (spec 003 FR-025) and the full profile has rebuilt roots (FR-026).
-in_sandbox ./scripts/aws-profile-lifecycle.sh check economical >/dev/null || \
-  fail "the economical profile must be ready when every eco root names the declared account"
+# A profile's roots are ready only when each names the declared account (spec
+# 003 FR-025).
+for profile in economical full; do
+  in_sandbox ./scripts/aws-profile-lifecycle.sh check "$profile" >/dev/null || \
+    fail "the $profile profile must be ready when every root names the declared account"
+done
 workload_variables="$sandbox_ops/aws/environments/eco/workload/eco.tfvars"
 cp "$workload_variables" "$volume_sandbox/eco.tfvars.saved"
 other_account="$(printf '4%.0s' 1 2 3 4 5 6 7 8 9 10 11 12)"
@@ -424,11 +452,6 @@ fi
 grep -Fq 'config/aws-account.env' <<<"$output" || \
   fail "the account rejection must name the single declaration"
 cp "$volume_sandbox/eco.tfvars.saved" "$workload_variables"
-if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh check full 2>&1)"; then
-  fail "the full profile must be refused until its rebuilt roots exist"
-fi
-grep -Fq 'T012' <<<"$output" || \
-  fail "the full-profile refusal must name the task that writes its roots"
 
 # Persistent volumes (spec 003 FR-018 to FR-020). snapshot-volumes records a
 # completed snapshot, or explicit consent, for every EBS CSI volume. A down plan
@@ -467,22 +490,23 @@ if in_sandbox env EXTRA_VOLUME=vol-0ccc ./scripts/aws-profile-lifecycle.sh plan 
   fail "a volume missing from the record must block the down plan"
 fi
 
-# Down against an unprotected cluster destroys the IRSA pass, then the cluster,
-# then removes only the NAT egress; eco/networking keeps its VPC (FR-022, FR-023).
+# Economical down against an unprotected cluster destroys the IRSA pass, then the
+# cluster, then removes only the NAT egress; eco/networking keeps its VPC
+# (FR-022, FR-023).
 fresh_transition
 in_sandbox env CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan economical down \
   --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null || \
   fail "a record that predates quiescence and covers every volume must allow the down plan"
-down_bundle="$(latest_bundle down)"
+down_bundle="$(latest_bundle economical down)"
 [[ "$(bundle_roots "$down_bundle")" == "eco-security-irsa eco-workload eco-networking" ]] || \
   fail "the down bundle must destroy the IRSA pass, then the cluster, then remove the NAT egress"
-grep -Eq '^security-irsa plan -destroy ' "$terraform_log" || \
+grep -Eq '^eco/security-irsa plan -destroy ' "$terraform_log" || \
   fail "the IRSA pass must be planned for destruction"
-grep -Eq '^workload plan -destroy ' "$terraform_log" || \
+grep -Eq '^eco/workload plan -destroy ' "$terraform_log" || \
   fail "an unprotected cluster must be planned for destruction"
-grep -Eq '^networking plan .*-var=nat_gateways_enabled=false' "$terraform_log" || \
+grep -Eq '^eco/networking plan .*-var=nat_gateways_enabled=false' "$terraform_log" || \
   fail "eco/networking must be planned without its NAT gateways"
-if grep -Eq '^networking plan -destroy' "$terraform_log"; then
+if grep -Eq '^eco/networking plan -destroy' "$terraform_log"; then
   fail "eco/networking must never be destroyed: its VPC holds eco/security's security groups"
 fi
 grep -q $'^volume_record\t' "$down_bundle/metadata.tsv" || \
@@ -498,11 +522,11 @@ fresh_transition
 output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan economical down \
   --gitops-revision "$quiescence_revision" --volume-record "$volume_record" 2>&1)" || \
   fail "a down plan against a protected cluster must create the unprotect bundle"
-[[ "$(bundle_roots "$(latest_bundle down)")" == "eco-workload" ]] || \
+[[ "$(bundle_roots "$(latest_bundle economical down)")" == "eco-workload" ]] || \
   fail "the unprotect bundle must hold only the cluster root"
-grep -Eq '^workload plan .*-var=cluster_deletion_protection=false' "$terraform_log" || \
+grep -Eq '^eco/workload plan .*-var=cluster_deletion_protection=false' "$terraform_log" || \
   fail "the unprotect bundle must plan the cluster with deletion protection off"
-if grep -Eq 'plan -destroy|^(security-irsa|networking) plan' "$terraform_log"; then
+if grep -Eq 'plan -destroy|^eco/(security-irsa|networking) plan' "$terraform_log"; then
   fail "the unprotect bundle must destroy nothing and plan no other root"
 fi
 grep -q 'again' <<<"$output" || \
@@ -517,16 +541,17 @@ fi
 grep -Fq 'module.network.aws_subnet.this["priva"]' <<<"$output" || \
   fail "the rejection must name the address beyond the NAT egress"
 
-# Up restores the NAT egress and the cluster first. The IRSA pass reads the
-# cluster's issuer, so without a cluster it waits for a second bundle (FR-022).
+# Economical up restores the NAT egress and the cluster first. The IRSA pass
+# reads the cluster's issuer, so without a cluster it waits for a second bundle
+# (FR-022).
 fresh_transition
 output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical up 2>&1)" || \
   fail "an up plan without a cluster must create the first bundle"
-[[ "$(bundle_roots "$(latest_bundle up)")" == "eco-networking eco-workload" ]] || \
+[[ "$(bundle_roots "$(latest_bundle economical up)")" == "eco-networking eco-workload" ]] || \
   fail "without a cluster, the up bundle must hold eco/networking and eco/workload only"
-grep -Eq '^networking plan .*-var=nat_gateways_enabled=true' "$terraform_log" || \
+grep -Eq '^eco/networking plan .*-var=nat_gateways_enabled=true' "$terraform_log" || \
   fail "the up transition must restore the NAT egress"
-if grep -Eq 'plan -destroy|^security-irsa plan' "$terraform_log"; then
+if grep -Eq 'plan -destroy|^eco/security-irsa plan' "$terraform_log"; then
   fail "the first up bundle must destroy nothing and defer the IRSA pass"
 fi
 grep -q 'again' <<<"$output" || \
@@ -535,12 +560,84 @@ grep -q 'again' <<<"$output" || \
 fresh_transition
 in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan economical up >/dev/null || \
   fail "an up plan with a cluster must succeed"
-[[ "$(bundle_roots "$(latest_bundle up)")" == "eco-networking eco-workload eco-security-irsa" ]] || \
+[[ "$(bundle_roots "$(latest_bundle economical up)")" == "eco-networking eco-workload eco-security-irsa" ]] || \
   fail "with a cluster, the up bundle must also plan the IRSA pass"
 
 output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh status economical)"
 if ! grep -Eq '^UP[[:space:]]+eco-workload$' <<<"$output" || ! grep -Eq '^DOWN[[:space:]]+eco-networking$' <<<"$output"; then
   fail "status must report each runtime root from its own state"
+fi
+
+# The full profile (FR-027 to FR-029). Up plans the egress hub, then each spoke
+# with its transit egress, then each cluster. The spokes read the hub's transit
+# gateway at plan time, so while the hub's state holds none, the up bundle holds
+# only the hub.
+fresh_transition
+output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan full up 2>&1)" || \
+  fail "a full up plan without the hub must create the hub bundle"
+[[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking" ]] || \
+  fail "without the hub, the full up bundle must hold shd/networking only"
+if grep -Eq '^f(dev|stg|prd)/[a-z]+ plan ' "$terraform_log"; then
+  fail "the hub bundle must plan no spoke and no cluster"
+fi
+grep -q 'again' <<<"$output" || \
+  fail "the hub bundle must tell the operator to plan the up transition again"
+
+fresh_transition
+in_sandbox env HUB_PRESENT=1 ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null || \
+  fail "a full up plan with the hub must succeed"
+[[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking fdev-networking fstg-networking fprd-networking fdev-workload fstg-workload fprd-workload" ]] || \
+  fail "the full up bundle must plan the hub, then the three spokes, then the three clusters"
+for environment in fdev fstg fprd; do
+  grep -Eq "^${environment}/networking plan .*-var=transit_enabled=true" "$terraform_log" || \
+    fail "the full up transition must restore the transit egress of $environment"
+done
+if grep -Eq 'plan -destroy' "$terraform_log"; then
+  fail "the full up bundle must destroy nothing"
+fi
+
+# Full down destroys the clusters, removes each spoke's transit egress, and
+# destroys the hub last, once no attachment remains. The spokes are never
+# destroyed: their VPCs hold the security groups of each environment's security
+# root.
+in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes full >/dev/null
+full_volume_record="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'volumes-full-*' | head -n 1)"
+[[ -n "$full_volume_record" ]] || fail "snapshot-volumes must write a full-profile volume record"
+fresh_transition
+in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan full down \
+  --gitops-revision "$quiescence_revision" --volume-record "$full_volume_record" >/dev/null || \
+  fail "a full down plan against unprotected clusters must succeed"
+[[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-workload fstg-workload fdev-workload fprd-networking fstg-networking fdev-networking shd-networking" ]] || \
+  fail "the full down bundle must destroy the clusters, then remove the spokes' transit egress, then destroy the hub"
+for environment in fdev fstg fprd; do
+  grep -Eq "^${environment}/workload plan -destroy " "$terraform_log" || \
+    fail "the $environment cluster must be planned for destruction"
+  grep -Eq "^${environment}/networking plan .*-var=transit_enabled=false" "$terraform_log" || \
+    fail "the $environment spoke must be planned without its transit egress"
+done
+if grep -Eq '^f(dev|stg|prd)/networking plan -destroy' "$terraform_log"; then
+  fail "a spoke must never be destroyed"
+fi
+grep -Eq '^shd/networking plan -destroy ' "$terraform_log" || \
+  fail "the egress hub must be planned for destruction"
+
+fresh_transition
+in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan full down \
+  --gitops-revision "$quiescence_revision" --volume-record "$full_volume_record" >/dev/null || \
+  fail "a full down plan against protected clusters must create the unprotect bundle"
+[[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-workload fstg-workload fdev-workload" ]] || \
+  fail "the full unprotect bundle must hold only the protected clusters"
+for environment in fdev fstg fprd; do
+  grep -Eq "^${environment}/workload plan .*-var=cluster_deletion_protection=false" "$terraform_log" || \
+    fail "the $environment cluster must be planned with deletion protection off"
+done
+if grep -Eq 'plan -destroy|networking plan' "$terraform_log"; then
+  fail "the full unprotect bundle must destroy nothing and plan no network"
+fi
+
+output="$(in_sandbox env HUB_PRESENT=1 ./scripts/aws-profile-lifecycle.sh status full)"
+if ! grep -Eq '^UP[[:space:]]+shd-networking$' <<<"$output" || ! grep -Eq '^DOWN[[:space:]]+fdev-workload$' <<<"$output"; then
+  fail "status must report the hub and each cluster from its own state"
 fi
 
 require_text "aws/environments/eco/networking/variables.tf" 'variable "nat_gateways_enabled"' \
@@ -549,11 +646,21 @@ require_variable_default "aws/environments/eco/networking/variables.tf" nat_gate
   "the NAT egress of eco/networking must default on"
 require_text "aws/environments/eco/networking/locals.tf" 'var\.nat_gateways_enabled' \
   "eco/networking must build its NAT gateways and private egress from the switch"
-require_text "aws/environments/eco/workload/variables.tf" 'variable "cluster_deletion_protection"' \
-  "eco/workload must expose the cluster's deletion protection"
-require_variable_default "aws/environments/eco/workload/variables.tf" cluster_deletion_protection true \
-  "the cluster's deletion protection must default on"
-require_text "aws/environments/eco/workload/main.tf" 'deletion_protection[[:space:]]*=[[:space:]]*var\.cluster_deletion_protection' \
-  "eco/workload must pass its deletion protection to the cluster module"
+for environment in eco fdev fstg fprd; do
+  require_text "aws/environments/$environment/workload/variables.tf" 'variable "cluster_deletion_protection"' \
+    "$environment/workload must expose the cluster's deletion protection"
+  require_variable_default "aws/environments/$environment/workload/variables.tf" cluster_deletion_protection true \
+    "the deletion protection of the $environment cluster must default on"
+  require_text "aws/environments/$environment/workload/main.tf" 'deletion_protection[[:space:]]*=[[:space:]]*var\.cluster_deletion_protection' \
+    "$environment/workload must pass its deletion protection to the cluster module"
+done
+for environment in fdev fstg fprd; do
+  require_text "aws/environments/$environment/networking/variables.tf" 'variable "transit_enabled"' \
+    "$environment/networking must expose the transit egress switch the lifecycle plans"
+  require_variable_default "aws/environments/$environment/networking/variables.tf" transit_enabled true \
+    "the transit egress of $environment/networking must default on"
+  require_text "aws/environments/$environment/networking/locals.tf" 'var\.transit_enabled' \
+    "$environment/networking must build its attachment and private egress from the switch"
+done
 
 printf 'PASS: AWS profile lifecycle contract\n'

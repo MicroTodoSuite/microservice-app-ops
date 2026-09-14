@@ -82,11 +82,15 @@
   - [X] Carry the record in the checksummed down bundle and require it at apply
   - [X] Document the ordering in the runbook
 
-- [ ] **T014 Map the lifecycle onto the rebuilt roots (ai-agents specs/001 T027)**
+- [X] **T014 Map the lifecycle onto the rebuilt roots (ai-agents specs/001 T027)**
   - [X] Record the root classes, the second bundles, and the delegated decision in the specification and plan
   - [X] Commit failing contracts for the eco records, the NAT egress switch, both second bundles, the egress filter, and the declared account
   - [X] Add `nat_gateways_enabled` to eco/networking and `cluster_deletion_protection` to eco/workload, both defaulting on
   - [X] Plan the eco roots in dependency order with both second bundles, and audit the networking down plan with the egress filter
   - [X] Compare the STS account with `config/aws-account.env` and each root's `aws_account_id`
   - [X] Document the boundary, the second bundles, and the legacy release in the runbook
-  - [ ] Map the full profile onto `shd/networking` and the `fdev`, `fstg`, and `fprd` roots after ops spec 004 T012
+  - [X] Map the full profile onto `shd/networking` and the `fdev`, `fstg`, and `fprd` roots after ops spec 004 T012
+    - [X] Commit failing contracts for the full records, the hub-first bundle, the spokes' transit switch, and the transit deletions of the egress filter, and failing Terraform tests in the three spokes
+    - [X] Add `transit_enabled` to the three spokes, defaulting on, with the hub lookups conditional on it
+    - [X] Plan the full roots in dependency order with the hub-first and unprotect bundles, and audit each spoke's down plan with the egress filter
+    - [X] Document the full boundary and the second bundles in the runbook and the spoke READMEs

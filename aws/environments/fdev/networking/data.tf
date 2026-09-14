@@ -1,5 +1,7 @@
 # Shared resources are discovered by their standard Name tags. This keeps the
-# spoke state from owning or deleting the hub's transit resources.
+# spoke state from owning or deleting the hub's transit resources. The transit
+# lookups exist only while transit_enabled, so the spoke plans without the hub,
+# which the lifecycle's full down transition destroys.
 data "aws_availability_zone" "selected" {
   for_each = toset(var.availability_zones)
   provider = aws.principal
@@ -27,6 +29,7 @@ data "aws_iam_role" "flow_log" {
 }
 
 data "aws_ec2_transit_gateway" "shared" {
+  count    = var.transit_enabled ? 1 : 0
   provider = aws.principal
 
   filter {
@@ -36,6 +39,7 @@ data "aws_ec2_transit_gateway" "shared" {
 }
 
 data "aws_ec2_transit_gateway_vpc_attachment" "hub" {
+  count    = var.transit_enabled ? 1 : 0
   provider = aws.principal
 
   filter {
@@ -45,6 +49,7 @@ data "aws_ec2_transit_gateway_vpc_attachment" "hub" {
 }
 
 data "aws_ec2_transit_gateway_route_table" "hub" {
+  count    = var.transit_enabled ? 1 : 0
   provider = aws.principal
 
   filter {
@@ -54,6 +59,7 @@ data "aws_ec2_transit_gateway_route_table" "hub" {
 }
 
 data "aws_ec2_transit_gateway_route_table" "spoke" {
+  count    = var.transit_enabled ? 1 : 0
   provider = aws.principal
 
   filter {

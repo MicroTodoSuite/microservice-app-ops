@@ -30,8 +30,8 @@ output "nat_gateway_ids" {
 }
 
 output "transit_gateway_id" {
-  description = "ID of the shared transit gateway discovered by standard name."
-  value       = data.aws_ec2_transit_gateway.shared.id
+  description = "ID of the shared transit gateway discovered by standard name, or null while transit is off."
+  value       = var.transit_enabled ? data.aws_ec2_transit_gateway.shared[0].id : null
 }
 
 output "transit_attachment_id" {
