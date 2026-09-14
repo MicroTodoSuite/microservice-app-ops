@@ -197,6 +197,12 @@ variable "ingress_host" {
   }
 }
 
+variable "public_zone_delegation_verified" {
+  type        = bool
+  description = "Whether the registrar delegates public_zone_name to exactly the name servers of shd/dns's canonical zone (its canonical_zone_name_server_names output). The certificate and the address records wait for it (gitops spec 009 FR-044); an operator sets it to true only after verifying the delegation."
+  default     = false
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

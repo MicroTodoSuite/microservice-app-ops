@@ -58,8 +58,10 @@ module "bootstrap_node_group" {
 }
 
 # The economical entry point. The AWS Load Balancer Controller discovers this certificate by
-# host for the shared load balancer's HTTPS listener, so GitOps never names its ARN.
+# host for the shared load balancer's HTTPS listener, so GitOps never names its ARN. It is
+# requested only once the registrar's delegation is verified (gitops spec 009 FR-044).
 resource "aws_acm_certificate" "ingress" {
+  count    = var.public_zone_delegation_verified ? 1 : 0
   provider = aws.principal
 
   domain_name               = var.ingress_host
@@ -85,9 +87,10 @@ resource "aws_route53_record" "certificate_validation" {
 }
 
 resource "aws_acm_certificate_validation" "ingress" {
+  count    = var.public_zone_delegation_verified ? 1 : 0
   provider = aws.principal
 
-  certificate_arn         = aws_acm_certificate.ingress.arn
+  certificate_arn         = aws_acm_certificate.ingress[0].arn
   validation_record_fqdns = [for record in aws_route53_record.certificate_validation : record.fqdn]
 }
 

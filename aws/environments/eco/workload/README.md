@@ -65,6 +65,12 @@ and each environment's Ingress to its frontend. The controller creates the
 load balancer from the Ingresses and discovers the certificate by host, so no
 certificate ARN appears in Git.
 
+**Everything waits for the delegation.** `public_zone_delegation_verified`
+defaults to `false`, and until an operator sets it the root requests no
+certificate and publishes no record (gitops spec 009 FR-044). Set it only
+after the registrar's name servers for `public_zone_name` match `shd/dns`'s
+`canonical_zone_name_server_names`.
+
 **The records wait for the load balancer.** They are published only once the
 controller has created the load balancer with the tags `elbv2.k8s.aws/cluster`
 and `ingress.k8s.aws/stack`. A first bring-up therefore plans no record. After

@@ -24,3 +24,5 @@ node_scaling              = { min_size = 3, desired_size = 3, max_size = 4 }
 node_root_volume_size_gib = 50
 public_zone_name          = "microtodosuite.online"
 ingress_host              = "eco.microtodosuite.online"
+# true only after the registrar delegates public_zone_name to shd/dns's canonical_zone_name_server_names
+public_zone_delegation_verified = false

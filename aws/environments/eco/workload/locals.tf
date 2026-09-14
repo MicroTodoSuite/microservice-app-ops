@@ -71,13 +71,14 @@ locals {
   # The host and its wildcard validate through the same record, so one record per distinct
   # name. Domain names are known at plan time; the wildcard is skipped by name.
   certificate_validation_options = {
-    for option in aws_acm_certificate.ingress.domain_validation_options : option.domain_name => option
+    for option in flatten(aws_acm_certificate.ingress[*].domain_validation_options) : option.domain_name => option
     if !startswith(option.domain_name, "*.")
   }
 
-  # Address records wait for the load balancer; a first bring-up plans none.
+  # Address records wait for the verified delegation and for the load balancer; a first
+  # bring-up plans none.
   ingress_load_balancer_present = length(data.aws_lbs.ingress.arns) == 1
-  ingress_records               = local.ingress_load_balancer_present ? toset(local.ingress_certificate_domains) : toset([])
+  ingress_records               = var.public_zone_delegation_verified && local.ingress_load_balancer_present ? toset(local.ingress_certificate_domains) : toset([])
 
   node_labels = { "microtodosuite.io/capacity-owner" = "managed-node-group" }
 

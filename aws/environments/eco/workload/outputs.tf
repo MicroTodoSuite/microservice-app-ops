@@ -40,8 +40,8 @@ output "node_group_arn" {
 }
 
 output "ingress_certificate_arn" {
-  description = "ARN of the ACM certificate for the economical host and its subdomains, which the load balancer controller discovers by host."
-  value       = aws_acm_certificate_validation.ingress.certificate_arn
+  description = "ARN of the ACM certificate for the economical host and its subdomains, which the load balancer controller discovers by host; null until the delegation is verified."
+  value       = one(aws_acm_certificate_validation.ingress[*].certificate_arn)
 }
 
 output "ingress_record_names" {
