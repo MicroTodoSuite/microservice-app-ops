@@ -133,14 +133,14 @@ variable "github_app_private_key_wo_version" {
   default     = 1
 }
 
-variable "anthropic_api_key_wo" {
-  description = "Anthropic API key used to generate the non-technical summary."
+variable "gemini_api_key_wo" {
+  description = "Gemini API key used to generate the non-technical summary."
   type        = string
   ephemeral   = true
   sensitive   = true
 }
-variable "anthropic_api_key_wo_version" {
-  description = "Increment to rotate anthropic_api_key_wo."
+variable "gemini_api_key_wo_version" {
+  description = "Increment to rotate gemini_api_key_wo."
   type        = number
   default     = 1
 }

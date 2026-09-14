@@ -62,13 +62,13 @@ resource "aws_secretsmanager_secret_version" "github_app_private_key" {
   secret_string_wo_version = var.github_app_private_key_wo_version
 }
 
-resource "aws_secretsmanager_secret" "anthropic_api_key" {
-  name = "${var.name}/anthropic-api-key"
+resource "aws_secretsmanager_secret" "gemini_api_key" {
+  name = "${var.name}/gemini-api-key"
 }
-resource "aws_secretsmanager_secret_version" "anthropic_api_key" {
-  secret_id                = aws_secretsmanager_secret.anthropic_api_key.id
-  secret_string_wo         = var.anthropic_api_key_wo
-  secret_string_wo_version = var.anthropic_api_key_wo_version
+resource "aws_secretsmanager_secret_version" "gemini_api_key" {
+  secret_id                = aws_secretsmanager_secret.gemini_api_key.id
+  secret_string_wo         = var.gemini_api_key_wo
+  secret_string_wo_version = var.gemini_api_key_wo_version
 }
 
 # --- IAM: one execution role per Lambda, each reading only the secrets it uses
@@ -100,7 +100,7 @@ data "aws_iam_policy_document" "github_webhook_handler_secrets" {
     resources = [
       aws_secretsmanager_secret.github_webhook_secret.arn,
       aws_secretsmanager_secret.slack_bot_token.arn,
-      aws_secretsmanager_secret.anthropic_api_key.arn,
+      aws_secretsmanager_secret.gemini_api_key.arn,
     ]
   }
 }
@@ -164,10 +164,10 @@ resource "aws_lambda_function" "github_webhook_handler" {
 
   environment {
     variables = {
-      GITHUB_WEBHOOK_SECRET_ARN    = aws_secretsmanager_secret.github_webhook_secret.arn
-      SLACK_BOT_TOKEN_SECRET_ARN   = aws_secretsmanager_secret.slack_bot_token.arn
-      ANTHROPIC_API_KEY_SECRET_ARN = aws_secretsmanager_secret.anthropic_api_key.arn
-      SLACK_CHANNEL_ID             = var.slack_channel_id
+      GITHUB_WEBHOOK_SECRET_ARN  = aws_secretsmanager_secret.github_webhook_secret.arn
+      SLACK_BOT_TOKEN_SECRET_ARN = aws_secretsmanager_secret.slack_bot_token.arn
+      GEMINI_API_KEY_SECRET_ARN  = aws_secretsmanager_secret.gemini_api_key.arn
+      SLACK_CHANNEL_ID           = var.slack_channel_id
     }
   }
 
