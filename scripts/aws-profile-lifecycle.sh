@@ -89,6 +89,9 @@ profile_records() {
       'fdev-workload|aws/environments/fdev/workload|workload.s3.tfbackend|fdev.tfvars|cluster'
       'fstg-workload|aws/environments/fstg/workload|workload.s3.tfbackend|fstg.tfvars|cluster'
       'fprd-workload|aws/environments/fprd/workload|workload.s3.tfbackend|fprd.tfvars|cluster'
+      'fdev-security-irsa|aws/environments/fdev/security-irsa|security-irsa.s3.tfbackend|fdev.tfvars|identity'
+      'fstg-security-irsa|aws/environments/fstg/security-irsa|security-irsa.s3.tfbackend|fstg.tfvars|identity'
+      'fprd-security-irsa|aws/environments/fprd/security-irsa|security-irsa.s3.tfbackend|fprd.tfvars|identity'
     )
   fi
 

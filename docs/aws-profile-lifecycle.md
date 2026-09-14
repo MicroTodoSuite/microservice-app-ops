@@ -19,6 +19,7 @@ Both profiles operate the rebuilt roots of ops spec 004: the economical profile 
 | `fdev/security`, `fstg/security`, `fprd/security` | Persistent | The cluster, node, and add-on roles, the EKS keys, the security groups, and the secrets remain. |
 | `fdev/networking`, `fstg/networking`, `fprd/networking` | Persistent, with runtime egress | The VPC, subnets, route tables, internet gateway, and flow log remain. The transit attachment, its route table association, its two transit routes, and the private default routes are removed. |
 | `fdev/workload`, `fstg/workload`, `fprd/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, and the control-plane log group are destroyed. |
+| `fdev/security-irsa`, `fstg/security-irsa`, `fprd/security-irsa` | Runtime | Each cluster's OIDC provider and its IRSA roles are destroyed. |
 | `shd/networking` | Runtime | The egress hub is destroyed: its VPC, NAT gateway, Elastic IP, transit gateway, and transit route tables. |
 
 `eco/networking` is never destroyed, because `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged by the hour, so they go down with the cluster.
@@ -111,14 +112,15 @@ Every apply first writes an external state backup under `~/backups-microtodosuit
 
 Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes.
 
-- **Up** plans `shd/networking`, then `fdev`, `fstg`, and `fprd` networking with their transit egress, then their workload roots.
-- **Down** destroys the three clusters, plans each spoke without its transit egress, and destroys the hub last, once no attachment remains. The spokes' plans must pass the same egress filter as `eco/networking`.
+- **Up** plans `shd/networking`, then `fdev`, `fstg`, and `fprd` networking with their transit egress, then their workload roots, then their IRSA passes.
+- **Down** destroys the three IRSA passes and the three clusters, plans each spoke without its transit egress, and destroys the hub last, once no attachment remains. The spokes' plans must pass the same egress filter as `eco/networking`.
+- **While a cluster is absent, the IRSA passes wait**, exactly as in the economical profile: they read their cluster's issuer at plan time, so the bundle shows `Pass: cluster-first` and the next `make plan-up PROFILE=full` adds them.
 
 **While the hub does not exist, up takes two bundles.** The spokes read the hub's transit gateway at plan time. When `shd/networking`'s state holds no transit gateway, the up bundle holds only the hub, and `inspect` shows `Pass: hub-first`. Apply it, then run `make plan-up PROFILE=full` again for the spokes and the clusters.
 
 **Protected clusters take two bundles on the way down,** exactly as in the economical profile: the first holds only the protected clusters, each planned with its deletion protection off.
 
-**What the full profile does not cover yet.** The full environments have no IRSA pass and no Karpenter prerequisites. When those roots land, their records join the wrapper. The first creation of every root is the rebuild's own reviewed apply; the lifecycle starts and stops what already exists.
+**What the full profile does not cover yet.** The full environments have no Karpenter prerequisites; no module covers the interruption queue, its rules, or the controller and node identities. When those land, their records join the wrapper. The first creation of every root is the rebuild's own reviewed apply; the lifecycle starts and stops what already exists.
 
 ## Legacy roots
 
