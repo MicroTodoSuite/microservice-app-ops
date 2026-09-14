@@ -1,3 +1,11 @@
+# [1.33.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.32.0...v1.33.0) (2026-09-14)
+
+
+### Features
+
+* **security:** record every access to the state bucket with cloudtrail ([cc9036a](https://github.com/MicroTodoSuite/microservice-app-ops/commit/cc9036aa247d860e73a589256683c18c27591045))
+* **security:** record every access to the state bucket with cloudtrail ([#104](https://github.com/MicroTodoSuite/microservice-app-ops/issues/104)) ([b69e8d2](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b69e8d2804fad1f1b16f700d96dc54b5d3b7dbb5)), closes [terraform-aws-modules#40](https://github.com/terraform-aws-modules/issues/40) [#41](https://github.com/MicroTodoSuite/microservice-app-ops/issues/41) [terraform-aws-modules#41](https://github.com/terraform-aws-modules/issues/41)
+
 # [1.32.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.31.0...v1.32.0) (2026-09-14)
 
 
