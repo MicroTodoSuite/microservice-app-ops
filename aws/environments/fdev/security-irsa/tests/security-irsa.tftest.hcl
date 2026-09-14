@@ -56,7 +56,7 @@ run "builds_the_irsa_names" {
   command = plan
 
   assert {
-    condition     = local.oidc_provider_name == "lex-mts-fdev-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fdev-role-jwtdev", jwtstg = "lex-mts-fdev-role-jwtstg", obssecret = "lex-mts-fdev-role-obssecret", secsecret = "lex-mts-fdev-role-secsecret", trivyecr = "lex-mts-fdev-role-trivyecr", kyvernoecr = "lex-mts-fdev-role-kyvernoecr", karpenter = "lex-mts-fdev-role-karpenter" }
+    condition     = local.oidc_provider_name == "lex-mts-fdev-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fdev-role-jwtdev", jwtstg = "lex-mts-fdev-role-jwtstg", obssecret = "lex-mts-fdev-role-obssecret", secsecret = "lex-mts-fdev-role-secsecret", trivyecr = "lex-mts-fdev-role-trivyecr", kyvernoecr = "lex-mts-fdev-role-kyvernoecr", karpenter = "lex-mts-fdev-role-karpenter", lbcontrol = "lex-mts-fdev-role-lbcontrol" }
     error_message = "The root must build the spec 004 IRSA names, one role per application identity (MTS-IAC-101)."
   }
 
@@ -134,6 +134,45 @@ run "gives_the_karpenter_controller_its_reference_permissions" {
 
   assert {
     condition     = length(local.irsa_roles["karpenter"].policy) <= 10240
+    error_message = "IAM allows a role at most 10240 characters of inline policy."
+  }
+}
+
+run "gives_the_load_balancer_controller_the_upstream_permissions_for_its_cluster_only" {
+  command = plan
+
+  assert {
+    condition     = local.irsa_roles["lbcontrol"].subject == "system:serviceaccount:kube-system:aws-load-balancer-controller"
+    error_message = "The controller role must admit only kube-system/aws-load-balancer-controller, the service account the vendored release creates."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement.Sid] == ["CreateElasticLoadBalancingServiceLinkedRole", "DescribeNetworkAndLoadBalancers", "UseCertificatesFirewallsAndShield", "ManageIngressOnSecurityGroups", "CreateSecurityGroups", "TagSecurityGroupsOnCreation", "RetagClusterSecurityGroups", "ManageClusterSecurityGroups", "CreateClusterLoadBalancersAndTargetGroups", "ManageListenersAndRules", "RetagClusterLoadBalancersAndTargetGroups", "TagListenersAndRules", "ManageClusterLoadBalancersAndTargetGroups", "TagLoadBalancersAndTargetGroupsOnCreation", "RegisterTargets", "ModifyListenersRulesAndWebAcls"]
+    error_message = "The controller policy must carry the sixteen statements of the upstream v3.5.0 IAM policy, each under its own statement identifier."
+  }
+
+  assert {
+    condition     = alltrue([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : lookup(try(statement.Condition.Null, {}), "aws:ResourceTag/elbv2.k8s.aws/cluster", "unset") != "false" && lookup(try(statement.Condition.Null, {}), "aws:RequestTag/elbv2.k8s.aws/cluster", "unset") != "false"])
+    error_message = "No statement may accept any cluster's tag: every cluster-tag condition must name this cluster."
+  }
+
+  assert {
+    condition     = one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "ManageClusterLoadBalancersAndTargetGroups"]).Condition == { StringEquals = { "aws:ResourceTag/elbv2.k8s.aws/cluster" = "lex-mts-fdev-eks-main" } } && contains(one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "ManageClusterLoadBalancersAndTargetGroups"]).Action, "elasticloadbalancing:DeleteLoadBalancer")
+    error_message = "The controller may delete or modify only the load balancers and target groups this cluster tagged."
+  }
+
+  assert {
+    condition     = one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "CreateClusterLoadBalancersAndTargetGroups"]).Condition == { StringEquals = { "aws:RequestTag/elbv2.k8s.aws/cluster" = "lex-mts-fdev-eks-main" } } && one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "RetagClusterSecurityGroups"]).Condition == { Null = { "aws:RequestTag/elbv2.k8s.aws/cluster" = "true" }, StringEquals = { "aws:ResourceTag/elbv2.k8s.aws/cluster" = "lex-mts-fdev-eks-main" } }
+    error_message = "The controller may create only load balancers tagged for this cluster, and may retag only this cluster's security groups without moving them to another cluster."
+  }
+
+  assert {
+    condition     = one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "TagSecurityGroupsOnCreation"]).Resource == "arn:aws:ec2:us-east-1:123456789012:security-group/*" && one([for statement in jsondecode(local.irsa_roles["lbcontrol"].policy).Statement : statement if statement.Sid == "RegisterTargets"]).Resource == "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/*/*"
+    error_message = "Resource ARNs must name this environment's partition, Region, and account instead of wildcards."
+  }
+
+  assert {
+    condition     = length(local.irsa_roles["lbcontrol"].policy) <= 10240
     error_message = "IAM allows a role at most 10240 characters of inline policy."
   }
 }
