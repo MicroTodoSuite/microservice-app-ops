@@ -23,3 +23,18 @@ data "aws_secretsmanager_secret" "webhook" {
 
   name = each.value.secret_name
 }
+
+# The Karpenter prerequisites the workload root created and the node role the security root
+# created: the controller polls that queue, and passes that role to the instance profiles it
+# generates for the nodes it launches.
+data "aws_sqs_queue" "karpenter_interruption" {
+  provider = aws.principal
+
+  name = local.karpenter_queue_name
+}
+
+data "aws_iam_role" "node" {
+  provider = aws.principal
+
+  name = local.node_role_name
+}

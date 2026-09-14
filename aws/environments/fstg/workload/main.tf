@@ -56,3 +56,23 @@ module "bootstrap_node_group" {
   root_volume          = { size_gib = var.node_root_volume_size_gib }
   labels               = local.node_labels
 }
+
+# The Karpenter prerequisites: the interruption queue the controller polls for Spot reclaims,
+# scheduled changes, rebalance recommendations, instance state changes, and capacity reservation
+# interruptions, and the five EventBridge rules that feed it. The nodes Karpenter launches carry
+# the node role of the bootstrap group, whose Amazon EKS access entry already authorizes it on
+# the cluster, and find their subnets and security group by the karpenter.sh/discovery tag
+# fstg/networking and fstg/security put on them.
+module "karpenter_interruption" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//karpenter-interruption?ref=karpenter-interruption-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client      = var.client
+  project     = var.project
+  environment = var.environment
+  queue       = local.karpenter_queue
+  rule_names  = local.karpenter_rule_names
+}
