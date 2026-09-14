@@ -23,3 +23,18 @@ output "flow_log_role_arn" {
   description = "ARN of the role that delivers VPC flow logs, the network module's flow_log.iam_role_arn."
   value       = module.flow_log_role.role_arn
 }
+
+output "state_trail_arn" {
+  description = "ARN of the trail that records every read and write of the Terraform state bucket."
+  value       = module.state_trail.trail_arn
+}
+
+output "state_trail_bucket_name" {
+  description = "Full name of the bucket that holds the state trail's logs."
+  value       = module.state_trail.bucket_name
+}
+
+output "cloudtrail_key_arn" {
+  description = "ARN of the key that encrypts the state trail's logs; a reader needs kms:Decrypt on it in IAM."
+  value       = module.cloudtrail_key.key_arn
+}

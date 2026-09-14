@@ -94,3 +94,38 @@ module "flow_log_role" {
   managed_policy_arns      = []
   permissions_boundary_arn = ""
 }
+
+module "cloudtrail_key" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//kms-key?ref=kms-key-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client      = var.client
+  project     = var.project
+  environment = var.environment
+  key_name    = local.cloudtrail_key_name
+  description = "Encrypts the CloudTrail records of access to the Terraform state bucket."
+  policy      = local.cloudtrail_key_policy
+}
+
+# Records every read and write of the Terraform state (ai-agents specs/001 T043), which ends the
+# state-backend module's S3 access-logging exception. The log bucket's own exception is recorded
+# in terraform-aws-modules docs/iac-exceptions.md.
+module "state_trail" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//cloudtrail-trail?ref=cloudtrail-trail-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client                 = var.client
+  project                = var.project
+  environment            = var.environment
+  trail_name             = local.cloudtrail_trail_name
+  bucket_name            = local.cloudtrail_bucket_name
+  kms_key_arn            = module.cloudtrail_key.key_arn
+  s3_object_arn_prefixes = local.cloudtrail_object_arn_prefixes
+  log_retention          = local.cloudtrail_log_retention
+}

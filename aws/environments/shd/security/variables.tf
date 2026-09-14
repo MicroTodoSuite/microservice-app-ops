@@ -100,6 +100,17 @@ variable "deploy_role_operator_arns" {
   }
 }
 
+variable "trail_log_retention_in_days" {
+  type        = number
+  description = "Days the CloudTrail records of access to the Terraform state bucket are kept before they expire."
+  default     = 365
+
+  validation {
+    condition     = var.trail_log_retention_in_days >= 1 && floor(var.trail_log_retention_in_days) == var.trail_log_retention_in_days
+    error_message = "The retention must be a whole number of days, at least one."
+  }
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

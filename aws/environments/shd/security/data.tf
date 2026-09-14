@@ -3,3 +3,11 @@
 data "aws_partition" "current" {
   provider = aws.principal
 }
+
+# shd/state's Terraform state bucket, by the name PC-IAC-008 gives it; the state trail records
+# every read and write of its objects.
+data "aws_s3_bucket" "state" {
+  provider = aws.principal
+
+  bucket = local.state_bucket_name
+}

@@ -10,6 +10,8 @@ ai-agents specs/001 T025). It holds what every environment shares:
 | Role the services' main-branch workflows assume to push images | `iam-role-v1.0.0` | `lex-mts-shd-role-ecrpublish` |
 | Key that encrypts every environment's VPC flow-log group | `kms-key-v1.0.0` | `alias/lex-mts-shd-kms-flowlogs` |
 | Role that delivers VPC flow logs | `iam-role-v1.0.0` | `lex-mts-shd-role-flowlogs` |
+| Key that encrypts the state trail's logs | `kms-key-v1.0.0` | `alias/lex-mts-shd-kms-cloudtrail` |
+| Trail recording every read and write of the Terraform state, and its log bucket | `cloudtrail-trail-v1.0.0` | `lex-mts-shd-ct-tfstate`; bucket `lex-mts-shd-s3-cloudtrail-<account>` |
 
 **The publisher role** trusts only tokens with the STS audience from the
 `main` branch of the listed repositories of `github_organization`. It may push
@@ -24,6 +26,18 @@ only through CloudWatch Logs (`kms:ViaService`). **The key** lets CloudWatch Log
 in this region use it only for those groups, through the
 `kms:EncryptionContext:aws:logs:arn` condition. The `network` module of every
 environment receives both through its `flow_log` input.
+
+**The state trail** records the S3 object-level data events of
+`lex-mts-shd-s3-tfstate-<account>`, which `shd/state` owns and this root reads
+by name: who read or wrote which state file, and when (ai-agents specs/001
+T043). It records no management events. Its logs are encrypted with
+`lex-mts-shd-kms-cloudtrail` and validated with digest files, and they expire
+after `trail_log_retention_in_days`, 365 by default. The key lets CloudTrail
+generate data keys and describe the key only for this trail (`aws:SourceArn`).
+A reader of the logs needs `kms:Decrypt` on the key, granted in IAM. Why a
+trail and not CloudTrail Lake, and why its log bucket carries no access logs,
+is recorded in the `cloudtrail-trail` module and in terraform-aws-modules
+`docs/iac-exceptions.md`.
 
 **The Kyverno image verifier** is not here. It trusts a cluster's OIDC issuer,
 so each environment's IRSA pass holds its own (`<env>/security-irsa`).
