@@ -48,7 +48,8 @@ bootstrap capacity.
 ## Nodes
 
 The bootstrap group keeps the legacy capacity:
-- two to four on-demand `m7i-flex.large` nodes;
+- one on-demand `m7i-flex.large` node, able to grow to two, as capacity limit
+  L3 sets; Karpenter's Spot capacity provides the rest;
 - Amazon Linux 2023 at an explicit AMI release;
 - 50 GiB encrypted gp3 root volumes;
 - IMDSv2 with a hop limit of 1.
@@ -97,7 +98,7 @@ security group fprd/security tagged.
 - **Private by default.** The API is private while `endpoint_public_access_cidrs` is
   empty.
 - **Public, for named operators only.** Naming operator addresses opens the
-  public endpoint to exactly those blocks. Real addresses go only in the
+  public endpoint to exactly those addresses, each a `/32`. Real addresses go only in the
   gitignored `fprd.tfvars`, and `/0` is refused.
 - **What this replaces.** The legacy dev root's `0.0.0.0/0` endpoint is the
   recorded Trivy AWS-0040 exception, which expires when this layout replaces
