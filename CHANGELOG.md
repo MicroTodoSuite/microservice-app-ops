@@ -1,3 +1,11 @@
+# [1.22.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.21.0...v1.22.0) (2026-09-14)
+
+
+### Features
+
+* **fprd:** implement transit spoke networking root ([cd3f8ea](https://github.com/MicroTodoSuite/microservice-app-ops/commit/cd3f8eae1c349eff0e1746acb51b25f129ff87db))
+* **fprd:** implement transit spoke networking root ([#88](https://github.com/MicroTodoSuite/microservice-app-ops/issues/88)) ([876caa0](https://github.com/MicroTodoSuite/microservice-app-ops/commit/876caa0e221e2c3cf3c8be1b24fbf760214f6bb5))
+
 # [1.21.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.20.0...v1.21.0) (2026-09-14)
 
 
