@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENTRYPOINT="$ROOT/scripts/aws-profile-lifecycle.sh"
 DURABLE_DELETE_FILTER="$ROOT/scripts/aws-profile-durable-deletes.jq"
+EGRESS_DELETE_FILTER="$ROOT/scripts/aws-profile-egress-deletes.jq"
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -38,8 +39,19 @@ reject_text() {
   fi
 }
 
+# The variable block in FILE declares exactly this default.
+require_variable_default() {
+  local file=$1
+  local variable=$2
+  local value=$3
+  local message=$4
+  sed -n "/^variable \"${variable}\" {/,/^}/p" "$ROOT/$file" | \
+    grep -Eq "^[[:space:]]*default[[:space:]]*=[[:space:]]*${value}[[:space:]]*$" || fail "$message"
+}
+
 require_file "scripts/aws-profile-lifecycle.sh"
 require_file "scripts/aws-profile-durable-deletes.jq"
+require_file "scripts/aws-profile-egress-deletes.jq"
 require_file "docs/aws-profile-lifecycle.md"
 require_file ".github/workflows/aws-dev-foundation-checks.yml"
 
@@ -74,10 +86,8 @@ require_text "scripts/aws-profile-lifecycle.sh" 'gitops[_-]revision' \
   "wrapper must record GitOps quiescence evidence"
 require_text "scripts/aws-profile-lifecycle.sh" 'get-caller-identity' \
   "wrapper must verify the active AWS identity"
-require_text "scripts/aws-profile-lifecycle.sh" 'runtime_enabled=false' \
-  "foundation shutdown must use the runtime boundary"
 require_text "scripts/aws-profile-lifecycle.sh" 'plan[[:space:]]+-destroy' \
-  "full shutdown must plan destruction of the ephemeral egress root"
+  "the cluster and its IRSA pass must be planned for destruction"
 require_text "scripts/aws-profile-lifecycle.sh" 'require_command[[:space:]]+grep' \
   "wrapper must preflight its portable grep dependency"
 require_text "scripts/aws-profile-lifecycle.sh" 'grep[[:space:]]+-Eq' \
@@ -100,6 +110,26 @@ require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[
   "wrapper must audit shutdown plans with the versioned durable-delete filter"
 require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-durable-deletes\\.jq" \
   "AWS foundation workflow must run when the durable-delete filter changes"
+
+# The economical profile maps onto the rebuilt eco roots (spec 003 FR-021 to FR-025).
+require_text "scripts/aws-profile-lifecycle.sh" 'nat_gateways_enabled=false' \
+  "the economical down transition must remove only the NAT egress of eco/networking"
+require_text "scripts/aws-profile-lifecycle.sh" 'nat_gateways_enabled=true' \
+  "the economical up transition must restore the NAT egress of eco/networking"
+require_text "scripts/aws-profile-lifecycle.sh" 'cluster_deletion_protection=false' \
+  "a protected cluster must lose its deletion protection in a bundle of its own"
+require_text "scripts/aws-profile-lifecycle.sh" 'jq[[:space:]]+-r[[:space:]]+-f[[:space:]]+"\$EGRESS_DELETE_FILTER"' \
+  "wrapper must audit the networking down plan with the versioned egress filter"
+require_text ".github/workflows/aws-dev-foundation-checks.yml" "scripts/aws-profile-egress-deletes\\.jq" \
+  "AWS foundation workflow must run when the egress filter changes"
+require_text "scripts/aws-profile-lifecycle.sh" 'config/aws-account\.env' \
+  "wrapper must compare every root with the single declared AWS account"
+reject_text "scripts/aws-profile-lifecycle.sh" 'expected_account_id|runtime_enabled' \
+  "wrapper must not read the inputs of the retired foundation roots"
+reject_text "scripts/aws-profile-lifecycle.sh" 'aws/environments/(dev|demo-full|full-dev|full-prod)/foundation|aws/shared/egress' \
+  "wrapper must not plan the retired foundation and egress roots"
+reject_text "scripts/aws-profile-lifecycle.sh" 'aws/environments/shd/|aws/environments/eco/security\|' \
+  "wrapper must never plan a shared root or eco/security, which hold the persistent resources"
 
 runtime_oidc_plan="$(jq -n '
   {
@@ -146,6 +176,33 @@ ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
 [[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
   fail "durable ECR repositories must remain protected"
 
+# The networking down plan may delete the NAT egress and nothing else.
+egress_plan="$(jq -n '
+  {
+    resource_changes: [
+      {address: "module.network.aws_nat_gateway.this[\"a\"]", type: "aws_nat_gateway", change: {actions: ["delete"]}},
+      {address: "module.network.aws_eip.this[\"a\"]", type: "aws_eip", change: {actions: ["delete"]}},
+      {address: "module.network.aws_route.private_nat[\"priva\"]", type: "aws_route", change: {actions: ["delete"]}},
+      {address: "module.network.aws_route_table.private[\"priva\"]", type: "aws_route_table", change: {actions: ["no-op"]}}
+    ]
+  }
+')"
+egress_deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" <<<"$egress_plan")"
+[[ -z "$egress_deleted" ]] || \
+  fail "the networking down plan must be allowed to delete the NAT gateways, their Elastic IPs, and their private routes"
+
+beyond_egress_plan="$(jq -n '
+  {
+    resource_changes: [
+      {address: "module.network.aws_route.public_internet", type: "aws_route", change: {actions: ["delete"]}},
+      {address: "module.network.aws_subnet.this[\"priva\"]", type: "aws_subnet", change: {actions: ["delete", "create"]}}
+    ]
+  }
+')"
+beyond_egress_deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" <<<"$beyond_egress_plan")"
+[[ "$beyond_egress_deleted" == $'module.network.aws_route.public_internet\nmodule.network.aws_subnet.this["priva"]' ]] || \
+  fail "a networking down plan that deletes the public route or replaces a subnet must be rejected"
+
 # A relative bundle path is valid at the operator interface. Terraform's
 # -chdir changes how it resolves a relative plan argument, so the wrapper must
 # canonicalize the bundle before invoking `terraform show` or `terraform apply`.
@@ -165,7 +222,7 @@ cleanup_lifecycle_fixtures() {
 trap cleanup_lifecycle_fixtures EXIT
 
 mkdir -p "$fixture_bundle"
-printf 'contract plan\n' >"$fixture_bundle/dev.tfplan"
+printf 'contract plan\n' >"$fixture_bundle/eco-networking.tfplan"
 printf '%s\n' \
   $'format\t1' \
   $'profile\teconomical' \
@@ -173,11 +230,11 @@ printf '%s\n' \
   $'account\t575172595729' \
   $'commit\tabcdef1' \
   $'gitops_revision\tabcdef1' \
-  $'root\tdev\taws/environments/dev/foundation\tdev.tfplan' \
+  $'root\teco-networking\taws/environments/eco/networking\teco-networking.tfplan' \
   >"$fixture_bundle/metadata.tsv"
 (
   cd "$fixture_bundle"
-  sha256sum dev.tfplan metadata.tsv >checksums.sha256
+  sha256sum eco-networking.tfplan metadata.tsv >checksums.sha256
 )
 printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -244,19 +301,25 @@ apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
 [[ "$apply_plan_argument" == /* ]] || \
   fail "apply must pass an absolute saved-plan path after Terraform -chdir"
 
-# Persistent volumes (spec 003 FR-018 to FR-020). snapshot-volumes records a
-# completed snapshot, or explicit consent, for every EBS CSI volume. A down plan
-# accepts only a record that predates the GitOps quiescence commit and still
-# covers every volume. The sandbox is a copy of the wrapper with real Git
-# repositories and fake AWS and Terraform binaries, so nothing reaches AWS.
+# The sandbox is a copy of the wrapper with the three runtime eco roots, real Git
+# repositories, and fake AWS and Terraform binaries, so nothing reaches AWS. The
+# fake Terraform logs every call as "<domain> <arguments>". CLUSTER_PROTECTION
+# unset means eco/workload's state holds no cluster; true or false is the
+# deletion protection of the cluster it holds. PLAN_JSON replaces every saved
+# plan's JSON.
 sandbox_ops="$volume_sandbox/ops"
 sandbox_gitops="$volume_sandbox/microservice-app-gitops"
-mkdir -p "$sandbox_ops/scripts" "$sandbox_ops/aws/environments/dev/foundation" "$sandbox_gitops"
-cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$sandbox_ops/scripts/"
+terraform_log="$volume_sandbox/terraform.log"
+mkdir -p "$sandbox_ops/scripts" "$sandbox_ops/config" "$sandbox_gitops"
+cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$EGRESS_DELETE_FILTER" "$sandbox_ops/scripts/"
 cp "$ROOT/.terraform-version" "$ROOT/.gitignore" "$sandbox_ops/"
-printf '%s\n' 'expected_account_id = "575172595729"' 'aws_region          = "us-east-1"' \
-  >"$sandbox_ops/aws/environments/dev/foundation/dev.tfvars"
-printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/dev/foundation/dev.s3.tfbackend"
+printf 'AWS_ACCOUNT_ID=575172595729\n' >"$sandbox_ops/config/aws-account.env"
+for domain in networking workload security-irsa; do
+  mkdir -p "$sandbox_ops/aws/environments/eco/$domain"
+  printf '%s\n' 'aws_account_id = "575172595729"' 'aws_region     = "us-east-1"' \
+    >"$sandbox_ops/aws/environments/eco/$domain/eco.tfvars"
+  printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/eco/$domain/$domain.s3.tfbackend"
+done
 contract_git() {
   git -c user.name=contract -c user.email=contract@example.invalid -c commit.gpgsign=false "$@"
 }
@@ -289,18 +352,40 @@ printf '%s\n' \
   '  *) exit 2 ;;' \
   'esac' \
   >"$volume_bin/aws"
-printf '%s\n' \
-  '#!/usr/bin/env bash' \
-  'set -euo pipefail' \
-  'if [[ "${1:-}" == version ]]; then printf '\''{"terraform_version":"1.15.8"}\n'\''; exit 0; fi' \
-  '[[ "${1:-}" == -chdir=* ]] || exit 2' \
-  'case "${2:-}" in' \
-  '  init) ;;' \
-  '  plan) for argument in "$@"; do [[ "$argument" != -out=* ]] || printf "plan\n" >"${argument#-out=}"; done ;;' \
-  '  show) printf '\''{"resource_changes":[]}\n'\'' ;;' \
-  '  *) exit 2 ;;' \
-  'esac' \
-  >"$volume_bin/terraform"
+cat >"$volume_bin/terraform" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == version ]]; then printf '{"terraform_version":"1.15.8"}\n'; exit 0; fi
+[[ "${1:-}" == -chdir=* ]] || exit 2
+domain="${1#-chdir=}"
+domain="${domain##*/}"
+printf '%s %s\n' "$domain" "${*:2}" >>"$VOLUME_CAPTURE/terraform.log"
+case "${2:-}" in
+  init) ;;
+  plan)
+    for argument in "$@"; do
+      [[ "$argument" != -out=* ]] || printf 'plan\n' >"${argument#-out=}"
+    done
+    ;;
+  show)
+    if [[ $# -gt 3 ]]; then
+      plan_json="${PLAN_JSON:-}"
+      [[ -n "$plan_json" ]] || plan_json='{"resource_changes":[]}'
+      printf '%s\n' "$plan_json"
+    elif [[ "$domain" == workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
+      printf '{"values":{"root_module":{"child_modules":[{"address":"module.eks_cluster","resources":[{"address":"module.eks_cluster.aws_eks_cluster.this","mode":"managed","type":"aws_eks_cluster","values":{"deletion_protection":%s}}]}]}}}\n' "$CLUSTER_PROTECTION"
+    else
+      printf '{"format_version":"1.0"}\n'
+    fi
+    ;;
+  state)
+    if [[ "$domain" == workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
+      printf 'module.eks_cluster.aws_eks_cluster.this\n'
+    fi
+    ;;
+  *) exit 2 ;;
+esac
+FAKE
 chmod +x "$volume_bin/aws" "$volume_bin/terraform"
 
 in_sandbox() {
@@ -310,6 +395,45 @@ in_sandbox() {
   )
 }
 
+# Each transition starts from no saved bundle and an empty Terraform log, so two
+# plans created within the same second cannot share a bundle directory.
+fresh_transition() {
+  rm -rf "$sandbox_ops"/.aws-profile-plans/economical-*
+  : >"$terraform_log"
+}
+
+latest_bundle() {
+  find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name "economical-$1-*" | sort | tail -n 1
+}
+
+bundle_roots() {
+  awk -F '\t' '$1 == "root" { print $2 }' "$1/metadata.tsv" | paste -sd ' ' -
+}
+
+# The profile's roots are ready only when each names the declared account
+# (spec 003 FR-025) and the full profile has rebuilt roots (FR-026).
+in_sandbox ./scripts/aws-profile-lifecycle.sh check economical >/dev/null || \
+  fail "the economical profile must be ready when every eco root names the declared account"
+workload_variables="$sandbox_ops/aws/environments/eco/workload/eco.tfvars"
+cp "$workload_variables" "$volume_sandbox/eco.tfvars.saved"
+other_account="$(printf '4%.0s' 1 2 3 4 5 6 7 8 9 10 11 12)"
+printf '%s\n' "aws_account_id = \"$other_account\"" 'aws_region     = "us-east-1"' >"$workload_variables"
+if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh check economical 2>&1)"; then
+  fail "a root whose aws_account_id differs from config/aws-account.env must be rejected"
+fi
+grep -Fq 'config/aws-account.env' <<<"$output" || \
+  fail "the account rejection must name the single declaration"
+cp "$volume_sandbox/eco.tfvars.saved" "$workload_variables"
+if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh check full 2>&1)"; then
+  fail "the full profile must be refused until its rebuilt roots exist"
+fi
+grep -Fq 'T012' <<<"$output" || \
+  fail "the full-profile refusal must name the task that writes its roots"
+
+# Persistent volumes (spec 003 FR-018 to FR-020). snapshot-volumes records a
+# completed snapshot, or explicit consent, for every EBS CSI volume. A down plan
+# accepts only a record that predates the GitOps quiescence commit and still
+# covers every volume.
 in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes economical --consent vol-0bbb >/dev/null
 volume_record="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'volumes-economical-*' | head -n 1)"
 [[ -n "$volume_record" && -f "$volume_record/record.tsv" ]] || \
@@ -342,10 +466,25 @@ if in_sandbox env EXTRA_VOLUME=vol-0ccc ./scripts/aws-profile-lifecycle.sh plan 
   --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null 2>&1; then
   fail "a volume missing from the record must block the down plan"
 fi
-in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+
+# Down against an unprotected cluster destroys the IRSA pass, then the cluster,
+# then removes only the NAT egress; eco/networking keeps its VPC (FR-022, FR-023).
+fresh_transition
+in_sandbox env CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan economical down \
   --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null || \
   fail "a record that predates quiescence and covers every volume must allow the down plan"
-down_bundle="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'economical-down-*' | head -n 1)"
+down_bundle="$(latest_bundle down)"
+[[ "$(bundle_roots "$down_bundle")" == "eco-security-irsa eco-workload eco-networking" ]] || \
+  fail "the down bundle must destroy the IRSA pass, then the cluster, then remove the NAT egress"
+grep -Eq '^security-irsa plan -destroy ' "$terraform_log" || \
+  fail "the IRSA pass must be planned for destruction"
+grep -Eq '^workload plan -destroy ' "$terraform_log" || \
+  fail "an unprotected cluster must be planned for destruction"
+grep -Eq '^networking plan .*-var=nat_gateways_enabled=false' "$terraform_log" || \
+  fail "eco/networking must be planned without its NAT gateways"
+if grep -Eq '^networking plan -destroy' "$terraform_log"; then
+  fail "eco/networking must never be destroyed: its VPC holds eco/security's security groups"
+fi
 grep -q $'^volume_record\t' "$down_bundle/metadata.tsv" || \
   fail "the down bundle must record which volume record it relied on"
 cmp -s "$volume_record/record.tsv" "$down_bundle/volume-record.tsv" || \
@@ -353,30 +492,68 @@ cmp -s "$volume_record/record.tsv" "$down_bundle/volume-record.tsv" || \
 (cd "$down_bundle" && sha256sum -c --quiet checksums.sha256) || \
   fail "the down bundle checksums must cover the volume record"
 
-for root in dev demo-full full-dev full-prod; do
-  require_text "aws/environments/${root}/foundation/variables.tf" 'variable "runtime_enabled"' \
-    "${root} root is missing runtime_enabled"
-  require_text "aws/environments/${root}/foundation/main.tf" 'runtime_enabled[[:space:]]*=[[:space:]]*var\.runtime_enabled' \
-    "${root} root does not pass runtime_enabled to the foundation module"
-done
+# Amazon EKS refuses to delete a protected cluster, so a protected cluster first
+# gets a bundle that only turns the protection off (FR-024).
+fresh_transition
+output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" 2>&1)" || \
+  fail "a down plan against a protected cluster must create the unprotect bundle"
+[[ "$(bundle_roots "$(latest_bundle down)")" == "eco-workload" ]] || \
+  fail "the unprotect bundle must hold only the cluster root"
+grep -Eq '^workload plan .*-var=cluster_deletion_protection=false' "$terraform_log" || \
+  fail "the unprotect bundle must plan the cluster with deletion protection off"
+if grep -Eq 'plan -destroy|^(security-irsa|networking) plan' "$terraform_log"; then
+  fail "the unprotect bundle must destroy nothing and plan no other root"
+fi
+grep -q 'again' <<<"$output" || \
+  fail "the unprotect bundle must tell the operator to plan the down transition again"
 
-require_text "aws/modules/environment-foundation/variables.tf" 'variable "runtime_enabled"' \
-  "foundation module is missing runtime_enabled"
-require_text "aws/modules/environment-foundation/variables.tf" 'default[[:space:]]*=[[:space:]]*true' \
-  "runtime_enabled must default on"
-require_text "aws/modules/environment-foundation/outputs.tf" 'runtime_enabled[[:space:]]*=[[:space:]]*var\.runtime_enabled' \
-  "foundation contract does not expose runtime state"
+fresh_transition
+subnet_delete='{"resource_changes":[{"address":"module.network.aws_subnet.this[\"priva\"]","type":"aws_subnet","change":{"actions":["delete"]}}]}'
+if output="$(in_sandbox env CLUSTER_PROTECTION=false PLAN_JSON="$subnet_delete" ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" 2>&1)"; then
+  fail "a networking down plan that deletes a subnet must be rejected"
+fi
+grep -Fq 'module.network.aws_subnet.this["priva"]' <<<"$output" || \
+  fail "the rejection must name the address beyond the NAT egress"
 
-for durable_file in ecr.tf route53.tf github-oidc.tf; do
-  reject_text "aws/modules/environment-foundation/${durable_file}" \
-    '(count|for_each)[[:space:]]*=[^\n]*runtime_enabled' \
-    "durable resources in ${durable_file} must not depend on runtime_enabled"
-done
-require_text "aws/modules/environment-foundation/managed-secrets.tf" \
-  'resource "aws_secretsmanager_secret" "environment_jwt"' \
-  "durable environment JWT secret containers are missing"
-require_text "aws/modules/environment-foundation/managed-secrets.tf" \
-  'resource "aws_secretsmanager_secret_version" "environment_jwt"' \
-  "durable environment JWT secret values are missing"
+# Up restores the NAT egress and the cluster first. The IRSA pass reads the
+# cluster's issuer, so without a cluster it waits for a second bundle (FR-022).
+fresh_transition
+output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical up 2>&1)" || \
+  fail "an up plan without a cluster must create the first bundle"
+[[ "$(bundle_roots "$(latest_bundle up)")" == "eco-networking eco-workload" ]] || \
+  fail "without a cluster, the up bundle must hold eco/networking and eco/workload only"
+grep -Eq '^networking plan .*-var=nat_gateways_enabled=true' "$terraform_log" || \
+  fail "the up transition must restore the NAT egress"
+if grep -Eq 'plan -destroy|^security-irsa plan' "$terraform_log"; then
+  fail "the first up bundle must destroy nothing and defer the IRSA pass"
+fi
+grep -q 'again' <<<"$output" || \
+  fail "the first up bundle must tell the operator to plan the up transition again"
+
+fresh_transition
+in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan economical up >/dev/null || \
+  fail "an up plan with a cluster must succeed"
+[[ "$(bundle_roots "$(latest_bundle up)")" == "eco-networking eco-workload eco-security-irsa" ]] || \
+  fail "with a cluster, the up bundle must also plan the IRSA pass"
+
+output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh status economical)"
+if ! grep -Eq '^UP[[:space:]]+eco-workload$' <<<"$output" || ! grep -Eq '^DOWN[[:space:]]+eco-networking$' <<<"$output"; then
+  fail "status must report each runtime root from its own state"
+fi
+
+require_text "aws/environments/eco/networking/variables.tf" 'variable "nat_gateways_enabled"' \
+  "eco/networking must expose the NAT egress switch the lifecycle plans"
+require_variable_default "aws/environments/eco/networking/variables.tf" nat_gateways_enabled true \
+  "the NAT egress of eco/networking must default on"
+require_text "aws/environments/eco/networking/locals.tf" 'var\.nat_gateways_enabled' \
+  "eco/networking must build its NAT gateways and private egress from the switch"
+require_text "aws/environments/eco/workload/variables.tf" 'variable "cluster_deletion_protection"' \
+  "eco/workload must expose the cluster's deletion protection"
+require_variable_default "aws/environments/eco/workload/variables.tf" cluster_deletion_protection true \
+  "the cluster's deletion protection must default on"
+require_text "aws/environments/eco/workload/main.tf" 'deletion_protection[[:space:]]*=[[:space:]]*var\.cluster_deletion_protection' \
+  "eco/workload must pass its deletion protection to the cluster module"
 
 printf 'PASS: AWS profile lifecycle contract\n'

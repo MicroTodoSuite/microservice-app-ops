@@ -71,6 +71,13 @@ The bootstrap group keeps the legacy capacity:
   recorded Trivy AWS-0040 exception, which expires when this layout replaces
   it. Nothing here needs that exception.
 
+## Deletion protection
+
+`cluster_deletion_protection` defaults to `true`, so Amazon EKS refuses to
+delete the cluster. The lifecycle's economical down transition turns it off in
+a bundle of its own, then destroys the cluster from a second bundle. The next
+plan of this root restores the default. See `docs/aws-profile-lifecycle.md`.
+
 ## Plan and apply
 
 ```bash

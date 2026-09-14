@@ -111,6 +111,12 @@ variable "flow_log_retention_in_days" {
   }
 }
 
+variable "nat_gateways_enabled" {
+  type        = bool
+  description = "Whether each private subnet leaves through a NAT gateway in its zone. The lifecycle's down transition plans false, which removes only the NAT gateways, their Elastic IPs, and the private default routes."
+  default     = true
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

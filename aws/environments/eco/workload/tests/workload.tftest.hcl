@@ -98,6 +98,15 @@ run "builds_the_eco_workload_names" {
   }
 }
 
+run "protects_the_cluster_from_deletion_by_default" {
+  command = plan
+
+  assert {
+    condition     = var.cluster_deletion_protection
+    error_message = "The cluster must refuse deletion unless the lifecycle's unprotect bundle turns the protection off."
+  }
+}
+
 run "gives_the_aws_addons_their_pod_identity_roles" {
   command = plan
 
