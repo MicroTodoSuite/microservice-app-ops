@@ -288,6 +288,61 @@ locals {
     })
   }
 
+  # CloudTrail data events on the Terraform state bucket (ai-agents specs/001 T043): the trail,
+  # its log bucket, and the key that encrypts both. The trail's ARN is built, not read, because
+  # the key policy must name the trail before the trail exists.
+  state_bucket_name      = "${local.governance_prefix}-s3-tfstate-${var.aws_account_id}"
+  cloudtrail_trail_name  = "${local.governance_prefix}-ct-tfstate"
+  cloudtrail_bucket_name = "${local.governance_prefix}-s3-cloudtrail"
+  cloudtrail_key_name    = "${local.governance_prefix}-kms-cloudtrail"
+  cloudtrail_trail_arn   = "arn:${local.partition}:cloudtrail:${var.aws_region}:${var.aws_account_id}:trail/${local.cloudtrail_trail_name}"
+  cloudtrail_principal   = "cloudtrail.${data.aws_partition.current.dns_suffix}"
+
+  # The trailing slash confines the trail to this bucket's objects.
+  cloudtrail_object_arn_prefixes = ["${data.aws_s3_bucket.state.arn}/"]
+
+  # A year of access records by default. An old version of a log file, which only an expiry or a
+  # delete leaves behind, goes thirty days later.
+  cloudtrail_log_retention = {
+    current_days    = var.trail_log_retention_in_days
+    noncurrent_days = 30
+  }
+
+  # The statements the CloudTrail User Guide requires of a trail's key, each confined to the state
+  # trail by aws:SourceArn. Readers of the logs get kms:Decrypt in IAM through the account
+  # delegation; no service decrypts through this policy, because the log bucket uses no S3 Bucket Key.
+  cloudtrail_key_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableAccountAdministration"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:${local.partition}:iam::${var.aws_account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AllowCloudTrailEncryptLogs"
+        Effect    = "Allow"
+        Principal = { Service = local.cloudtrail_principal }
+        Action    = "kms:GenerateDataKey*"
+        Resource  = "*"
+        Condition = {
+          StringEquals = { "aws:SourceArn" = local.cloudtrail_trail_arn }
+          StringLike   = { "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${local.partition}:cloudtrail:*:${var.aws_account_id}:trail/*" }
+        }
+      },
+      {
+        Sid       = "AllowCloudTrailDescribeKey"
+        Effect    = "Allow"
+        Principal = { Service = local.cloudtrail_principal }
+        Action    = "kms:DescribeKey"
+        Resource  = "*"
+        Condition = { StringEquals = { "aws:SourceArn" = local.cloudtrail_trail_arn } }
+      },
+    ]
+  })
+
   common_tags = {
     Client      = var.client
     Project     = var.project
