@@ -44,4 +44,4 @@ maintainer's approval of an exact saved plan or operation before they run.
 - [ ] T025 Sweep the account for orphans and every repository for old names; record the result
 - [ ] T026 Delete the old bucket, repositories, secrets, and KMS keys after the retention period **[approval]** — the default VPC moved to T028 on 2026-09-13 (decision D2 as amended in microservice-app-docs)
 - [ ] T027 Activate the ops `main` ruleset requiring one approval (maintainer decision G6), once T023–T025 pass
-- [ ] T028 Delete the default VPC `172.31.0.0/16` in `us-east-1` before the full profile's VPCs are created, in its own approved operation and independent of T026's retention period (capacity limit L1; decision D2 as amended by the maintainer on 2026-09-13, which withdrew the VPC quota increase; ai-agents specs/001 T043) **[approval]**
+- [ ] T028 Delete the default VPC `172.31.0.0/16` in `us-east-1` before the full profile's VPCs are created, in its own approved operation and independent of T026's retention period (capacity limit L1; decision D2 as amended by the maintainer on 2026-09-13, which withdrew the VPC quota increase; ai-agents specs/001 T045) **[approval]**
