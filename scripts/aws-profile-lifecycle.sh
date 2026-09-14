@@ -6,6 +6,8 @@ PLAN_ROOT="$ROOT_DIR/.aws-profile-plans"
 GITOPS_DIR="$(cd "$ROOT_DIR/.." && pwd)/microservice-app-gitops"
 EXPECTED_TERRAFORM_VERSION="$(tr -d '[:space:]' <"$ROOT_DIR/.terraform-version")"
 DURABLE_DELETE_FILTER="$ROOT_DIR/scripts/aws-profile-durable-deletes.jq"
+EGRESS_DELETE_FILTER="$ROOT_DIR/scripts/aws-profile-egress-deletes.jq"
+ACCOUNT_FILE="$ROOT_DIR/config/aws-account.env"
 
 usage() {
   cat >&2 <<'EOF'
@@ -61,35 +63,41 @@ validate_direction() {
 }
 
 # Records are name|root|backend|variables|kind. The order is the apply order.
+# Only runtime roots appear: shd/state, shd/security, shd/registry, shd/dns, and
+# eco/security hold the persistent resources and are never planned here. A
+# networking root keeps its VPC and switches its NAT egress; a cluster root and
+# an identity root (the IRSA pass) are destroyed when the profile goes down.
 profile_records() {
   local profile=$1
   local direction=${2:-up}
 
-  if [[ "$profile" == "economical" ]]; then
-    printf '%s\n' 'dev|aws/environments/dev/foundation|dev.s3.tfbackend|dev.tfvars|foundation'
-    return
-  fi
-
+  [[ "$profile" == "economical" ]] || return 0
   if [[ "$direction" == "up" ]]; then
     printf '%s\n' \
-      'egress|aws/shared/egress|egress.s3.tfbackend|egress.tfvars|egress' \
-      'full-dev|aws/environments/full-dev/foundation|full-dev.s3.tfbackend|full-dev.tfvars|foundation' \
-      'demo-full|aws/environments/demo-full/foundation|demo-full.s3.tfbackend|demo-full.tfvars|foundation' \
-      'full-prod|aws/environments/full-prod/foundation|full-prod.s3.tfbackend|full-prod.tfvars|foundation'
+      'eco-networking|aws/environments/eco/networking|networking.s3.tfbackend|eco.tfvars|networking' \
+      'eco-workload|aws/environments/eco/workload|workload.s3.tfbackend|eco.tfvars|cluster' \
+      'eco-security-irsa|aws/environments/eco/security-irsa|security-irsa.s3.tfbackend|eco.tfvars|identity'
   else
     printf '%s\n' \
-      'full-prod|aws/environments/full-prod/foundation|full-prod.s3.tfbackend|full-prod.tfvars|foundation' \
-      'demo-full|aws/environments/demo-full/foundation|demo-full.s3.tfbackend|demo-full.tfvars|foundation' \
-      'full-dev|aws/environments/full-dev/foundation|full-dev.s3.tfbackend|full-dev.tfvars|foundation' \
-      'egress|aws/shared/egress|egress.s3.tfbackend|egress.tfvars|egress'
+      'eco-security-irsa|aws/environments/eco/security-irsa|security-irsa.s3.tfbackend|eco.tfvars|identity' \
+      'eco-workload|aws/environments/eco/workload|workload.s3.tfbackend|eco.tfvars|cluster' \
+      'eco-networking|aws/environments/eco/networking|networking.s3.tfbackend|eco.tfvars|networking'
   fi
 }
 
-read_expected_account() {
-  local variables_file=$1
+# The full profile's rebuilt roots, shd/networking and the fdev, fstg, and fprd
+# roots, are written by ops spec 004 T012; their records arrive with them.
+require_mapped_profile() {
+  [[ "$1" == "economical" ]] || \
+    fail "The $1 profile has no rebuilt roots yet: shd/networking and the fdev, fstg, and fprd roots arrive with ops spec 004 T012, and its records with them."
+}
+
+# The single AWS account the repository declares (MTS-IAC-103).
+declared_account() {
   local account
-  account="$(sed -n 's/^[[:space:]]*expected_account_id[[:space:]]*=[[:space:]]*"\([0-9][0-9]*\)"[[:space:]]*$/\1/p' "$variables_file" | tail -n 1)"
-  [[ "$account" =~ ^[0-9]{12}$ ]] || fail "No literal 12-digit expected_account_id was found in $variables_file."
+  require_file "$ACCOUNT_FILE"
+  account="$(sed -n 's/^AWS_ACCOUNT_ID=\([0-9]*\)[[:space:]]*$/\1/p' "$ACCOUNT_FILE" | tail -n 1)"
+  [[ "$account" =~ ^[0-9]{12}$ ]] || fail "config/aws-account.env declares no 12-digit AWS_ACCOUNT_ID."
   printf '%s\n' "$account"
 }
 
@@ -134,33 +142,34 @@ verify_gitops_revision() {
     fail "GitOps revision $revision is not merged into the locally known origin/main. Fetch the GitOps repository and retry."
 }
 
+# The active session, config/aws-account.env, and every root's aws_account_id
+# must name the same account before Terraform reads any state.
 verify_profile() {
   local profile=$1
   local direction=${2:-up}
-  local active_account
-  local common_account=""
-  local name relative_root backend_name variables_name kind root backend_file variables_file expected_account
+  local active_account declared root_account
+  local name relative_root backend_name variables_name kind root backend_file variables_file
 
+  require_mapped_profile "$profile"
   verify_toolchain
+  declared="$(declared_account)"
   active_account="$(caller_account)"
   [[ "$active_account" =~ ^[0-9]{12}$ ]] || fail "AWS STS did not return a valid account id. Renew the AWS login and retry."
+  [[ "$active_account" == "$declared" ]] || \
+    fail "config/aws-account.env declares AWS account $declared but the active session is $active_account."
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
     root="$ROOT_DIR/$relative_root"
     backend_file="$root/$backend_name"
     variables_file="$root/$variables_name"
+    [[ -d "$root" ]] || fail "The $name root $relative_root is not in this checkout."
     require_file "$backend_file"
     require_file "$variables_file"
-    expected_account="$(read_expected_account "$variables_file")"
+    root_account="$(read_literal_string "$variables_file" aws_account_id)"
+    [[ "$root_account" == "$declared" ]] || \
+      fail "$relative_root/$variables_name sets aws_account_id to ${root_account:-nothing}, not the account config/aws-account.env declares."
 
-    [[ "$expected_account" == "$active_account" ]] || \
-      fail "$name targets AWS account $expected_account but the active session is $active_account."
-    if [[ -n "$common_account" && "$common_account" != "$expected_account" ]]; then
-      fail "$profile mixes AWS accounts $common_account and $expected_account."
-    fi
-    common_account="$expected_account"
-
-    printf 'READY  %-12s account=%s root=%s\n' "$name" "$expected_account" "$relative_root"
+    printf 'READY  %-18s account=%s root=%s\n' "$name" "$root_account" "$relative_root"
   done < <(profile_records "$profile" "$direction")
 }
 
@@ -194,6 +203,35 @@ assert_no_durable_deletes() {
   [[ -z "$deleted" ]] || fail "Saved shutdown plan attempts to delete durable resources: ${deleted//$'\n'/, }."
 }
 
+# A networking root goes down by losing its NAT egress only; its VPC, subnets,
+# and route tables hold eco/security's security groups.
+assert_only_egress_deletes() {
+  local plan_json=$1
+  local deleted
+  require_file "$EGRESS_DELETE_FILTER"
+  deleted="$(jq -r -f "$EGRESS_DELETE_FILTER" "$plan_json")"
+  [[ -z "$deleted" ]] || fail "Saved networking plan deletes more than the NAT egress: ${deleted//$'\n'/, }."
+}
+
+assert_no_deletes() {
+  local plan_json=$1
+  local deleted
+  deleted="$(jq -r '.resource_changes[]? | select(.change.actions | index("delete")) | .address' "$plan_json")"
+  [[ -z "$deleted" ]] || fail "Saved unprotect plan deletes resources: ${deleted//$'\n'/, }."
+}
+
+# Prints the cluster a cluster root's state holds: absent, protected, or unprotected.
+cluster_state() {
+  local root=$1
+  local backend_file=$2
+  init_root "$root" "$backend_file" >/dev/null
+  terraform -chdir="$root" show -json | jq -r '
+    [.. | objects | select(.mode? == "managed" and .type? == "aws_eks_cluster")]
+    | if length == 0 then "absent"
+      elif any(.[]; .values.deletion_protection == true) then "protected"
+      else "unprotected" end'
+}
+
 contains_value() {
   local needle=$1
   shift
@@ -204,14 +242,13 @@ contains_value() {
   return 1
 }
 
-# Every foundation root of a profile names one literal aws_region; the EC2 calls
-# that find and snapshot persistent volumes use it.
+# Every root of a profile names one literal aws_region; the EC2 calls that find
+# and snapshot persistent volumes use it.
 profile_region() {
   local profile=$1
   local region="" root_region
   local name relative_root backend_name variables_name kind
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
-    [[ "$kind" == "foundation" ]] || continue
     root_region="$(read_literal_string "$ROOT_DIR/$relative_root/$variables_name" aws_region)"
     [[ "$root_region" =~ ^[a-z]{2}(-[a-z]+)+-[0-9]+$ ]] || \
       fail "No literal aws_region was found in $relative_root/$variables_name."
@@ -373,9 +410,9 @@ plan_profile() {
   local gitops_revision=$3
   local supplied_volume_record=${4:-}
   local volume_record=""
-  local timestamp bundle active_account commit
+  local timestamp bundle active_account commit cluster pass=complete
+  local cluster_relative_root cluster_backend_name
   local name relative_root backend_name variables_name kind root plan_file json_file
-  local configured_transit_gateway full_up_egress_only=false transit_gateway_id="" state_before
   local -a plan_args
 
   verify_git_clean
@@ -383,6 +420,20 @@ plan_profile() {
   if [[ "$direction" == "down" ]]; then
     verify_gitops_revision "$gitops_revision"
     volume_record="$(verify_volume_record "$profile" "$gitops_revision" "$supplied_volume_record")"
+  fi
+
+  # Two transitions take a second bundle. Amazon EKS refuses to delete a cluster
+  # whose deletion protection is on, so a down transition first turns it off in a
+  # bundle of its own. The IRSA pass reads the cluster's issuer, so an up
+  # transition without a cluster creates the network and the cluster first.
+  IFS='|' read -r _ cluster_relative_root cluster_backend_name _ _ < <(
+    profile_records "$profile" up | awk -F '|' '$5 == "cluster"'
+  ) || fail "The $profile profile has no cluster root."
+  cluster="$(cluster_state "$ROOT_DIR/$cluster_relative_root" "$ROOT_DIR/$cluster_relative_root/$cluster_backend_name")"
+  if [[ "$direction" == "down" && "$cluster" == "protected" ]]; then
+    pass="unprotect"
+  elif [[ "$direction" == "up" && "$cluster" == "absent" ]]; then
+    pass="cluster-first"
   fi
 
   active_account="$(caller_account)"
@@ -400,6 +451,7 @@ plan_profile() {
     printf 'account\t%s\n' "$active_account"
     printf 'commit\t%s\n' "$commit"
     printf 'gitops_revision\t%s\n' "$gitops_revision"
+    printf 'pass\t%s\n' "$pass"
     if [[ -n "$volume_record" ]]; then
       printf 'volume_record\t%s\n' "$volume_record"
     fi
@@ -409,29 +461,15 @@ plan_profile() {
   fi
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
+    if [[ "$pass" == "unprotect" && "$kind" != "cluster" ]] || [[ "$pass" == "cluster-first" && "$kind" == "identity" ]]; then
+      continue
+    fi
     root="$ROOT_DIR/$relative_root"
     plan_file="$bundle/$name.tfplan"
     json_file="$bundle/$name.json"
 
     printf 'Planning %s %s for %s...\n' "$profile" "$direction" "$name"
     init_root "$root" "$root/$backend_name"
-
-    if [[ "$profile" == "full" && "$direction" == "up" && "$name" == "egress" ]]; then
-      state_before="$(terraform -chdir="$root" state list 2>/dev/null || true)"
-      if ! grep -Eq 'module\.egress' <<<"$state_before"; then
-        full_up_egress_only=true
-      else
-        transit_gateway_id="$(terraform -chdir="$root" output -raw transit_gateway_id)"
-        [[ "$transit_gateway_id" =~ ^tgw-[0-9a-f]{8,17}$ ]] || \
-          fail "The existing egress state did not expose a valid transit_gateway_id."
-      fi
-    fi
-
-    if [[ "$profile" == "full" && "$direction" == "up" && ( "$name" == "full-dev" || "$name" == "full-prod" ) ]]; then
-      configured_transit_gateway="$(read_literal_string "$root/$variables_name" transit_gateway_id)"
-      [[ "$configured_transit_gateway" == "$transit_gateway_id" ]] || \
-        fail "$name configures transit_gateway_id=${configured_transit_gateway:-missing}, but the egress state exposes $transit_gateway_id."
-    fi
 
     plan_args=(
       -input=false
@@ -440,30 +478,38 @@ plan_profile() {
       -out="$plan_file"
     )
 
-    if [[ "$kind" == "foundation" ]]; then
-      if [[ "$direction" == "up" ]]; then
-        plan_args+=("-var=runtime_enabled=true")
-      else
-        plan_args+=("-var=runtime_enabled=false")
-      fi
-      terraform -chdir="$root" plan "${plan_args[@]}"
-    elif [[ "$direction" == "down" ]]; then
-      terraform -chdir="$root" plan -destroy "${plan_args[@]}"
-    else
-      terraform -chdir="$root" plan "${plan_args[@]}"
-    fi
+    case "$kind:$direction" in
+      networking:up)
+        terraform -chdir="$root" plan "${plan_args[@]}" -var=nat_gateways_enabled=true
+        ;;
+      networking:down)
+        terraform -chdir="$root" plan "${plan_args[@]}" -var=nat_gateways_enabled=false
+        ;;
+      cluster:down)
+        if [[ "$pass" == "unprotect" ]]; then
+          terraform -chdir="$root" plan "${plan_args[@]}" -var=cluster_deletion_protection=false
+        else
+          terraform -chdir="$root" plan -destroy "${plan_args[@]}"
+        fi
+        ;;
+      identity:down)
+        terraform -chdir="$root" plan -destroy "${plan_args[@]}"
+        ;;
+      *)
+        terraform -chdir="$root" plan "${plan_args[@]}"
+        ;;
+    esac
 
     terraform -chdir="$root" show -json "$plan_file" >"$json_file"
-    if [[ "$direction" == "down" && "$kind" == "foundation" ]]; then
+    if [[ "$direction" == "down" ]]; then
       assert_no_durable_deletes "$json_file"
+      if [[ "$kind" == "networking" ]]; then
+        assert_only_egress_deletes "$json_file"
+      elif [[ "$pass" == "unprotect" ]]; then
+        assert_no_deletes "$json_file"
+      fi
     fi
     printf 'root\t%s\t%s\t%s\n' "$name" "$relative_root" "$name.tfplan" >>"$bundle/metadata.tsv"
-
-    if [[ "$full_up_egress_only" == true ]]; then
-      printf 'The full egress hub has no prior state; this bundle intentionally contains only egress.\n'
-      printf 'Apply it, record its transit_gateway_id in the full foundation inputs, then run full up planning again.\n'
-      break
-    fi
   done < <(profile_records "$profile" "$direction")
 
   (
@@ -475,6 +521,16 @@ plan_profile() {
     sha256sum "${checksum_files[@]}" >checksums.sha256
   )
   printf 'Saved plan bundle: %s\n' "$bundle"
+  case "$pass" in
+    unprotect)
+      printf 'The cluster refuses deletion, so this bundle only turns its deletion protection off.\n'
+      printf 'Apply it, then plan down again with the same GitOps revision and volume record for the destroy bundle.\n'
+      ;;
+    cluster-first)
+      printf 'The cluster does not exist yet and the IRSA pass reads it, so this bundle holds the network and the cluster.\n'
+      printf 'Apply it, then plan up again for the IRSA pass.\n'
+      ;;
+  esac
   printf 'Inspect it before apply: %s inspect %s\n' "$0" "$bundle"
 }
 
@@ -494,6 +550,7 @@ inspect_bundle() {
 
   printf 'Profile: %s\n' "$(metadata_value "$bundle" profile)"
   printf 'Direction: %s\n' "$(metadata_value "$bundle" direction)"
+  printf 'Pass: %s\n' "$(metadata_value "$bundle" pass)"
   printf 'Account: %s\n' "$(metadata_value "$bundle" account)"
   printf 'Commit: %s\n' "$(metadata_value "$bundle" commit)"
   printf 'GitOps revision: %s\n' "$(metadata_value "$bundle" gitops_revision)"
@@ -571,18 +628,23 @@ apply_bundle() {
   done <"$bundle/metadata.tsv"
 }
 
+# A root is up when its state holds what the down transition removes: the NAT
+# gateways of a networking root, the cluster, or the IRSA pass's roles.
 status_profile() {
   local profile=$1
-  local name relative_root backend_name variables_name kind root state
+  local name relative_root backend_name variables_name kind root state pattern
   verify_profile "$profile" up
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
     root="$ROOT_DIR/$relative_root"
     init_root "$root" "$root/$backend_name" >/dev/null
     state="$(terraform -chdir="$root" state list 2>/dev/null || true)"
-    if [[ "$kind" == "foundation" ]] && grep -Eq 'module\.foundation\.module\.eks' <<<"$state"; then
-      printf 'UP    %s\n' "$name"
-    elif [[ "$kind" == "egress" ]] && grep -Eq 'module\.egress' <<<"$state"; then
+    case "$kind" in
+      networking) pattern='\.aws_nat_gateway\.' ;;
+      cluster) pattern='\.aws_eks_cluster\.' ;;
+      *) pattern='\.aws_iam_role\.' ;;
+    esac
+    if grep -Eq "$pattern" <<<"$state"; then
       printf 'UP    %s\n' "$name"
     else
       printf 'DOWN  %s\n' "$name"

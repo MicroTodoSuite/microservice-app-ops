@@ -16,7 +16,29 @@ This avoids cross-state moves for write-only secret versions and protected hoste
 
 ### Profile orchestration
 
-The wrapper owns only orchestration and evidence:
+The wrapper owns only orchestration and evidence. Since 2026-09-13 it plans the rebuilt roots (FR-021 to FR-026):
+
+| Profile | Up order | Down order |
+| --- | --- | --- |
+| `economical` | `eco/networking` (NAT on), `eco/workload`, `eco/security-irsa` | `eco/security-irsa` (destroy), `eco/workload` (destroy), `eco/networking` (NAT off) |
+| `full` | Refused until ops spec 004 T012 writes `shd/networking` and the `fdev`, `fstg`, and `fprd` roots | Same |
+
+The persistent roots, `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and `eco/security`, never appear. `eco/networking` is not destroyed: `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged hourly, so they are the part that goes down.
+
+**Second bundles.** Each bundle records its `pass`:
+- `unprotect` (down, while the cluster in `eco/workload`'s state has deletion protection on). Amazon EKS refuses to delete a protected cluster. The bundle therefore holds only an `eco/workload` plan with `cluster_deletion_protection=false`, and that plan must delete nothing. The operator applies it and plans down again. One bundle cannot hold both plans: applying the first changes the state the destroy plan would have been saved against.
+- `cluster-first` (up, while no cluster exists). The IRSA pass reads the cluster's OIDC issuer, so the bundle holds `eco/networking` and `eco/workload`, and the next up bundle adds the IRSA pass.
+- `complete` in every other case.
+
+The wrapper reads the cluster from `terraform show -json` of `eco/workload`'s state.
+
+**Down-plan audits.** Every root's plan JSON passes the durable-delete filter. The `eco/networking` plan also passes `scripts/aws-profile-egress-deletes.jq`, which allows deleting only NAT gateways, Elastic IPs, and `aws_route.private_nat` routes.
+
+**Account and region.** The wrapper compares the STS account with `config/aws-account.env` and with each root's `aws_account_id`. It reads a single `aws_region` across the profile's roots.
+
+#### Legacy roots (2026-09-10 design)
+
+The rest of this section, and the state-safe runtime boundary above, describe the legacy roots, which the wrapper no longer plans. Release `v1.17.0` is the last whose wrapper maps them.
 
 | Profile | Up order | Down order |
 | --- | --- | --- |
@@ -83,3 +105,6 @@ The scope is the whole region, so a snapshot may also cover a volume of another 
 | PersistentVolume data is lost with the cluster/VPC | Require GitOps quiescence evidence and a human review of persistent-data disposition before applying a down plan. |
 | Full roots still target a retired account | Preflight each root against STS and stop; migration remains explicit separate work. |
 | Make bypasses wrapper safety or hides an apply | Contract-test exact one-target-to-one-wrapper-command mappings and reject direct Terraform, kubectl, and auto-approval commands. |
+| A down transition removes the VPC and with it `eco/security`'s security groups | `eco/networking` is never destroyed, and its down plan must pass the egress filter. |
+| The unprotect bundle replaces or deletes the cluster | The wrapper rejects an unprotect plan that deletes anything. |
+| An operator plans a persistent root through the lifecycle | The persistent roots are absent from the records, and the contract rejects any `shd` or `eco/security` path in the wrapper. |

@@ -27,7 +27,9 @@ locals {
   private_subnet_tags = merge(local.cluster_subnet_tag, { "kubernetes.io/role/internal-elb" = "1", "karpenter.sh/discovery" = local.cluster_name })
 
   # Each private subnet leaves through the NAT gateway of its own zone, the topology the
-  # legacy dev root ran.
+  # legacy dev root ran. With nat_gateways_enabled off, as the lifecycle's down transition
+  # plans it, no gateway exists and each private subnet keeps its route table without a
+  # default route.
   subnets = merge(
     {
       for letter, zone in local.zones : "pub${letter}" => {
@@ -48,8 +50,8 @@ locals {
         cidr_block        = zone.private_cidr
         tier              = "private"
         route_table_name  = "${local.governance_prefix}-rtb-priv${letter}"
-        egress            = "nat"
-        nat_gateway_key   = letter
+        egress            = var.nat_gateways_enabled ? "nat" : "none"
+        nat_gateway_key   = var.nat_gateways_enabled ? letter : null
         tags              = local.private_subnet_tags
       }
     },
@@ -60,7 +62,7 @@ locals {
       name       = "${local.governance_prefix}-nat-${letter}"
       eip_name   = "${local.governance_prefix}-eip-${letter}"
       subnet_key = "pub${letter}"
-    }
+    } if var.nat_gateways_enabled
   }
 
   flow_log = {

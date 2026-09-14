@@ -1,18 +1,25 @@
 # AWS Profile Lifecycle
 
-This runbook controls the cost-bearing AWS runtime while preserving durable Terraform-managed assets. The repository-root Makefile is the primary operator interface and delegates to the lifecycle wrapper, which remains the single implementation of profile ordering, saved plans, and safety gates. Neither layer changes Kubernetes resources directly: environment activation and quiescence remain GitOps changes reconciled by ArgoCD.
+This runbook controls the cost-bearing AWS runtime while preserving the persistent Terraform-managed assets. The repository-root Makefile is the primary operator interface and delegates to the lifecycle wrapper, which remains the single implementation of profile ordering, saved plans, and safety gates. Neither layer changes Kubernetes resources directly: environment activation and quiescence remain GitOps changes reconciled by ArgoCD.
 
 ## Resource boundary
 
-| Preserved when down | Removed when down |
-| --- | --- |
-| S3/KMS Terraform backend | Environment VPC and subnets |
-| ECR repositories and images | NAT gateways, Elastic IPs, routes, and flow logs |
-| Secrets Manager containers and values | EKS control plane and managed node groups |
-| Route 53 hosted zones and records | EKS add-ons and cluster-scoped IAM/IRSA roles |
-| GitHub Actions OIDC and publication roles | Karpenter queue, key, identities, and event rules |
+The economical profile operates the rebuilt `eco` roots (ops spec 004). The lifecycle never plans a persistent root.
 
-Durable services can still have small storage, request, hosted-zone, or key charges. `down` removes the dominant runtime spend; it does not promise a zero-dollar account.
+| Root | Class | When the profile is down |
+| --- | --- | --- |
+| `shd/state` | Persistent | The S3 state bucket and its KMS key remain. |
+| `shd/security` | Persistent | The GitHub OIDC provider, the image publisher and Terraform deploy roles, and the flow-log key and role remain. |
+| `shd/registry` | Persistent | The ECR repositories and their images remain. |
+| `shd/dns` | Persistent | The public hosted zone and its records remain. |
+| `eco/security` | Persistent | The cluster, node, and add-on roles, the EKS keys, the security groups, and the JWT and webhook secrets remain. |
+| `eco/networking` | Persistent, with runtime egress | The VPC, subnets, route tables, internet gateway, and flow log remain. The NAT gateways, their Elastic IPs, and the private default routes are removed. |
+| `eco/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, and the control-plane log group are destroyed. |
+| `eco/security-irsa` | Runtime | The cluster's OIDC provider and the IRSA roles are destroyed. |
+
+`eco/networking` is never destroyed, because `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged by the hour, so they go down with the cluster.
+
+Persistent services still charge for storage, keys, secrets, and the hosted zone. `down` removes the dominant runtime spend; it does not promise a zero-dollar account.
 
 ## AWS login
 
@@ -24,7 +31,7 @@ export AWS_PROFILE=microtodosuite-terraform-new
 aws sts get-caller-identity
 ```
 
-The account in the last command must match every selected root's local `expected_account_id`. Never paste console passwords, authorization blocks, access keys, or session tokens into repository files.
+The account in the last command must equal `AWS_ACCOUNT_ID` in `config/aws-account.env` and every selected root's `aws_account_id`. Never paste console passwords, authorization blocks, access keys, or session tokens into repository files.
 
 ## Preflight and status
 
@@ -35,7 +42,7 @@ make init PROFILE=economical
 make status PROFILE=economical
 ```
 
-Every profile-sensitive target requires an explicit `PROFILE=economical|full`; there is no implicit default. Full-profile preflight intentionally stops while its gitignored input files are absent or still target a retired account. Do not copy an old account ID or invent transit-gateway, policy, or operator-CIDR values merely to make preflight green; complete the separately reviewed spec 009 account migration first.
+Every profile-sensitive target requires an explicit `PROFILE=economical|full`; there is no implicit default. `status` reports each runtime root as `UP` while its state holds what `down` removes: the NAT gateways, the cluster, or the IRSA roles.
 
 ## Start a profile
 
@@ -46,6 +53,10 @@ make plan-up PROFILE=economical
 make inspect BUNDLE=.aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
 make apply-up PROFILE=economical BUNDLE=.aws-profile-plans/economical-up-YYYYMMDDTHHMMSSZ
 ```
+
+The bundle plans `eco/networking` with its NAT gateways, then `eco/workload`, then `eco/security-irsa`.
+
+**While no cluster exists, up takes two bundles.** The IRSA pass reads the cluster's OIDC issuer, so the first bundle holds only `eco/networking` and `eco/workload`, and `inspect` shows `Pass: cluster-first`. Apply it, then run `make plan-up PROFILE=economical` again. The second bundle adds the IRSA pass; the first two roots should plan no changes.
 
 After Terraform recreates the runtime, bootstrap or reactivate it only through the repository's reviewed GitOps process. Do not use `kubectl apply` for workload or platform state.
 
@@ -64,7 +75,8 @@ Before planning shutdown:
    - a volume record created after the quiescence commit;
    - a record that misses a volume still present;
    - a record whose snapshots are not complete;
-   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities.
+   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities;
+   - an `eco/networking` plan that deletes anything but the NAT gateways, their Elastic IPs, and the private NAT routes.
 
 Recreating an EKS cluster restores no data by itself. Restoring a volume from its snapshot is a separate, reviewed GitOps change; the lifecycle does not restore data.
 
@@ -75,6 +87,14 @@ make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
 
+The bundle destroys `eco/security-irsa`, then `eco/workload`, and plans `eco/networking` without its NAT gateways.
+
+**A protected cluster takes two bundles.** Amazon EKS refuses to delete a cluster whose deletion protection is on, and `eco/workload` keeps it on by default.
+- While the protection is on, the bundle holds only an `eco/workload` plan that turns it off, and `inspect` shows `Pass: unprotect`. The wrapper rejects that plan if it deletes anything.
+- Apply it, then run the same `make plan-down PROFILE=economical` command again, with the same `GITOPS_REVISION` and `VOLUME_RECORD`. That second bundle is the destroy bundle.
+- The two cannot share a bundle: applying the first changes `eco/workload`'s state, and Terraform refuses a saved plan whose state has changed.
+- If the teardown is abandoned after the first bundle, the next plan of `eco/workload` turns the protection back on.
+
 `BUNDLE` may be relative to the current directory or absolute. The wrapper
 resolves it to a canonical absolute directory before Terraform changes to a
 root with `-chdir`, so inspection and apply read the same checksummed plan.
@@ -83,40 +103,27 @@ Every apply first writes an external state backup under `~/backups-microtodosuit
 
 ## Full profile
 
-The full profile uses dependency-safe ordering:
+The full profile will operate `shd/networking` and the `fdev`, `fstg`, and `fprd` roots, which ops spec 004 T012 writes. Until their records join the wrapper, every full-profile command that reads state stops and names that task. Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes.
 
-- Up: shared egress, full-dev, demo-full (full staging), full-prod.
-- Down: full-prod, demo-full, full-dev, shared egress.
+## Legacy roots
 
-Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes:
+The wrapper no longer plans the legacy roots:
+- `aws/environments/dev/foundation`, whose state still holds the persistent resources under their old names until ops spec 004 moves and deletes them;
+- `aws/shared/egress` and the `full-dev`, `demo-full`, and `full-prod` foundations, whose inputs target a retired account.
 
-```bash
-make check PROFILE=full
-make plan-up PROFILE=full
-make inspect BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
-make apply-up PROFILE=full BUNDLE=.aws-profile-plans/full-up-YYYYMMDDTHHMMSSZ
-
-make snapshot-volumes PROFILE=full
-make plan-down PROFILE=full GITOPS_REVISION=GITOPS_COMMIT_SHA VOLUME_RECORD=.aws-profile-plans/volumes-full-YYYYMMDDTHHMMSSZ
-make inspect BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
-make apply-down PROFILE=full BUNDLE=.aws-profile-plans/full-down-YYYYMMDDTHHMMSSZ
-```
-
-On a first full-profile creation, the shared egress transit gateway must exist before a foundation plan can bind to its real ID. When the egress state is empty, `make plan-up PROFILE=full` intentionally creates an egress-only bundle. Apply that reviewed bundle, place its `transit_gateway_id` output in the gitignored full foundation inputs, and run `make plan-up PROFILE=full` again. The second bundle compares those inputs with the live egress output before planning the foundations. Never apply a saved foundation plan containing an obsolete transit gateway ID.
+Release `v1.17.0` is the last whose wrapper maps them. Operate a legacy root, if ever needed, from a separate worktree at that tag.
 
 ## Required local files
 
-The wrapper refuses to guess missing values. Each root needs its real gitignored backend and variable file:
+The wrapper refuses to guess missing values. Each root needs its real gitignored backend and variable file, copied from the committed `.example` beside it:
 
 | Root | Backend | Variables |
 | --- | --- | --- |
-| dev | `dev.s3.tfbackend` | `dev.tfvars` |
-| shared egress | `egress.s3.tfbackend` | `egress.tfvars` |
-| full-dev | `full-dev.s3.tfbackend` | `full-dev.tfvars` |
-| demo-full | `demo-full.s3.tfbackend` | `demo-full.tfvars` |
-| full-prod | `full-prod.s3.tfbackend` | `full-prod.tfvars` |
+| `aws/environments/eco/networking` | `networking.s3.tfbackend` | `eco.tfvars` |
+| `aws/environments/eco/workload` | `workload.s3.tfbackend` | `eco.tfvars` |
+| `aws/environments/eco/security-irsa` | `security-irsa.s3.tfbackend` | `eco.tfvars` |
 
-Every variable file must contain a literal `expected_account_id`. Full-profile migration must also supply the reviewed controller policy ARN, four operator `/32` CIDRs, and the current transit gateway ID where the root requires them.
+Every variable file sets a literal `aws_account_id`, equal to `AWS_ACCOUNT_ID` in `config/aws-account.env`, and a literal `aws_region`. All roots of a profile use one region.
 
 ## Local tool installation
 
