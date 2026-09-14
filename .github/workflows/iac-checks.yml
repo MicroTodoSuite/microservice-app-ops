@@ -18,6 +18,7 @@ on:
       - 'aws/environments/eco/**'
       - 'aws/environments/fdev/**'
       - 'aws/environments/fstg/**'
+      - 'aws/environments/fprd/**'
       - '.github/workflows/iac-checks.yml'
       - '.terraform-version'
   push:
@@ -27,6 +28,7 @@ on:
       - 'aws/environments/eco/**'
       - 'aws/environments/fdev/**'
       - 'aws/environments/fstg/**'
+      - 'aws/environments/fprd/**'
       - '.github/workflows/iac-checks.yml'
       - '.terraform-version'
 
@@ -39,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [shd, eco, fdev, fstg]
+        environment: [shd, eco, fdev, fstg, fprd]
     uses: MicroTodoSuite/.github/.github/workflows/iac-checks.yml@7c3a8592ccfc43bb4cd17368e689fbc7170880c9 # .github#21
     with:
       kind: live

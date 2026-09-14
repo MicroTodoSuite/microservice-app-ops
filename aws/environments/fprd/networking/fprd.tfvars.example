@@ -1,0 +1,12 @@
+# Copy to fprd.tfvars (gitignored) and fill the account and deployment role
+# from the operator's approved account configuration.
+client               = "lex"
+project              = "mts"
+environment          = "fprd"
+aws_account_id       = "123456789012"
+aws_region           = "us-east-1"
+deploy_role_arn      = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+vpc_cidr             = "10.30.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs  = ["10.30.0.0/24", "10.30.1.0/24", "10.30.2.0/24"]
+private_subnet_cidrs = ["10.30.16.0/20", "10.30.32.0/20", "10.30.48.0/20"]
