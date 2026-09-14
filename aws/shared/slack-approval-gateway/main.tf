@@ -53,14 +53,6 @@ resource "aws_secretsmanager_secret_version" "slack_bot_token" {
   secret_string_wo_version = var.slack_bot_token_wo_version
 }
 
-resource "aws_secretsmanager_secret" "slack_approver_app_id" {
-  name = "${var.name}/slack-approver-app-id"
-}
-resource "aws_secretsmanager_secret_version" "slack_approver_app_id" {
-  secret_id     = aws_secretsmanager_secret.slack_approver_app_id.id
-  secret_string = var.slack_approver_app_id # not sensitive; a public GitHub App id
-}
-
 resource "aws_secretsmanager_secret" "github_app_private_key" {
   name = "${var.name}/github-app-private-key"
 }
@@ -136,7 +128,6 @@ data "aws_iam_policy_document" "slack_interaction_handler_secrets" {
     resources = [
       aws_secretsmanager_secret.slack_signing_secret.arn,
       aws_secretsmanager_secret.slack_bot_token.arn,
-      aws_secretsmanager_secret.slack_approver_app_id.arn,
       aws_secretsmanager_secret.github_app_private_key.arn,
     ]
   }
@@ -201,7 +192,7 @@ resource "aws_lambda_function" "slack_interaction_handler" {
     variables = {
       SLACK_SIGNING_SECRET_ARN          = aws_secretsmanager_secret.slack_signing_secret.arn
       SLACK_BOT_TOKEN_SECRET_ARN        = aws_secretsmanager_secret.slack_bot_token.arn
-      SLACK_APPROVER_APP_ID_SECRET_ARN  = aws_secretsmanager_secret.slack_approver_app_id.arn
+      SLACK_APPROVER_APP_ID             = var.slack_approver_app_id # not sensitive; a public GitHub App id, so a plain env var, not a Secrets Manager entry
       SLACK_APPROVER_APP_KEY_SECRET_ARN = aws_secretsmanager_secret.github_app_private_key.arn
       SLACK_CHANNEL_ID                  = var.slack_channel_id
     }

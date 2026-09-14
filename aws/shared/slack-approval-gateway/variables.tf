@@ -117,7 +117,7 @@ variable "slack_bot_token_wo_version" {
 }
 
 variable "slack_approver_app_id" {
-  description = "microtodosuite-slack-approver GitHub App id. Not itself sensitive, but stored in Secrets Manager alongside its private key so both Lambdas fetch App credentials the same way."
+  description = "microtodosuite-slack-approver GitHub App id. Not sensitive (a public GitHub App id), so it is passed straight through as a Lambda environment variable rather than a Secrets Manager entry -- this repo's own contract (tests/contract/aws-dev-foundation.sh) forbids an ordinary, state-persisted Secrets Manager value."
   type        = string
 }
 
