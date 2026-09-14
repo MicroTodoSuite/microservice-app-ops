@@ -1,3 +1,17 @@
+# [1.35.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.34.0...v1.35.0) (2026-09-14)
+
+
+### Bug Fixes
+
+* **iac:** drop the state-persisted slack approver app id secret ([24a963a](https://github.com/MicroTodoSuite/microservice-app-ops/commit/24a963ae7e943726a516873213ffd566443f2957))
+* **iac:** use the allowlisted placeholder account in the negative test ([a11ecb6](https://github.com/MicroTodoSuite/microservice-app-ops/commit/a11ecb6ec376ea8bf8001b5cbb788ec2d84cb574))
+
+
+### Features
+
+* **iac:** add the slack approval gateway lambdas and api gateway ([47e4144](https://github.com/MicroTodoSuite/microservice-app-ops/commit/47e41449451a6c0030210092bc966e1fa53a7794))
+* **iac:** add the slack approval gateway lambdas and api gateway ([#106](https://github.com/MicroTodoSuite/microservice-app-ops/issues/106)) ([17c257a](https://github.com/MicroTodoSuite/microservice-app-ops/commit/17c257a0c435b76a5501319243a98f2d9804f950)), closes [#49](https://github.com/MicroTodoSuite/microservice-app-ops/issues/49)
+
 # [1.34.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.33.0...v1.34.0) (2026-09-14)
 
 
