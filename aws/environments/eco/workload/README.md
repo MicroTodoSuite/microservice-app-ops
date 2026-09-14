@@ -45,8 +45,9 @@ bootstrap capacity.
 
 ## Nodes
 
-The bootstrap group keeps the legacy capacity:
-- two to four on-demand `m7i-flex.large` nodes;
+The bootstrap group runs:
+- three on-demand `m7i-flex.large` nodes, able to grow to four, as capacity
+  limit L3 sets since its 2026-09-14 amendment;
 - Amazon Linux 2023 at an explicit AMI release;
 - 50 GiB encrypted gp3 root volumes;
 - IMDSv2 with a hop limit of 1.
