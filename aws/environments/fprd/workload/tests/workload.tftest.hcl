@@ -183,7 +183,7 @@ run "rejects_an_environment_other_than_fprd" {
   command = plan
 
   variables {
-    environment = "fprd"
+    environment = "fstg"
   }
 
   expect_failures = [var.environment]
