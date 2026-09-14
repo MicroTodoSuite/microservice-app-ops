@@ -1,3 +1,11 @@
+# [1.36.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.35.1...v1.36.0) (2026-09-14)
+
+
+### Features
+
+* **dns:** create the canonical microtodosuite.online zone ([f40f241](https://github.com/MicroTodoSuite/microservice-app-ops/commit/f40f241b0b92d0a2dd53dc06e6547af8b4e6b9a8))
+* **dns:** create the canonical microtodosuite.online zone ([#113](https://github.com/MicroTodoSuite/microservice-app-ops/issues/113)) ([b5607d8](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b5607d80aa06fd92493724953a4a2a05fbce751c))
+
 ## [1.35.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.35.0...v1.35.1) (2026-09-14)
 
 
