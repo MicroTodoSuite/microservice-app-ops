@@ -1,3 +1,11 @@
+# [1.21.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.20.0...v1.21.0) (2026-09-14)
+
+
+### Features
+
+* **fstg:** implement transit spoke networking root ([b8df300](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b8df300eb2c25fbf7fac651f6285492b1a8a9341))
+* **fstg:** implement transit spoke networking root ([#86](https://github.com/MicroTodoSuite/microservice-app-ops/issues/86)) ([100e687](https://github.com/MicroTodoSuite/microservice-app-ops/commit/100e6876a46f0e8402e6039c2f0ca4bc48ccfdc2))
+
 # [1.20.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.19.0...v1.20.0) (2026-09-14)
 
 
