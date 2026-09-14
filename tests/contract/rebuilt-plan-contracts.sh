@@ -155,6 +155,20 @@ expect_fail() {
   rm -f -- "$output"
 }
 
+expect_domain_mapping() {
+  local root_domain=$1
+  local expected_contract_domain=$2
+  local actual_contract_domain=""
+
+  if actual_contract_domain="$(contract_domain "$root_domain" 2>/dev/null)"; then
+    if [[ "$actual_contract_domain" == "$expected_contract_domain" ]]; then
+      printf 'PASS domain mapping: %s -> %s\n' "$root_domain" "$expected_contract_domain"
+      return
+    fi
+  fi
+  fail "$root_domain must map to the $expected_contract_domain plan domain"
+}
+
 self_test() {
   expect_pass "state domain" state "$FIXTURES/pass/state.json"
   expect_pass "security domain" security "$FIXTURES/pass/security.json"
@@ -167,12 +181,13 @@ self_test() {
   expect_fail "missing transversal tag" networking "$FIXTURES/fail/tags.json" "PC-IAC-004"
   expect_fail "resource outside the root domain" security "$FIXTURES/fail/domain.json" "PC-IAC-022"
   expect_fail "unpinned module source" networking "$FIXTURES/fail/module-source.json" "MTS-IAC-102"
+  expect_domain_mapping "security-irsa" "security"
 
   if ((failures > 0)); then
     printf 'FAIL: %d rebuilt-plan fixture check(s) failed\n' "$failures" >&2
     return 1
   fi
-  echo "rebuilt-plan-contracts self-test: PASS (10 fixtures)"
+  echo "rebuilt-plan-contracts self-test: PASS (10 fixtures, 1 domain mapping)"
 }
 
 valid_environment() {
