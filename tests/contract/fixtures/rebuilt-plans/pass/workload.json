@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "configuration": {
+    "root_module": {
+      "module_calls": {
+        "eks_cluster": {
+          "source": "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//eks-cluster?ref=eks-cluster-v1.1.0"
+        }
+      }
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "module.eks_cluster.aws_eks_cluster.this",
+      "mode": "managed",
+      "type": "aws_eks_cluster",
+      "name": "this",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "lex-mts-fdev-eks-main",
+          "tags_all": {
+            "Name": "lex-mts-fdev-eks-main",
+            "Client": "lex",
+            "Project": "mts",
+            "Environment": "fdev",
+            "Owner": "infrastructure",
+            "CostCenter": "mts-full",
+            "ManagedBy": "terraform",
+            "Repository": "microservice-app-ops"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}

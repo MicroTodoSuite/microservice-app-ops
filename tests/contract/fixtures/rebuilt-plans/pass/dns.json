@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "configuration": {
+    "root_module": {
+      "module_calls": {
+        "public_zone": {
+          "source": "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//route53-zone?ref=route53-zone-v1.0.0"
+        }
+      }
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "module.public_zone.aws_route53_zone.this",
+      "mode": "managed",
+      "type": "aws_route53_zone",
+      "name": "this",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "microtodosuite.abrdns.com",
+          "tags_all": {
+            "Name": "lex-mts-shd-dns-public",
+            "Client": "lex",
+            "Project": "mts",
+            "Environment": "shd",
+            "Owner": "infrastructure",
+            "CostCenter": "mts-shared",
+            "ManagedBy": "terraform",
+            "Repository": "microservice-app-ops"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}

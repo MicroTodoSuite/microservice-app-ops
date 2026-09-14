@@ -1,0 +1,39 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "configuration": {
+    "root_module": {
+      "module_calls": {
+        "service_images": {
+          "source": "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//ecr-repository?ref=ecr-repository-v1.0.0"
+        }
+      }
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "module.service_images.aws_ecr_repository.this",
+      "mode": "managed",
+      "type": "aws_ecr_repository",
+      "name": "this",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "lex-mts-shd-ecr-authapi",
+          "tags_all": {
+            "Name": "lex-mts-shd-ecr-authapi",
+            "Client": "lex",
+            "Project": "mts",
+            "Environment": "shd",
+            "Owner": "infrastructure",
+            "CostCenter": "mts-shared",
+            "ManagedBy": "terraform",
+            "Repository": "microservice-app-ops"
+          }
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}
