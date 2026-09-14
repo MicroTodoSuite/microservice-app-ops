@@ -1,3 +1,11 @@
+# [1.30.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.29.0...v1.30.0) (2026-09-14)
+
+
+### Features
+
+* **full:** implement the irsa pass of every full environment ([10a894f](https://github.com/MicroTodoSuite/microservice-app-ops/commit/10a894fce5a9cfdedaefeecd310a5bf7b6e2fd11))
+* **full:** implement the irsa pass of every full environment ([#100](https://github.com/MicroTodoSuite/microservice-app-ops/issues/100)) ([a2134a1](https://github.com/MicroTodoSuite/microservice-app-ops/commit/a2134a186d2e635eec8d94e243d4dc6eb3f8dbd7))
+
 # [1.29.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.28.0...v1.29.0) (2026-09-14)
 
 
