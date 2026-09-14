@@ -1,3 +1,11 @@
+# [1.25.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.24.0...v1.25.0) (2026-09-14)
+
+
+### Features
+
+* **fstg:** implement full-profile security root ([905939f](https://github.com/MicroTodoSuite/microservice-app-ops/commit/905939fcce548d8023c2fc29762aeec9cf66c153))
+* **fstg:** implement full-profile security root ([#91](https://github.com/MicroTodoSuite/microservice-app-ops/issues/91)) ([b515e42](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b515e423515a4245e6042c4b11e0230f41427e88))
+
 # [1.24.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.23.0...v1.24.0) (2026-09-14)
 
 
