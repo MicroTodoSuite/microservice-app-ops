@@ -577,7 +577,7 @@ output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan full up 2>&1)" || \
   fail "a full up plan without the hub must create the hub bundle"
 [[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking" ]] || \
   fail "without the hub, the full up bundle must hold shd/networking only"
-if grep -Eq '^f(dev|stg|prd)/' "$terraform_log"; then
+if grep -Eq '^f(dev|stg|prd)/[a-z]+ plan ' "$terraform_log"; then
   fail "the hub bundle must plan no spoke and no cluster"
 fi
 grep -q 'again' <<<"$output" || \

@@ -21,18 +21,21 @@ The wrapper owns only orchestration and evidence. Since 2026-09-13 it plans the 
 | Profile | Up order | Down order |
 | --- | --- | --- |
 | `economical` | `eco/networking` (NAT on), `eco/workload`, `eco/security-irsa` | `eco/security-irsa` (destroy), `eco/workload` (destroy), `eco/networking` (NAT off) |
-| `full` | Refused until ops spec 004 T012 writes `shd/networking` and the `fdev`, `fstg`, and `fprd` roots | Same |
+| `full` | `shd/networking`, `fdev`/`fstg`/`fprd` networking (transit on), `fdev`/`fstg`/`fprd` workload | the three workload roots (destroy), the three spokes (transit off), `shd/networking` (destroy) |
 
 The persistent roots, `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and `eco/security`, never appear. `eco/networking` is not destroyed: `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged hourly, so they are the part that goes down.
 
 **Second bundles.** Each bundle records its `pass`:
 - `unprotect` (down, while the cluster in `eco/workload`'s state has deletion protection on). Amazon EKS refuses to delete a protected cluster. The bundle therefore holds only an `eco/workload` plan with `cluster_deletion_protection=false`, and that plan must delete nothing. The operator applies it and plans down again. One bundle cannot hold both plans: applying the first changes the state the destroy plan would have been saved against.
 - `cluster-first` (up, while no cluster exists). The IRSA pass reads the cluster's OIDC issuer, so the bundle holds `eco/networking` and `eco/workload`, and the next up bundle adds the IRSA pass.
+- `hub-first` (full up, while `shd/networking`'s state holds no transit gateway). The spokes read the hub's transit gateway at plan time, so the bundle holds only the hub, and the next up bundle adds the spokes and the clusters.
 - `complete` in every other case.
+
+The spokes are never destroyed, for the same reason as `eco/networking`: each environment's security groups belong to its VPC. The hub is destroyed last, because a transit gateway cannot be deleted while an attachment remains.
 
 The wrapper reads the cluster from `terraform show -json` of `eco/workload`'s state.
 
-**Down-plan audits.** Every root's plan JSON passes the durable-delete filter. The `eco/networking` plan also passes `scripts/aws-profile-egress-deletes.jq`, which allows deleting only NAT gateways, Elastic IPs, and `aws_route.private_nat` routes.
+**Down-plan audits.** Every root's plan JSON passes the durable-delete filter. The `eco/networking` plan and each spoke's plan also pass `scripts/aws-profile-egress-deletes.jq`. It allows deleting only NAT gateways, Elastic IPs, a spoke's transit attachment, route table association, and transit gateway routes, and the `aws_route.private_nat` and `aws_route.private_transit` routes.
 
 **Account and region.** The wrapper compares the STS account with `config/aws-account.env` and with each root's `aws_account_id`. It reads a single `aws_region` across the profile's roots.
 

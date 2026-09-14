@@ -16,6 +16,13 @@ The reviewed fdev allocation is `10.40.0.0/16`, with public `/24` and private
 subnets carry EKS, internal load balancer, and Karpenter discovery tags for the
 subsequent `fdev/workload` root.
 
+**Transit switch.** `transit_enabled` defaults to `true`. The lifecycle's full
+down transition plans it `false`: the attachment, its route table association,
+its transit routes, and the private default routes go, while the VPC, subnets,
+and route tables stay, because `fdev/security`'s security groups belong to the
+VPC. With transit off the root reads nothing from the hub, so the hub can be
+destroyed after it. See `docs/aws-profile-lifecycle.md`.
+
 ## Plan and apply
 
 ```bash

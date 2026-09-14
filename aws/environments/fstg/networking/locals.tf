@@ -49,7 +49,7 @@ locals {
         cidr_block        = zone.private_cidr
         tier              = "private"
         route_table_name  = "${local.governance_prefix}-rtb-priv${letter}"
-        egress            = "transit"
+        egress            = var.transit_enabled ? "transit" : "none"
         nat_gateway_key   = null
         tags              = local.private_subnet_tags
       }
@@ -64,13 +64,15 @@ locals {
   shared_hub_route_table_name = "${local.shared_prefix}-rtb-tgwhub"
   spoke_route_table_name      = "${local.governance_prefix}-rtb-tgw"
 
-  transit_attachment = {
+  # Null while transit is off: the lifecycle's full down transition detaches the spoke
+  # before it destroys the hub.
+  transit_attachment = var.transit_enabled ? {
     name               = "${local.governance_prefix}-tgwa-spoke"
     subnet_keys        = local.private_subnet_keys
-    route_table_id     = data.aws_ec2_transit_gateway_route_table.spoke.id
-    hub_attachment_id  = data.aws_ec2_transit_gateway_vpc_attachment.hub.id
-    hub_route_table_id = data.aws_ec2_transit_gateway_route_table.hub.id
-  }
+    route_table_id     = data.aws_ec2_transit_gateway_route_table.spoke[0].id
+    hub_attachment_id  = data.aws_ec2_transit_gateway_vpc_attachment.hub[0].id
+    hub_route_table_id = data.aws_ec2_transit_gateway_route_table.hub[0].id
+  } : null
 
   flow_log = {
     name                     = "${local.governance_prefix}-fl-main"

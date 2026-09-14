@@ -47,6 +47,19 @@ Decided under the maintainer's delegation of pending decisions; ai-agents specs/
 - **Q**: Why can an up transition take two bundles?
   **A**: The IRSA pass reads the cluster's OIDC issuer, so it cannot be planned while no cluster exists. Without a cluster, the up bundle holds `eco/networking` and `eco/workload`; the next up bundle adds the IRSA pass.
 
+### Session 2026-09-14 (full profile)
+
+Decided under the maintainer's delegation, once ops spec 004 T012 delivered the full roots; ai-agents specs/001 T027.
+
+- **Q**: Which roots does the full profile operate?
+  **A**: `aws/environments/shd/networking`, the egress hub; `fdev`, `fstg`, and `fprd` networking, the transit spokes; and their workload roots. `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and every environment's security root are persistent and never planned.
+- **Q**: How does the full profile go down without destroying persistent resources?
+  **A**: The clusters are destroyed. Each spoke is planned with `transit_enabled=false`, which removes only its attachment, the attachment's route table association, its transit routes, and the private default routes; its VPC stays, because its environment's security groups belong to it. The hub is destroyed last: a transit gateway cannot be deleted while an attachment remains, and every attachment is billed by the hour.
+- **Q**: Why can a full up transition take two bundles?
+  **A**: The spokes read the hub's transit gateway at plan time. While `shd/networking`'s state holds none, the up bundle holds only the hub; the next up bundle adds the spokes and the clusters.
+- **Q**: What does the full lifecycle not cover?
+  **A**: The full environments have no IRSA pass and no Karpenter prerequisites yet. Their records join when those roots land. The first creation of every root is the rebuild's reviewed apply, not the lifecycle.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Stop economical runtime spend without deleting durable assets (Priority: P1)
@@ -73,7 +86,7 @@ A platform operator can generate a saved start plan for the economical profile a
 
 ### User Story 3 - Operate the full profile with dependency-safe ordering (Priority: P2)
 
-A platform operator can use the same interface for the expensive full profile while preserving the ordering between the shared egress hub and its three environment foundations. *Deferred on 2026-09-13 until ops spec 004 T012 writes the rebuilt full roots (FR-026).*
+A platform operator can use the same interface for the expensive full profile while preserving the ordering between the shared egress hub and its three environment foundations. *Deferred on 2026-09-13 until ops spec 004 T012 wrote the rebuilt full roots; mapped on 2026-09-14 (FR-027 to FR-029).*
 
 **Acceptance Scenarios**:
 
@@ -111,9 +124,12 @@ FR-001 to FR-005, FR-009, and FR-010 describe the legacy foundation and egress r
 - **FR-021**: The `economical` profile MUST plan exactly `aws/environments/eco/networking`, `aws/environments/eco/workload`, and `aws/environments/eco/security-irsa`, in that order up and in reverse down. It MUST NOT plan `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, or `eco/security`.
 - **FR-022**: A down plan MUST destroy `eco/security-irsa` and `eco/workload` and plan `eco/networking` with `nat_gateways_enabled=false`. An up plan MUST plan `eco/networking` with `nat_gateways_enabled=true`. While `eco/workload`'s state holds no cluster, the up plan MUST leave out `eco/security-irsa` and tell the operator to plan up again.
 - **FR-023**: `eco/networking` MUST expose `nat_gateways_enabled`, defaulting to `true`; `false` MUST remove only the NAT gateways, their Elastic IPs, and the private NAT routes. The wrapper MUST reject a networking down plan that deletes any other address.
-- **FR-024**: `eco/workload` MUST expose `cluster_deletion_protection`, defaulting to `true`. While the cluster in its state is protected, a down plan MUST hold only an `eco/workload` plan with `cluster_deletion_protection=false`, MUST reject that plan if it deletes anything, and MUST tell the operator to plan down again.
+- **FR-024**: Every cluster root MUST expose `cluster_deletion_protection`, defaulting to `true`. While any cluster root's cluster is protected, a down plan MUST hold only the protected cluster roots, each planned with `cluster_deletion_protection=false`, MUST reject a plan that deletes anything, and MUST tell the operator to plan down again.
 - **FR-025**: Every command that reads or mutates remote state MUST verify that AWS STS, `AWS_ACCOUNT_ID` in `config/aws-account.env`, and each root's literal `aws_account_id` name one account, and that the profile's roots name one literal `aws_region`.
-- **FR-026**: Until the rebuilt full-profile roots exist (ops spec 004 T012), every `full` command that reads state MUST stop and name that task.
+- **FR-026**: Until the rebuilt full-profile roots exist (ops spec 004 T012), every `full` command that reads state MUST stop and name that task. *Superseded on 2026-09-14 by FR-027 to FR-029, once T012 delivered the roots.*
+- **FR-027**: The `full` profile MUST plan `aws/environments/shd/networking`, then `fdev`, `fstg`, and `fprd` networking, then their workload roots, in that order up and in reverse down. It MUST NOT plan `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, or any environment's security root.
+- **FR-028**: A full down plan MUST destroy each workload root, plan each spoke with `transit_enabled=false` under the egress filter, and destroy `shd/networking`. A full up plan MUST plan each spoke with `transit_enabled=true`. While `shd/networking`'s state holds no transit gateway, the up plan MUST hold only `shd/networking` and tell the operator to plan up again.
+- **FR-029**: Each spoke root MUST expose `transit_enabled`, defaulting to `true`; `false` MUST remove only the attachment, its route table association, its transit gateway routes, and the private transit routes, and MUST read nothing from the hub.
 
 ## Success Criteria *(mandatory)*
 
@@ -124,10 +140,11 @@ FR-001 to FR-005, FR-009, and FR-010 describe the legacy foundation and egress r
 - **SC-005**: The full-profile preflight reports its current replacement-account readiness without applying or destroying infrastructure.
 - **SC-006**: Contract tests demonstrate the exact Make-to-wrapper command mapping for both profiles and prove that missing or invalid safety inputs stop before the wrapper runs.
 - **SC-007**: Contract tests demonstrate the economical up and down bundles for each state of the cluster (absent, protected, and unprotected), reject a networking down plan that deletes more than the NAT egress, and reject a root whose account differs from the declared one. SC-001 and SC-002 apply to the legacy foundation roots only.
+- **SC-008**: Contract tests demonstrate the full up bundle with and without the hub, the full down bundle with protected and unprotected clusters, and a spoke down plan allowed to delete only its transit egress; each spoke's Terraform tests prove that transit off reads nothing from the hub.
 
 ## Out of Scope
 
-- Mapping the full profile before ops spec 004 T012 writes its rebuilt roots.
+- The first creation of any root, and the IRSA pass and Karpenter prerequisites the full environments do not have yet.
 
 - Automatically committing GitOps activation or quiescence changes.
 - Migrating the inactive full-profile roots from a retired account.
