@@ -1,3 +1,11 @@
+# [1.29.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.28.0...v1.29.0) (2026-09-14)
+
+
+### Features
+
+* **lifecycle:** implement the full profile on the rebuilt roots ([9194812](https://github.com/MicroTodoSuite/microservice-app-ops/commit/9194812b492389054c9784a886e9a8970f0ca43a))
+* **lifecycle:** implement the full profile on the rebuilt roots ([#99](https://github.com/MicroTodoSuite/microservice-app-ops/issues/99)) ([a7becb4](https://github.com/MicroTodoSuite/microservice-app-ops/commit/a7becb43353daded3e23e91be469602292ca5807)), closes [#85](https://github.com/MicroTodoSuite/microservice-app-ops/issues/85)
+
 # [1.28.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.27.0...v1.28.0) (2026-09-14)
 
 
