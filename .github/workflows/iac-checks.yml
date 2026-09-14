@@ -6,8 +6,9 @@ name: iac-checks
 # roots under aws/environments/{dev,demo-full,full-dev,full-prod} and aws/shared
 # predate the rules and are replaced by these, so the gate covers only the new
 # environment directories; each joins the matrix as its first root lands. The
-# gate is pinned to the commit that MicroTodoSuite/.github#20 merged, which
-# applies this repository's docs/iac-exceptions.md to the scanned directories.
+# gate is pinned to the commit that MicroTodoSuite/.github#21 merged, which
+# applies this repository's docs/iac-exceptions.md to the scanned directories
+# (.github#20) and rejects environment literals in the roots (.github#21).
 
 on:
   pull_request:
