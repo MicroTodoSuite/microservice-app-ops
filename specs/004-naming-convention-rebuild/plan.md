@@ -19,7 +19,7 @@ Physical names use the client code `lex` (Lexfield Legal); the first draft used
 | `aws-ebs-csi-driver`, `coredns`, `kube-proxy`, `vpc-cni` | EKS add-ons | same add-on names | Recreate with the cluster |
 | `microtodosuite-dev` | VPC `10.10.0.0/16` | `lex-mts-eco-vpc-main` | Recreate |
 | 6 subnets, 5 route tables, 1 IGW, 3 NAT, 3 EIP, NACL, flow log | Network | `lex-mts-eco-{sub,rtb,igw,nat,eip,fl}-…` | Recreate |
-| default VPC `172.31.0.0/16` | Network, not Terraform | — | Delete (capacity limit L1) |
+| default VPC `172.31.0.0/16` | Network, not Terraform | — | Delete (capacity limit L1) before the full profile's VPCs, in T028 |
 | 5 security groups | Security | `lex-mts-eco-sg-cluster`, `-node`; EKS-created group unchanged | Recreate |
 | `microtodosuite-dev-node`, `-dev-cluster-…`, `-dev-ebs-csi`, `-dev-vpc-cni` | IAM roles | `lex-mts-eco-role-{node,cluster,ebscsi,vpccni}` | Recreate |
 | `microtodosuite-{dev,staging,prod,demo}-jwt-reader` | IRSA roles | `lex-mts-eco-role-jwt{dev,stg,prd,dmo}` | Recreate |
@@ -116,5 +116,7 @@ the new roots in order — `shd/state`, `shd/security`, `shd/registry`, `shd/dns
 GitOps branch; run the audited bootstrap; resume sync and publication.
 
 **Validate and clean**: the US3 checks; the orphan sweep of US4; delete the old
-bucket, repositories, secrets, and keys after the retention the maintainer sets;
-delete the default VPC.
+bucket, repositories, secrets, and keys after the retention the maintainer sets.
+The default VPC is deleted on its own, before the full profile's VPCs are created
+(T028). Without a quota increase, `us-east-1` holds exactly five VPCs (decision D2
+as amended on 2026-09-13).
