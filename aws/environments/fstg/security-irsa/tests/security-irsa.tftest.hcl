@@ -15,6 +15,17 @@ mock_provider "aws" {
     defaults = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fstg-sm-other-AbCdEf" }
   }
 
+  mock_data "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:123456789012:lex-mts-fstg-sqs-karpenter"
+      url = "https://sqs.us-east-1.amazonaws.com/123456789012/lex-mts-fstg-sqs-karpenter"
+    }
+  }
+
+  mock_data "aws_iam_role" {
+    defaults = { arn = "arn:aws:iam::123456789012:role/lex-mts-fstg-role-node" }
+  }
+
   mock_resource "aws_iam_openid_connect_provider" {
     defaults = { arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF" }
   }
@@ -45,7 +56,7 @@ run "builds_the_irsa_names" {
   command = plan
 
   assert {
-    condition     = local.oidc_provider_name == "lex-mts-fstg-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fstg-role-jwtdev", jwtstg = "lex-mts-fstg-role-jwtstg", obssecret = "lex-mts-fstg-role-obssecret", secsecret = "lex-mts-fstg-role-secsecret", trivyecr = "lex-mts-fstg-role-trivyecr", kyvernoecr = "lex-mts-fstg-role-kyvernoecr" }
+    condition     = local.oidc_provider_name == "lex-mts-fstg-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fstg-role-jwtdev", jwtstg = "lex-mts-fstg-role-jwtstg", obssecret = "lex-mts-fstg-role-obssecret", secsecret = "lex-mts-fstg-role-secsecret", trivyecr = "lex-mts-fstg-role-trivyecr", kyvernoecr = "lex-mts-fstg-role-kyvernoecr", karpenter = "lex-mts-fstg-role-karpenter" }
     error_message = "The root must build the spec 004 IRSA names, one role per application identity (MTS-IAC-101)."
   }
 
@@ -95,6 +106,35 @@ run "grants_each_role_only_what_its_application_reads" {
   assert {
     condition     = toset(jsondecode(local.irsa_roles["kyvernoecr"].policy).Statement[1].Action) == toset(["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer"]) && jsondecode(local.irsa_roles["kyvernoecr"].policy).Statement[0].Action == "ecr:GetAuthorizationToken"
     error_message = "Kyverno may only authenticate to ECR and read the shared service image artifacts."
+  }
+}
+
+run "gives_the_karpenter_controller_its_reference_permissions" {
+  command = plan
+
+  assert {
+    condition     = local.irsa_roles["karpenter"].subject == "system:serviceaccount:kube-system:karpenter"
+    error_message = "The controller role must admit only kube-system/karpenter, the service account the vendored release creates."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.irsa_roles["karpenter"].policy).Statement : statement.Sid] == ["AllowScopedEC2InstanceAccessActions", "AllowScopedEC2LaunchTemplateAccessActions", "AllowScopedEC2InstanceActionsWithTags", "AllowScopedResourceCreationTagging", "AllowScopedResourceTagging", "AllowScopedDeletion", "AllowPassingInstanceRole", "AllowScopedInstanceProfileCreationActions", "AllowScopedInstanceProfileTagActions", "AllowScopedInstanceProfileActions", "AllowAPIServerEndpointDiscovery", "AllowInterruptionQueueActions", "AllowZonalShiftStatusReadOnly", "AllowRegionalReadActions", "AllowSSMReadActions", "AllowPricingReadActions", "AllowUnscopedInstanceProfileListAction", "AllowInstanceProfileReadActions"]
+    error_message = "The controller policy must carry the eighteen statements of Karpenter's reference template, under its own statement identifiers."
+  }
+
+  assert {
+    condition     = one([for statement in jsondecode(local.irsa_roles["karpenter"].policy).Statement : statement if statement.Sid == "AllowInterruptionQueueActions"]).Resource == "arn:aws:sqs:us-east-1:123456789012:lex-mts-fstg-sqs-karpenter" && one([for statement in jsondecode(local.irsa_roles["karpenter"].policy).Statement : statement if statement.Sid == "AllowPassingInstanceRole"]).Resource == "arn:aws:iam::123456789012:role/lex-mts-fstg-role-node"
+    error_message = "The controller may poll only this environment's interruption queue and pass only its node role to the instance profiles it generates."
+  }
+
+  assert {
+    condition     = one([for statement in jsondecode(local.irsa_roles["karpenter"].policy).Statement : statement if statement.Sid == "AllowScopedDeletion"]).Condition.StringEquals == { "aws:ResourceTag/kubernetes.io/cluster/lex-mts-fstg-eks-main" = "owned" } && one([for statement in jsondecode(local.irsa_roles["karpenter"].policy).Statement : statement if statement.Sid == "AllowAPIServerEndpointDiscovery"]).Resource == "arn:aws:eks:us-east-1:123456789012:cluster/lex-mts-fstg-eks-main"
+    error_message = "Every scoped statement must be confined to this cluster: Karpenter may terminate only the instances this cluster owns and describe only this cluster."
+  }
+
+  assert {
+    condition     = length(local.irsa_roles["karpenter"].policy) <= 10240
+    error_message = "IAM allows a role at most 10240 characters of inline policy."
   }
 }
 

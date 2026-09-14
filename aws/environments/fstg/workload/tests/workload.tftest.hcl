@@ -40,6 +40,17 @@ mock_provider "aws" {
   mock_resource "aws_eks_node_group" {
     defaults = { arn = "arn:aws:eks:us-east-1:123456789012:nodegroup/lex-mts-fstg-eks-main/lex-mts-fstg-ng-bootstrap/00000000-0000-0000-0000-000000000000" }
   }
+
+  mock_resource "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:123456789012:lex-mts-fstg-sqs-karpenter"
+      url = "https://sqs.us-east-1.amazonaws.com/123456789012/lex-mts-fstg-sqs-karpenter"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_event_rule" {
+    defaults = { arn = "arn:aws:events:us-east-1:123456789012:rule/lex-mts-fstg-evr-karpsched" }
+  }
 }
 
 # A mock provider cannot set computed attributes inside the cluster's vpc_config block, so the
@@ -150,6 +161,34 @@ run "opens_the_public_endpoint_only_to_named_operator_addresses" {
   assert {
     condition     = local.endpoint_public_access
     error_message = "A named operator address must open the public endpoint."
+  }
+}
+
+run "builds_the_karpenter_interruption_names" {
+  command = plan
+
+  assert {
+    condition     = local.karpenter_queue.name == "lex-mts-fstg-sqs-karpenter"
+    error_message = "The root must build the interruption queue's standard name (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = local.karpenter_rule_names == { scheduled_change = "lex-mts-fstg-evr-karpsched", spot_interruption = "lex-mts-fstg-evr-karpspot", rebalance = "lex-mts-fstg-evr-karprebal", instance_state_change = "lex-mts-fstg-evr-karpstate", capacity_reservation = "lex-mts-fstg-evr-karpcapres" }
+    error_message = "The root must name the five EventBridge rules that feed the interruption queue (MTS-IAC-101)."
+  }
+}
+
+run "keeps_the_interruption_queue_short_lived_and_service_encrypted" {
+  command = plan
+
+  assert {
+    condition     = local.karpenter_queue.message_retention_seconds == 300
+    error_message = "An interruption notice is worthless once the instance is gone; Karpenter's reference template retains it for 300 seconds."
+  }
+
+  assert {
+    condition     = local.karpenter_queue.kms_key_arn == ""
+    error_message = "The queue carries interruption notices rather than secrets, so it takes SQS-managed encryption instead of a customer key of its own."
   }
 }
 
