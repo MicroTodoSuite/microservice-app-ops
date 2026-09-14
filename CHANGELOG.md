@@ -1,3 +1,11 @@
+# [1.26.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.25.0...v1.26.0) (2026-09-14)
+
+
+### Features
+
+* **fprd:** implement full-profile security root ([17fc94e](https://github.com/MicroTodoSuite/microservice-app-ops/commit/17fc94e63bfd9b003d190180dc4c0662f91c5fff))
+* **fprd:** implement full-profile security root ([#92](https://github.com/MicroTodoSuite/microservice-app-ops/issues/92)) ([cd160e1](https://github.com/MicroTodoSuite/microservice-app-ops/commit/cd160e1df79d12f5255f10046ebaf3d9f500f900))
+
 # [1.25.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.24.0...v1.25.0) (2026-09-14)
 
 
