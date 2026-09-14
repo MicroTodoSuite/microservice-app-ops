@@ -38,7 +38,7 @@ The wrapper reads the cluster from `terraform show -json` of `eco/workload`'s st
 
 #### Legacy roots (2026-09-10 design)
 
-The rest of this section, and the state-safe runtime boundary above, describe the legacy roots, which the wrapper no longer plans. Release `v1.17.0` is the last whose wrapper maps them.
+The rest of this section, and the state-safe runtime boundary above, describe the legacy roots, which the wrapper no longer plans. Every release before this change maps them; `v1.19.0` was the latest on 2026-09-13.
 
 | Profile | Up order | Down order |
 | --- | --- | --- |

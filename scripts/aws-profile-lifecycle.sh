@@ -89,7 +89,7 @@ profile_records() {
 # roots, are written by ops spec 004 T012; their records arrive with them.
 require_mapped_profile() {
   [[ "$1" == "economical" ]] || \
-    fail "The $1 profile has no rebuilt roots yet: shd/networking and the fdev, fstg, and fprd roots arrive with ops spec 004 T012, and its records with them."
+    fail "The $1 profile is not mapped yet: its records join the wrapper once ops spec 004 T012 completes shd/networking and the fdev, fstg, and fprd roots."
 }
 
 # The single AWS account the repository declares (MTS-IAC-103).

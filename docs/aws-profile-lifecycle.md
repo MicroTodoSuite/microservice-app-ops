@@ -111,7 +111,7 @@ The wrapper no longer plans the legacy roots:
 - `aws/environments/dev/foundation`, whose state still holds the persistent resources under their old names until ops spec 004 moves and deletes them;
 - `aws/shared/egress` and the `full-dev`, `demo-full`, and `full-prod` foundations, whose inputs target a retired account.
 
-Release `v1.17.0` is the last whose wrapper maps them. Operate a legacy root, if ever needed, from a separate worktree at that tag.
+Every release before this change maps them; `v1.19.0` was the latest on 2026-09-13. Operate a legacy root, if ever needed, from a separate worktree at such a tag.
 
 ## Required local files
 

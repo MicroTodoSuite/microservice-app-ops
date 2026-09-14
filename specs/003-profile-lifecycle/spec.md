@@ -39,7 +39,7 @@
 Decided under the maintainer's delegation of pending decisions; ai-agents specs/001 T027.
 
 - **Q**: Which roots does each profile operate after the naming rebuild?
-  **A**: `economical` operates `aws/environments/eco/networking`, `aws/environments/eco/workload`, and `aws/environments/eco/security-irsa`. `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and `eco/security` hold the persistent resources and are never planned. `full` will operate `shd/networking` and the `fdev`, `fstg`, and `fprd` roots once ops spec 004 T012 writes them; until then it is refused. The legacy roots of the 2026-09-10 session are no longer planned; release `v1.17.0` is the last that maps them.
+  **A**: `economical` operates `aws/environments/eco/networking`, `aws/environments/eco/workload`, and `aws/environments/eco/security-irsa`. `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and `eco/security` hold the persistent resources and are never planned. `full` will operate `shd/networking` and the `fdev`, `fstg`, and `fprd` roots once ops spec 004 T012 writes them; until then it is refused. The legacy roots of the 2026-09-10 session are no longer planned; every release before this change maps them, `v1.19.0` being the latest on 2026-09-13.
 - **Q**: How does a rebuilt environment go down without destroying persistent resources?
   **A**: The IRSA pass and the cluster roots hold only runtime resources, so down destroys them. `eco/networking` is planned with `nat_gateways_enabled=false`, which removes only the NAT gateways, their Elastic IPs, and the private default routes. Its VPC stays, because `eco/security`'s security groups belong to it.
 - **Q**: How does a down transition delete a cluster whose deletion protection is on?
