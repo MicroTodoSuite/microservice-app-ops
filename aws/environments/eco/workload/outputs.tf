@@ -38,3 +38,13 @@ output "node_group_arn" {
   description = "ARN of the bootstrap node group."
   value       = module.bootstrap_node_group.node_group_arn
 }
+
+output "ingress_certificate_arn" {
+  description = "ARN of the ACM certificate for the economical host and its subdomains, which the load balancer controller discovers by host."
+  value       = aws_acm_certificate_validation.ingress.certificate_arn
+}
+
+output "ingress_record_names" {
+  description = "Names published as aliases of the shared load balancer; empty until the economical Ingresses create it."
+  value       = sort([for record in aws_route53_record.ingress : record.name])
+}

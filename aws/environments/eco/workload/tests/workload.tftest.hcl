@@ -196,7 +196,7 @@ run "names_the_economical_entry_point" {
 }
 
 run "validates_the_certificate_with_its_single_shared_record" {
-  command = apply
+  command = plan
 
   assert {
     condition     = length(aws_route53_record.certificate_validation) == 1 && one(values(aws_route53_record.certificate_validation)).zone_id == "Z08793112C5KLDBKRBY11"
