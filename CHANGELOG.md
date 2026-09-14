@@ -1,3 +1,11 @@
+# [1.31.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.30.0...v1.31.0) (2026-09-14)
+
+
+### Features
+
+* **karpenter:** implement the karpenter prerequisites of every full environment ([9d431a3](https://github.com/MicroTodoSuite/microservice-app-ops/commit/9d431a3c4b788b49ea4e48620890f9a87c8239a9))
+* **karpenter:** implement the karpenter prerequisites of every full environment ([#101](https://github.com/MicroTodoSuite/microservice-app-ops/issues/101)) ([dfe471a](https://github.com/MicroTodoSuite/microservice-app-ops/commit/dfe471ac3a16f9742489498d52bad81a72fd6d59))
+
 # [1.30.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.29.0...v1.30.0) (2026-09-14)
 
 
