@@ -1,0 +1,12 @@
+# Copy to fdev.tfvars (gitignored) and fill the account and deployment role
+# from the operator's approved account configuration.
+client               = "lex"
+project              = "mts"
+environment          = "fdev"
+aws_account_id       = "123456789012"
+aws_region           = "us-east-1"
+deploy_role_arn      = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+vpc_cidr             = "10.40.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs  = ["10.40.0.0/24", "10.40.1.0/24", "10.40.2.0/24"]
+private_subnet_cidrs = ["10.40.16.0/20", "10.40.32.0/20", "10.40.48.0/20"]

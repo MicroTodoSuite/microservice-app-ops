@@ -28,14 +28,14 @@ mock_provider "aws" {
 }
 
 variables {
-  client             = "lex"
-  project            = "mts"
-  environment        = "fdev"
-  aws_account_id     = "123456789012"
-  aws_region         = "us-east-1"
-  deploy_role_arn    = "arn:aws:iam::123456789012:role/terraform-deploy"
-  vpc_cidr           = "10.40.0.0/16"
-  availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  client               = "lex"
+  project              = "mts"
+  environment          = "fdev"
+  aws_account_id       = "123456789012"
+  aws_region           = "us-east-1"
+  deploy_role_arn      = "arn:aws:iam::123456789012:role/terraform-deploy"
+  vpc_cidr             = "10.40.0.0/16"
+  availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
   public_subnet_cidrs  = ["10.40.0.0/24", "10.40.1.0/24", "10.40.2.0/24"]
   private_subnet_cidrs = ["10.40.16.0/20", "10.40.32.0/20", "10.40.48.0/20"]
 }
@@ -65,17 +65,17 @@ run "reads_the_shared_hub_and_spoke_tables_by_standard_name" {
   command = plan
 
   assert {
-    condition     = data.aws_ec2_transit_gateway.shared.filter[0].name == "tag:Name" && data.aws_ec2_transit_gateway.shared.filter[0].values == ["lex-mts-shd-tgw-egress"]
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway.shared.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgw-egress"])
     error_message = "The spoke must discover the shared transit gateway by its standard Name tag."
   }
 
   assert {
-    condition     = data.aws_ec2_transit_gateway_vpc_attachment.hub.filter[0].name == "tag:Name" && data.aws_ec2_transit_gateway_vpc_attachment.hub.filter[0].values == ["lex-mts-shd-tgwa-egress"]
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_vpc_attachment.hub.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgwa-egress"])
     error_message = "The spoke must discover the hub attachment by its standard Name tag."
   }
 
   assert {
-    condition     = data.aws_ec2_transit_gateway_route_table.spoke.filter[0].name == "tag:Name" && data.aws_ec2_transit_gateway_route_table.spoke.filter[0].values == ["lex-mts-fdev-rtb-tgw"]
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_route_table.spoke.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-fdev-rtb-tgw"])
     error_message = "The spoke must discover its dedicated transit table by its standard Name tag."
   }
 }
