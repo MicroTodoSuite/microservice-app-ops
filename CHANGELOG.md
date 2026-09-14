@@ -1,3 +1,11 @@
+# [1.27.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.26.0...v1.27.0) (2026-09-14)
+
+
+### Features
+
+* **fstg:** implement full-profile workload root ([a85eb89](https://github.com/MicroTodoSuite/microservice-app-ops/commit/a85eb894ff7997cdcd439dd5aed8e94ea7edfd9a))
+* **fstg:** implement full-profile workload root ([#93](https://github.com/MicroTodoSuite/microservice-app-ops/issues/93)) ([05ceed4](https://github.com/MicroTodoSuite/microservice-app-ops/commit/05ceed43fe79901f9eda67abac86ca273f2de867))
+
 # [1.26.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.25.0...v1.26.0) (2026-09-14)
 
 
