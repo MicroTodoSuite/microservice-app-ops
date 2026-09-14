@@ -147,12 +147,12 @@ reject_text "aws" 'secret_string[[:space:]]*=' \
 # there is counted behind the explicit public_zone_delegation_verified input,
 # and that input defaults to false, so issuing one stays an operator's
 # decision taken after the registrar's name servers match the canonical zone's.
-acm_files="$(rg -l 'resource[[:space:]]+"aws_acm_' "$ROOT/aws" || true)"
+acm_files="$(rg -l -g '*.tf' '^resource[[:space:]]+"aws_acm_' "$ROOT/aws" || true)"
 for file in $acm_files; do
   relative="${file#"$ROOT"/}"
   [[ "$relative" =~ ^aws/environments/[a-z]+/workload/[a-z_]+\.tf$ ]] \
     || fail "ACM certificate creation is allowed only in an environment's workload root: $relative"
-  resources="$(grep -cE 'resource[[:space:]]+"aws_acm_' "$file" || true)"
+  resources="$(grep -cE '^resource[[:space:]]+"aws_acm_' "$file" || true)"
   gates="$(grep -cE 'count[[:space:]]*=[[:space:]]*var\.public_zone_delegation_verified[[:space:]]*\?[[:space:]]*1[[:space:]]*:[[:space:]]*0' "$file" || true)"
   [[ "$gates" -ge "$resources" ]] \
     || fail "ACM certificate creation must wait for verified registrar delegation: $relative"
