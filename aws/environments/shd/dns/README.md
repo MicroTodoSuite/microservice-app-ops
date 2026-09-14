@@ -10,6 +10,7 @@ FR-005).
 | Resource | Module | Name |
 | --- | --- | --- |
 | Public hosted zone | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-public` |
+| Canonical public hosted zone, created | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-canonical` |
 
 **The comment** is the legacy root's, word for word, so the first plan changes
 only the zone's tags.
@@ -19,8 +20,22 @@ only the zone's tags.
 
 **Records** belong to the roots that own their targets. This root holds none.
 
-**The canonical `microtodosuite.online` zone** of full-platform spec 009 was
-never created. It is not part of this root.
+**The canonical zone** `microtodosuite.online` is the only public domain for
+new records (gitops spec 009 FR-044), and every profile's subdomains live in
+it:
+
+- `eco.microtodosuite.online` and `dev`, `staging`, and `demo.eco` for the
+  economical environments;
+- `full-dev`, `full-staging`, and `full-prod-aws.microtodosuite.online` for
+  the full clusters;
+- `app.microtodosuite.online`, reserved for the final production traffic,
+  which needs a named traffic owner.
+
+Unlike the legacy zone, it is created here, and gets new name servers. The
+registrar, Namecheap, must delegate the domain to the four names in
+`canonical_zone_name_server_names`, under **Nameservers → Custom DNS**. Until
+it does, nothing in the zone resolves publicly. The legacy zone is neither
+replaced nor used for new records.
 
 ## Plan and apply
 
@@ -37,4 +52,6 @@ timestamped state backup (MTS-IAC-107).
 
 ## Outputs
 
-`public_zone_id`, `public_zone_arn`, and `public_zone_name_server_names`.
+`public_zone_id`, `public_zone_arn`, and `public_zone_name_server_names` for
+the legacy zone; `canonical_zone_id`, `canonical_zone_arn`, and
+`canonical_zone_name_server_names` for the canonical one.
