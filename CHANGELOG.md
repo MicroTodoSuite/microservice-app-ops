@@ -1,3 +1,11 @@
+## [1.16.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.16.0...v1.16.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **rebuild:** map the security irsa plan domain ([17b13eb](https://github.com/MicroTodoSuite/microservice-app-ops/commit/17b13eb78f9069f0f09e5fd27491253803fa6d00))
+* **rebuild:** map the security irsa plan domain ([#81](https://github.com/MicroTodoSuite/microservice-app-ops/issues/81)) ([fa0dbf2](https://github.com/MicroTodoSuite/microservice-app-ops/commit/fa0dbf21aecf3e011a433b659a7e0effbb276e7d)), closes [#75](https://github.com/MicroTodoSuite/microservice-app-ops/issues/75)
+
 # [1.16.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.15.0...v1.16.0) (2026-09-14)
 
 
