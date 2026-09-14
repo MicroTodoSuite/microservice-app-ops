@@ -58,7 +58,7 @@ Decided under the maintainer's delegation, once ops spec 004 T012 delivered the 
 - **Q**: Why can a full up transition take two bundles?
   **A**: The spokes read the hub's transit gateway at plan time. While `shd/networking`'s state holds none, the up bundle holds only the hub; the next up bundle adds the spokes and the clusters.
 - **Q**: What does the full lifecycle not cover?
-  **A**: The full environments have no IRSA pass and no Karpenter prerequisites yet. Their records join when those roots land. The first creation of every root is the rebuild's reviewed apply, not the lifecycle.
+  **A**: The full environments had no IRSA pass and have no Karpenter prerequisites yet. The IRSA passes landed on 2026-09-14 and their records joined the wrapper; Karpenter's records join when its roots land. The first creation of every root is the rebuild's reviewed apply, not the lifecycle.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -127,7 +127,7 @@ FR-001 to FR-005, FR-009, and FR-010 describe the legacy foundation and egress r
 - **FR-024**: Every cluster root MUST expose `cluster_deletion_protection`, defaulting to `true`. While any cluster root's cluster is protected, a down plan MUST hold only the protected cluster roots, each planned with `cluster_deletion_protection=false`, MUST reject a plan that deletes anything, and MUST tell the operator to plan down again.
 - **FR-025**: Every command that reads or mutates remote state MUST verify that AWS STS, `AWS_ACCOUNT_ID` in `config/aws-account.env`, and each root's literal `aws_account_id` name one account, and that the profile's roots name one literal `aws_region`.
 - **FR-026**: Until the rebuilt full-profile roots exist (ops spec 004 T012), every `full` command that reads state MUST stop and name that task. *Superseded on 2026-09-14 by FR-027 to FR-029, once T012 delivered the roots.*
-- **FR-027**: The `full` profile MUST plan `aws/environments/shd/networking`, then `fdev`, `fstg`, and `fprd` networking, then their workload roots, in that order up and in reverse down. It MUST NOT plan `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, or any environment's security root.
+- **FR-027**: The `full` profile MUST plan `aws/environments/shd/networking`, then `fdev`, `fstg`, and `fprd` networking, then their workload roots, then their `security-irsa` roots, in that order up and in reverse down. It MUST NOT plan `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, or any environment's security root.
 - **FR-028**: A full down plan MUST destroy each workload root, plan each spoke with `transit_enabled=false` under the egress filter, and destroy `shd/networking`. A full up plan MUST plan each spoke with `transit_enabled=true`. While `shd/networking`'s state holds no transit gateway, the up plan MUST hold only `shd/networking` and tell the operator to plan up again.
 - **FR-029**: Each spoke root MUST expose `transit_enabled`, defaulting to `true`; `false` MUST remove only the attachment, its route table association, its transit gateway routes, and the private transit routes, and MUST read nothing from the hub.
 

@@ -21,7 +21,7 @@ The wrapper owns only orchestration and evidence. Since 2026-09-13 it plans the 
 | Profile | Up order | Down order |
 | --- | --- | --- |
 | `economical` | `eco/networking` (NAT on), `eco/workload`, `eco/security-irsa` | `eco/security-irsa` (destroy), `eco/workload` (destroy), `eco/networking` (NAT off) |
-| `full` | `shd/networking`, `fdev`/`fstg`/`fprd` networking (transit on), `fdev`/`fstg`/`fprd` workload | the three workload roots (destroy), the three spokes (transit off), `shd/networking` (destroy) |
+| `full` | `shd/networking`, `fdev`/`fstg`/`fprd` networking (transit on), `fdev`/`fstg`/`fprd` workload, `fdev`/`fstg`/`fprd` security-irsa | the three IRSA passes (destroy), the three workload roots (destroy), the three spokes (transit off), `shd/networking` (destroy) |
 
 The persistent roots, `shd/state`, `shd/security`, `shd/registry`, `shd/dns`, and `eco/security`, never appear. `eco/networking` is not destroyed: `eco/security`'s security groups belong to its VPC. Its NAT gateways and their public IPv4 addresses are charged hourly, so they are the part that goes down.
 
