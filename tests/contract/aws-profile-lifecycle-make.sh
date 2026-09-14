@@ -65,6 +65,8 @@ require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=economical\` again" \
   "the second up bundle must be planned through the primary Make command"
 require_file_text "$RUNBOOK" "run the same \`make plan-down PROFILE=economical\` command again" \
   "the destroy bundle after the unprotect bundle must be planned through the primary Make command"
+require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=full\` again" \
+  "the full-profile bundle after the hub bundle must be planned through the primary Make command"
 require_file_text "$RUNBOOK" "make snapshot-volumes PROFILE=" \
   "the runbook must snapshot persistent volumes before GitOps quiescence"
 

@@ -65,18 +65,36 @@ run "reads_the_shared_hub_and_spoke_tables_by_standard_name" {
   command = plan
 
   assert {
-    condition     = toset(one([for filter in data.aws_ec2_transit_gateway.shared.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgw-egress"])
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway.shared[0].filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgw-egress"])
     error_message = "The spoke must discover the shared transit gateway by its standard Name tag."
   }
 
   assert {
-    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_vpc_attachment.hub.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgwa-egress"])
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_vpc_attachment.hub[0].filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-shd-tgwa-egress"])
     error_message = "The spoke must discover the hub attachment by its standard Name tag."
   }
 
   assert {
-    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_route_table.spoke.filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-fstg-rtb-tgw"])
+    condition     = toset(one([for filter in data.aws_ec2_transit_gateway_route_table.spoke[0].filter : filter if filter.name == "tag:Name"]).values) == toset(["lex-mts-fstg-rtb-tgw"])
     error_message = "The spoke must discover its dedicated transit table by its standard Name tag."
+  }
+}
+
+run "removes_only_the_transit_egress_when_transit_is_disabled" {
+  command = plan
+
+  variables {
+    transit_enabled = false
+  }
+
+  assert {
+    condition     = local.transit_attachment == null && length(data.aws_ec2_transit_gateway.shared) == 0 && length(data.aws_ec2_transit_gateway_vpc_attachment.hub) == 0 && length(data.aws_ec2_transit_gateway_route_table.hub) == 0 && length(data.aws_ec2_transit_gateway_route_table.spoke) == 0
+    error_message = "Without transit, the spoke plans no attachment and reads nothing from the hub, which the full profile's down transition destroys."
+  }
+
+  assert {
+    condition     = toset(keys(local.subnets)) == toset(["puba", "pubb", "pubc", "priva", "privb", "privc"]) && alltrue([for key in ["priva", "privb", "privc"] : local.subnets[key].egress == "none" && local.subnets[key].route_table_name == "lex-mts-fstg-rtb-priv${substr(key, 4, 1)}"])
+    error_message = "Without transit, the spoke keeps every subnet and route table, so its VPC and the security groups in it survive the full profile's down transition."
   }
 }
 
