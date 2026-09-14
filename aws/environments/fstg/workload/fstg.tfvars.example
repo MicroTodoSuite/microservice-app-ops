@@ -20,5 +20,5 @@ addon_versions = {
 }
 node_release_version      = "1.35.6-20260818"
 node_instance_types       = ["m7i-flex.large"]
-node_scaling              = { min_size = 2, desired_size = 2, max_size = 4 }
+node_scaling              = { min_size = 1, desired_size = 1, max_size = 2 }
 node_root_volume_size_gib = 50

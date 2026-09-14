@@ -254,6 +254,38 @@ state_holds() {
   grep -Eq "$pattern" <<<"$state"
 }
 
+# Capacity limit L1 (decision D2 as amended on 2026-09-13). The Region's VPC quota
+# holds both profiles with nothing to spare, so an up transition refuses to start
+# while the VPCs that exist plus the ones it would create exceed the quota: a
+# leftover default VPC would otherwise fail the last spoke after the hub and the
+# first spokes already exist. A transition that creates no VPC reads nothing.
+assert_vpc_capacity() {
+  local profile=$1
+  local region existing quota missing=0
+  local name relative_root backend_name variables_name kind root
+
+  while IFS='|' read -r name relative_root backend_name variables_name kind; do
+    case "$kind" in
+      networking | hub | spoke) ;;
+      *) continue ;;
+    esac
+    root="$ROOT_DIR/$relative_root"
+    state_holds "$root" "$root/$backend_name" '\.aws_vpc\.this$' || missing=$((missing + 1))
+  done < <(profile_records "$profile" up)
+  ((missing > 0)) || return 0
+
+  region="$(profile_region "$profile")"
+  existing="$(aws ec2 describe-vpcs --region "$region" --query 'length(Vpcs)' --output text)"
+  quota="$(aws service-quotas get-service-quota --region "$region" --service-code vpc \
+    --quota-code L-F678F1CE --query 'Quota.Value' --output text)"
+  quota="${quota%%.*}"
+  [[ "$existing" =~ ^[0-9]+$ && "$quota" =~ ^[0-9]+$ ]] || \
+    fail "Could not read the VPC count or the VPCs-per-Region quota in $region."
+  ((existing + missing <= quota)) || \
+    fail "$region holds $existing VPCs and this $profile up transition creates $missing more, beyond the VPCs-per-Region quota of $quota. Delete the default VPC, or any other VPC outside the platform, first (capacity limit L1)."
+  printf 'VPCS   %s in %s, %s to create, quota %s\n' "$existing" "$region" "$missing" "$quota"
+}
+
 contains_value() {
   local needle=$1
   shift
@@ -440,6 +472,9 @@ plan_profile() {
 
   verify_git_clean
   verify_profile "$profile" "$direction"
+  if [[ "$direction" == "up" ]]; then
+    assert_vpc_capacity "$profile"
+  fi
   if [[ "$direction" == "down" ]]; then
     verify_gitops_revision "$gitops_revision"
     volume_record="$(verify_volume_record "$profile" "$gitops_revision" "$supplied_volume_record")"

@@ -113,6 +113,7 @@ Every apply first writes an external state backup under `~/backups-microtodosuit
 Use the same commands with `PROFILE=full` only after `make check PROFILE=full` passes.
 
 - **Up** plans `shd/networking`, then `fdev`, `fstg`, and `fprd` networking with their transit egress, then their workload roots, then their IRSA passes.
+- **VPC capacity (limit L1).** Before an up transition plans anything, the wrapper counts the VPCs its networking roots would create and refuses while the Region's VPCs plus those exceed the VPCs-per-Region quota (`L-F678F1CE`). `us-east-1` allows five, and the economical VPC, the hub, and the three spokes need all five, so the default VPC must be deleted first. A transition that creates no VPC reads neither value.
 - **Down** destroys the three IRSA passes and the three clusters, plans each spoke without its transit egress, and destroys the hub last, once no attachment remains. The spokes' plans must pass the same egress filter as `eco/networking`.
 - **While a cluster is absent, the IRSA passes wait**, exactly as in the economical profile: they read their cluster's issuer at plan time, so the bundle shows `Pass: cluster-first` and the next `make plan-up PROFILE=full` adds them.
 

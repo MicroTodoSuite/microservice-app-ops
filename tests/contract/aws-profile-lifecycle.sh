@@ -321,13 +321,19 @@ apply_plan_argument="$(<"$capture_dir/apply-plan-argument")"
 [[ "$apply_plan_argument" == /* ]] || \
   fail "apply must pass an absolute saved-plan path after Terraform -chdir"
 
+# Capacity limit L1 (decision D2 as amended on 2026-09-13): the wrapper reads the
+# Region's VPCs-per-Region quota before an up transition plans anything.
+require_text "scripts/aws-profile-lifecycle.sh" 'quota-code L-F678F1CE' \
+  "an up transition must read the VPCs-per-Region quota before it plans (capacity limit L1)"
+
 # The sandbox is a copy of the wrapper with the runtime roots of both profiles,
 # real Git repositories, and fake AWS and Terraform binaries, so nothing reaches
 # AWS. The fake Terraform logs every call as "<environment>/<domain> <arguments>".
 # CLUSTER_PROTECTION unset means no cluster root's state holds a cluster; true or
 # false is the deletion protection of the cluster each holds. HUB_PRESENT set
 # means shd/networking's state holds the transit gateway. PLAN_JSON replaces
-# every saved plan's JSON.
+# every saved plan's JSON. VPC_COUNT is how many VPCs the Region holds (1 when
+# unset), and SPOKES_PRESENT set means every networking root's state holds its VPC.
 sandbox_ops="$volume_sandbox/ops"
 sandbox_gitops="$volume_sandbox/microservice-app-gitops"
 terraform_log="$volume_sandbox/terraform.log"
@@ -374,6 +380,8 @@ printf '%s\n' \
   '  *"ec2 create-snapshot"*) printf "snap-0aaa\n" ;;' \
   '  *"ec2 wait snapshot-completed"*) ;;' \
   '  *"ec2 describe-snapshots"*) printf "snap-0aaa\tcompleted\n" ;;' \
+  '  *"ec2 describe-vpcs"*) printf "%s\n" "${VPC_COUNT:-1}" ;;' \
+  '  *"service-quotas get-service-quota"*) printf "5.0\n" ;;' \
   '  *) exit 2 ;;' \
   'esac' \
   >"$volume_bin/aws"
@@ -407,7 +415,9 @@ case "${2:-}" in
     if [[ "$root" == */workload && -n "${CLUSTER_PROTECTION:-}" ]]; then
       printf 'module.eks_cluster.aws_eks_cluster.this\n'
     elif [[ "$root" == shd/networking && -n "${HUB_PRESENT:-}" ]]; then
-      printf 'module.transit_egress.aws_ec2_transit_gateway.this\n'
+      printf 'module.egress_network.aws_vpc.this\nmodule.transit_egress.aws_ec2_transit_gateway.this\n'
+    elif [[ "$root" == */networking && -n "${SPOKES_PRESENT:-}" ]]; then
+      printf 'module.network.aws_vpc.this\n'
     fi
     ;;
   *) exit 2 ;;
@@ -605,6 +615,35 @@ in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=false ./scripts/aws-profile-life
   fail "a full up plan with the hub and the clusters must succeed"
 [[ "$(bundle_roots "$(latest_bundle full up)")" == "shd-networking fdev-networking fstg-networking fprd-networking fdev-workload fstg-workload fprd-workload fdev-security-irsa fstg-security-irsa fprd-security-irsa" ]] || \
   fail "with the clusters, the full up bundle must also plan the three IRSA passes"
+
+# Capacity limit L1 (decision D2 as amended on 2026-09-13). The Region allows five
+# VPCs and the two profiles together need all five, so an up transition refuses to
+# start while the VPCs the Region holds plus the ones it would create exceed the
+# quota. A leftover default VPC would otherwise fail the last spoke after the hub
+# and the first spokes already exist.
+fresh_transition
+output="$(in_sandbox env VPC_COUNT=2 ./scripts/aws-profile-lifecycle.sh plan full up 2>&1)" && \
+  fail "a full up plan must refuse when the hub and the three spokes would exceed the VPC quota"
+grep -q 'capacity limit L1' <<<"$output" || \
+  fail "the VPC quota refusal must name capacity limit L1"
+[[ -z "$(latest_bundle full up)" ]] || \
+  fail "a refused up transition must save no bundle"
+if grep -Eq '^[a-z]+/[a-z-]+ plan ' "$terraform_log"; then
+  fail "a refused up transition must plan no root"
+fi
+
+fresh_transition
+in_sandbox env HUB_PRESENT=1 VPC_COUNT=2 ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null || \
+  fail "with the hub's VPC already counted, three spokes beside it and the economical VPC fit the quota of five"
+
+fresh_transition
+if in_sandbox env HUB_PRESENT=1 VPC_COUNT=3 ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null 2>&1; then
+  fail "with the hub and one VPC outside the platform, three more spokes exceed the quota of five"
+fi
+
+fresh_transition
+in_sandbox env HUB_PRESENT=1 SPOKES_PRESENT=1 CLUSTER_PROTECTION=false VPC_COUNT=6 ./scripts/aws-profile-lifecycle.sh plan full up >/dev/null || \
+  fail "an up transition that creates no VPC must not be held back by the VPC quota"
 
 # Full down destroys the clusters, removes each spoke's transit egress, and
 # destroys the hub last, once no attachment remains. The spokes are never

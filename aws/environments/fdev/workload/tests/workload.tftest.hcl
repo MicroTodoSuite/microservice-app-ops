@@ -91,7 +91,7 @@ variables {
   }
   node_release_version      = "1.35.6-20260818"
   node_instance_types       = ["m7i-flex.large"]
-  node_scaling              = { min_size = 2, desired_size = 2, max_size = 4 }
+  node_scaling              = { min_size = 1, desired_size = 1, max_size = 2 }
   node_root_volume_size_gib = 50
 }
 
@@ -197,6 +197,36 @@ run "rejects_an_endpoint_open_to_the_internet" {
 
   variables {
     endpoint_public_access_cidrs = ["0.0.0.0/0"]
+  }
+
+  expect_failures = [var.endpoint_public_access_cidrs]
+}
+
+run "rejects_more_than_one_bootstrap_node" {
+  command = plan
+
+  variables {
+    node_scaling = { min_size = 2, desired_size = 2, max_size = 4 }
+  }
+
+  expect_failures = [var.node_scaling]
+}
+
+run "rejects_a_bootstrap_group_that_can_grow_past_two_nodes" {
+  command = plan
+
+  variables {
+    node_scaling = { min_size = 1, desired_size = 1, max_size = 3 }
+  }
+
+  expect_failures = [var.node_scaling]
+}
+
+run "rejects_a_public_endpoint_block_wider_than_one_address" {
+  command = plan
+
+  variables {
+    endpoint_public_access_cidrs = ["203.0.113.0/24"]
   }
 
   expect_failures = [var.endpoint_public_access_cidrs]

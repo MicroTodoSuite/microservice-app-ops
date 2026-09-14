@@ -82,11 +82,11 @@ variable "service_ipv4_cidr" {
 
 variable "endpoint_public_access_cidrs" {
   type        = list(string)
-  description = "Operator CIDR blocks allowed to reach the public API endpoint, such as /32 addresses; [] keeps the API private. Real addresses belong only in the gitignored fstg.tfvars."
+  description = "Operator addresses allowed to reach the public API endpoint, each a /32 block; [] keeps the API private. Real addresses belong only in the gitignored fstg.tfvars."
 
   validation {
-    condition     = alltrue([for cidr in var.endpoint_public_access_cidrs : can(cidrhost(cidr, 0)) && !endswith(cidr, "/0")])
-    error_message = "Every public endpoint CIDR must be a valid IPv4 block narrower than /0; the API is never open to the whole internet."
+    condition     = alltrue([for cidr in var.endpoint_public_access_cidrs : can(cidrhost(cidr, 0)) && endswith(cidr, "/32")])
+    error_message = "Every public endpoint CIDR must be a single IPv4 address, a /32 block: the API opens only to named operator addresses, never to a range."
   }
 }
 
@@ -164,6 +164,13 @@ variable "node_scaling" {
   validation {
     condition     = var.node_scaling.min_size >= 1 && var.node_scaling.min_size <= var.node_scaling.desired_size && var.node_scaling.desired_size <= var.node_scaling.max_size
     error_message = "The bootstrap group keeps at least one node, with min_size <= desired_size <= max_size."
+  }
+
+  # Capacity limit L3 (decision D2): one bootstrap node per full cluster; Karpenter's Spot
+  # capacity provides the rest. A maximum of two leaves room to replace the node by hand.
+  validation {
+    condition     = var.node_scaling.min_size == 1 && var.node_scaling.desired_size == 1 && var.node_scaling.max_size <= 2
+    error_message = "A full cluster keeps exactly one bootstrap node, able to grow to two at most (capacity limit L3)."
   }
 }
 
