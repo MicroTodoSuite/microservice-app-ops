@@ -1,3 +1,11 @@
+# [1.15.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.14.0...v1.15.0) (2026-09-14)
+
+
+### Features
+
+* **eco:** add the economical irsa pass ([#77](https://github.com/MicroTodoSuite/microservice-app-ops/issues/77)) ([c6d35cb](https://github.com/MicroTodoSuite/microservice-app-ops/commit/c6d35cb52ea46441d54c14bc4dc837431c18089a)), closes [#73](https://github.com/MicroTodoSuite/microservice-app-ops/issues/73) [#75](https://github.com/MicroTodoSuite/microservice-app-ops/issues/75) [MicroTodoSuite/.github#20](https://github.com/MicroTodoSuite/.github/issues/20) [#76](https://github.com/MicroTodoSuite/microservice-app-ops/issues/76) [MicroTodoSuite/.github#20](https://github.com/MicroTodoSuite/.github/issues/20) [#75](https://github.com/MicroTodoSuite/microservice-app-ops/issues/75)
+* **eco:** implement the economical irsa pass ([e3b0a6b](https://github.com/MicroTodoSuite/microservice-app-ops/commit/e3b0a6b318f987875ff3813d1848841aeabf8628))
+
 # [1.14.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.13.0...v1.14.0) (2026-09-13)
 
 
