@@ -1,3 +1,11 @@
+# [1.17.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.16.1...v1.17.0) (2026-09-14)
+
+
+### Features
+
+* **shd:** add the terraform deploy role ([#80](https://github.com/MicroTodoSuite/microservice-app-ops/issues/80)) ([4e62041](https://github.com/MicroTodoSuite/microservice-app-ops/commit/4e62041134cfc351c707cc1c6895a1daf419aa6e)), closes [#77](https://github.com/MicroTodoSuite/microservice-app-ops/issues/77)
+* **shd:** implement the terraform deploy role ([5c8e717](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5c8e717f6ae108e2f39404bb2ac3f6dd84284109))
+
 ## [1.16.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.16.0...v1.16.1) (2026-09-14)
 
 
