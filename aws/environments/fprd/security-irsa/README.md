@@ -13,6 +13,7 @@ trusts that cluster's OIDC issuer.
 | Trivy Operator image reader | `iam-role-v1.0.0` | `lex-mts-fprd-role-trivyecr` |
 | Kyverno image verifier | `iam-role-v1.0.0` | `lex-mts-fprd-role-kyvernoecr` |
 | Karpenter controller | `iam-role-v1.0.0` | `lex-mts-fprd-role-karpenter` |
+| AWS Load Balancer Controller | `iam-role-v1.0.0` | `lex-mts-fprd-role-lbcontrol` |
 
 **Trust.** Every role trusts only this cluster's OIDC provider, with the
 `sts.amazonaws.com` audience and one exact service account:
@@ -25,6 +26,7 @@ trusts that cluster's OIDC issuer.
 | `trivyecr` | `security/trivy-operator` | ECR authentication; `BatchGetImage` and `GetDownloadUrlForLayer` on `lex-mts-shd-ecr-<key>` |
 | `kyvernoecr` | `kyverno/kyverno-admission-controller` | ECR authentication; `BatchCheckLayerAvailability`, `BatchGetImage`, `DescribeImages`, and `GetDownloadUrlForLayer` on `lex-mts-shd-ecr-<key>` |
 | `karpenter` | `kube-system/karpenter` | the eighteen statements of Karpenter's reference template, scoped to this cluster |
+| `lbcontrol` | `kube-system/aws-load-balancer-controller` | the sixteen statements of the upstream v3.5.0 IAM policy, every cluster-tag condition naming this cluster |
 
 The secrets are `fprd/security`'s and the image repositories are
 `shd/registry`'s, both read by their standard names. This root creates no
@@ -67,6 +69,39 @@ policy keeps the role within the 10240 characters IAM allows; the document is
 The queue is `fprd/workload`'s and the node role is `fprd/security`'s, both read
 by their standard names.
 
+## The AWS Load Balancer Controller role
+
+Its permissions are the upstream IAM policy of the release GitOps vendors,
+`kubernetes-sigs/aws-load-balancer-controller` v3.5.0
+`docs/install/iam_policy.json` (sha256
+`16f232c9d9f79366fe949c4550ad517a202380058a9e48d45a4e215044a20a6a`), the file
+the Amazon EKS User Guide tells operators to download for each release. Three
+things differ from the upstream file:
+
+- **Statement identifiers.** Each of the sixteen statements has one, such as
+  `ManageClusterLoadBalancersAndTargetGroups`, so a review can line it up
+  against the upstream file.
+- **Resource ARNs.** They name this partition, Region, and account instead of
+  `arn:aws:*:*:*`.
+- **Cluster-tag conditions.** Upstream, a statement that creates, retags,
+  modifies, or deletes a load balancer, target group, or security group
+  accepts any resource with an `elbv2.k8s.aws/cluster` tag. Here it requires
+  the tag to be `lex-mts-fprd-eks-main`, the value the controller writes (its
+  `pkg/deploy/tracking` provider tags every resource with the cluster name).
+  The three full clusters share one account, so without this change one
+  cluster's controller could delete another's load balancers.
+
+The unconditioned statements stay as upstream. They cover describing network
+and load balancer state, certificates and WAF, creating security groups, and
+the security group ingress rules the controller opens on node groups. The
+policy is well within the 10240 characters IAM allows a role inline, and a
+test holds that line.
+
+**What GitOps substitutes.** `irsa_role_arns["lbcontrol"]` goes into the
+`eks.amazonaws.com/role-arn` annotation of the vendored service account, and
+`lex-mts-fprd-eks-main` into the controller's `--cluster-name`. A different
+cluster name would make every create call fail, which is the intent.
+
 ## Plan and apply
 
 ```bash
@@ -84,5 +119,5 @@ going up and first going down (`docs/aws-profile-lifecycle.md`).
 
 - `oidc_provider_arn`
 - `irsa_role_arns`, keyed by `jwt<code>`, `obssecret`, `secsecret`,
-  `trivyecr`, `kyvernoecr`, and `karpenter`: the values the GitOps annotations
+  `trivyecr`, `kyvernoecr`, `karpenter`, and `lbcontrol`: the values the GitOps annotations
   take

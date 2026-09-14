@@ -6,6 +6,6 @@ output "oidc_provider_arn" {
 }
 
 output "irsa_role_arns" {
-  description = "IRSA role ARNs keyed by role key: jwt<code>, obssecret, secsecret, trivyecr, kyvernoecr, and karpenter."
+  description = "IRSA role ARNs keyed by role key: jwt<code>, obssecret, secsecret, trivyecr, kyvernoecr, karpenter, and lbcontrol."
   value       = { for key, role in module.irsa_roles : key => role.role_arn }
 }
