@@ -1,0 +1,76 @@
+# fstg/security
+
+The full-staging environment's security root, second in the PC-IAC-022 order
+(ops spec 004 T011, ai-agents specs/001 T025). It holds what `fstg/workload`
+needs before it can create the cluster.
+
+| Resource | Module | Name |
+| --- | --- | --- |
+| Control-plane role: `AmazonEKSClusterPolicy`, and use of the secrets key | `iam-role-v1.0.0` | `lex-mts-fstg-role-cluster` |
+| Managed nodes' role: `AmazonEKSWorkerNodePolicy`, `AmazonEC2ContainerRegistryPullOnly` | `iam-role-v1.0.0` | `lex-mts-fstg-role-node` |
+| Pod Identity role of the `vpc-cni` add-on: `AmazonEKS_CNI_Policy` | `iam-role-v1.0.0` | `lex-mts-fstg-role-vpccni` |
+| Pod Identity role of the `aws-ebs-csi-driver` add-on: `AmazonEBSCSIDriverPolicy` | `iam-role-v1.0.0` | `lex-mts-fstg-role-ebscsi` |
+| Key for Kubernetes secrets | `kms-key-v1.0.0` | `alias/lex-mts-fstg-kms-eks` |
+| Key for the control-plane log group | `kms-key-v1.0.0` | `alias/lex-mts-fstg-kms-ekslogs` |
+| Extra control-plane security group | `security-group-v1.0.0` | `lex-mts-fstg-sg-cluster` |
+| Node security group | `security-group-v1.0.0` | `lex-mts-fstg-sg-node` |
+| JWT signing secrets, one per application environment | `secret-v1.0.0` | `lex-mts-fstg-sm-jwt{dev,stg,prd,dmo}` |
+| Slack webhook secrets | `secret-v1.0.0` | `lex-mts-fstg-sm-slackobs`, `lex-mts-fstg-sm-slacksec` |
+
+**The security groups** keep the rules the legacy upstream EKS module gave
+its groups, now written out.
+- **Cluster group:** the nodes may reach the API on 443.
+- **Node group, ingress:**
+  - from the cluster group, on 443, 4443, 6443, 8443, 9443, 10250, and 10251;
+  - between nodes, CoreDNS on 53 over TCP and UDP, and TCP on the ephemeral ports 1025–65535.
+- **Node group, egress:** all egress, the recorded Trivy AWS-0104 exception (`docs/iac-exceptions.md`). Its inline suppression covers only that module call.
+- **Karpenter:** the node group carries Karpenter's discovery tag.
+
+**The keys.**
+- The logs key lets CloudWatch Logs in this region use it only for
+  `/aws/eks/lex-mts-fstg-eks-main/cluster`.
+- The secrets key keeps the AWS default policy, which delegates to IAM in the
+  account. The cluster role's inline policy allows the four actions the control
+  plane needs on it.
+
+**The secrets.** Terraform owns only the containers. The values are copied or
+regenerated in the approved cutover (ops spec 004 T014), and the Slack
+webhooks are supplied by a person.
+
+**The VPC** is read from `fstg/networking` by its standard name.
+
+**The add-on roles** use EKS Pod Identity, not IRSA. A Pod Identity role
+trusts `pods.eks.amazonaws.com` and needs no OIDC provider. It can therefore
+exist before the cluster, and the CNI is authorized from the first node's boot.
+Each role's trust admits only its add-on's service account in
+`lex-mts-fstg-eks-main`, through the session tags Pod Identity sets
+(`eks-cluster-arn`, `kubernetes-namespace`, `kubernetes-service-account`).
+`fstg/workload` associates the roles through `eks-cluster`'s
+`pod_identity_associations`, with the `eks-pod-identity-agent` add-on.
+
+**Not here, because they come in the IRSA pass after `fstg/workload`** (it
+needs the cluster's OIDC issuer): the IRSA roles of the in-cluster
+applications, the load balancer controller, the secret readers, and the
+Kyverno image verifier. Their GitOps service-account annotations keep their
+form.
+
+## Plan and apply
+
+```bash
+cp fstg.tfvars.example fstg.tfvars                         # fill aws_account_id
+cp security.s3.tfbackend.example security.s3.tfbackend   # fill from shd/state's outputs
+terraform -chdir=aws/environments/fstg/security init -backend-config=security.s3.tfbackend
+terraform -chdir=aws/environments/fstg/security plan -input=false -var-file=fstg.tfvars -out=fstg-security.tfplan
+```
+
+An apply uses only that saved plan, after the maintainer approves it
+(MTS-IAC-107), and after `fstg/networking`. The state key is new, so the apply
+records a `no-prior-state` receipt.
+
+## Outputs
+
+- `cluster_role_arn`, `node_role_arn`
+- `addon_role_arns`, keyed by `vpccni` and `ebscsi`
+- `secrets_key_arn`, `logs_key_arn`
+- `cluster_security_group_id`, `node_security_group_id`
+- `jwt_secret_arns`, `webhook_secret_arns`
