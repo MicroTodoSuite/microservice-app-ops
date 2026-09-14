@@ -1,3 +1,11 @@
+# [1.16.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.15.0...v1.16.0) (2026-09-14)
+
+
+### Features
+
+* **rebuild:** integrate rebuilt plan contract self-test ([e000e13](https://github.com/MicroTodoSuite/microservice-app-ops/commit/e000e13ab45f16ae55be6fc479112d0bc89611d5))
+* **rebuild:** integrate rebuilt plan contract self-test ([#79](https://github.com/MicroTodoSuite/microservice-app-ops/issues/79)) ([5e31c90](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5e31c90dc7906536027abaca122b96e7e04ffcd9))
+
 # [1.15.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.14.0...v1.15.0) (2026-09-14)
 
 
