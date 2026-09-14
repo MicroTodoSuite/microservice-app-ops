@@ -64,7 +64,7 @@ override_resource {
 override_data {
   target = data.archive_file.github_webhook_handler
   values = {
-    output_path        = "/tmp/github-webhook-handler.zip"
+    output_path         = "/tmp/github-webhook-handler.zip"
     output_base64sha256 = "ZmFrZS1oYXNoLWZvci10ZXN0LW9ubHk="
   }
 }
@@ -72,23 +72,23 @@ override_data {
 override_data {
   target = data.archive_file.slack_interaction_handler
   values = {
-    output_path        = "/tmp/slack-interaction-handler.zip"
+    output_path         = "/tmp/slack-interaction-handler.zip"
     output_base64sha256 = "ZmFrZS1oYXNoLWZvci10ZXN0LW9ubHk="
   }
 }
 
 variables {
   expected_account_id = "575172595729"
-  slack_channel_id     = "C0000000000"
+  slack_channel_id    = "C0000000000"
 
   slack_approver_app_id = "123456"
 
-  github_webhook_secret_wo         = "test-github-webhook-secret"
-  github_webhook_secret_wo_version = 1
-  slack_signing_secret_wo          = "test-slack-signing-secret"
-  slack_signing_secret_wo_version  = 1
-  slack_bot_token_wo               = "xoxb-test-token"
-  slack_bot_token_wo_version       = 1
+  github_webhook_secret_wo          = "test-github-webhook-secret"
+  github_webhook_secret_wo_version  = 1
+  slack_signing_secret_wo           = "test-slack-signing-secret"
+  slack_signing_secret_wo_version   = 1
+  slack_bot_token_wo                = "xoxb-test-token"
+  slack_bot_token_wo_version        = 1
   github_app_private_key_wo         = "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----"
   github_app_private_key_wo_version = 1
   anthropic_api_key_wo              = "sk-ant-test"
