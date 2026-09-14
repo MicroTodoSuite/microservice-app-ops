@@ -1,3 +1,11 @@
+# [1.20.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.19.0...v1.20.0) (2026-09-14)
+
+
+### Features
+
+* **lifecycle:** implement the economical profile on the rebuilt eco roots ([f4ea834](https://github.com/MicroTodoSuite/microservice-app-ops/commit/f4ea834c602497534c4c66936a4650af4c407f29))
+* **lifecycle:** implement the economical profile on the rebuilt eco roots ([#85](https://github.com/MicroTodoSuite/microservice-app-ops/issues/85)) ([104bc08](https://github.com/MicroTodoSuite/microservice-app-ops/commit/104bc08056e69dd8f2eee1dad1548a63d016bcee)), closes [#83](https://github.com/MicroTodoSuite/microservice-app-ops/issues/83) [#84](https://github.com/MicroTodoSuite/microservice-app-ops/issues/84)
+
 # [1.19.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.18.0...v1.19.0) (2026-09-14)
 
 
