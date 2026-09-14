@@ -99,7 +99,7 @@ run "refuses_to_apply_against_the_wrong_account" {
   command = plan
 
   variables {
-    expected_account_id = "999999999999"
+    expected_account_id = "123456789012"
   }
 
   expect_failures = [
