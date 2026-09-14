@@ -1,3 +1,11 @@
+# [1.18.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.17.0...v1.18.0) (2026-09-14)
+
+
+### Features
+
+* **shd:** implement shared egress networking root ([30e1558](https://github.com/MicroTodoSuite/microservice-app-ops/commit/30e155874f20a453e07cd54d3a8c4d2298b4e823))
+* **shd:** implement shared egress networking root ([#83](https://github.com/MicroTodoSuite/microservice-app-ops/issues/83)) ([2c13ec1](https://github.com/MicroTodoSuite/microservice-app-ops/commit/2c13ec100c23704f3ba68fc565eb1fac6672b22e))
+
 # [1.17.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.16.1...v1.17.0) (2026-09-14)
 
 
