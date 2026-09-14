@@ -1,3 +1,11 @@
+## [1.35.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.35.0...v1.35.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **iac:** rename the slack approval gateway secret from anthropic to gemini ([4855cee](https://github.com/MicroTodoSuite/microservice-app-ops/commit/4855cee7ce5af68d087b729a2c20b9d06e81ddda))
+* **iac:** rename the slack approval gateway secret from anthropic to gemini ([#110](https://github.com/MicroTodoSuite/microservice-app-ops/issues/110)) ([5f8206d](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5f8206d2bb374d56880272773fde9fed092bbe72)), closes [#106](https://github.com/MicroTodoSuite/microservice-app-ops/issues/106) [#106](https://github.com/MicroTodoSuite/microservice-app-ops/issues/106)
+
 # [1.35.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.34.0...v1.35.0) (2026-09-14)
 
 
