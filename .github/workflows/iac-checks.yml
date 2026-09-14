@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         environment: [shd, eco, fdev]
-    uses: MicroTodoSuite/.github/.github/workflows/iac-checks.yml@68381ca8ac45dad455f4ae8a957f1b6e2c33b4dd # .github#20
+    uses: MicroTodoSuite/.github/.github/workflows/iac-checks.yml@7c3a8592ccfc43bb4cd17368e689fbc7170880c9 # .github#20
     with:
       kind: live
       working-directory: aws/environments/${{ matrix.environment }}
