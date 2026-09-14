@@ -1,3 +1,11 @@
+# [1.34.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.33.0...v1.34.0) (2026-09-14)
+
+
+### Features
+
+* **irsa:** implement the load balancer controller identity of every full environment ([5b5377c](https://github.com/MicroTodoSuite/microservice-app-ops/commit/5b5377ccea71a0e149516d9f8f071b75f46daaba))
+* **irsa:** implement the load balancer controller identity of every full environment ([#107](https://github.com/MicroTodoSuite/microservice-app-ops/issues/107)) ([d42c63b](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d42c63b7b25f692bf0e075c3964a8a78f0914f37))
+
 # [1.33.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.32.0...v1.33.0) (2026-09-14)
 
 
