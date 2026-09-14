@@ -62,7 +62,7 @@
   - [X] Replace the stale check and plan syntax in the runbook
   - [X] Re-run the Make interface contract
 
-- [ ] **T011 Distinguish runtime EKS OIDC from durable GitHub OIDC during shutdown audit**
+- [X] **T011 Distinguish runtime EKS OIDC from durable GitHub OIDC during shutdown audit** — every subtask was already ticked; the address-aware filter is `scripts/aws-profile-durable-deletes.jq`, and `tests/contract/aws-profile-lifecycle.sh` keeps a runtime EKS OIDC provider removable while the GitHub OIDC provider and ECR stay protected
   - [X] Inspect the failed economical plan and identify the EKS issuer and exact resource address
   - [X] Commit a failing behavioral contract for runtime EKS OIDC, durable GitHub OIDC, and ECR
   - [X] Replace the broad provider-type match with a versioned address-aware durable filter
