@@ -58,6 +58,26 @@ locals {
 
   node_labels = { "microtodosuite.io/capacity-owner" = "managed-node-group" }
 
+  # The Karpenter prerequisites this domain owns (PC-IAC-022): the interruption queue the
+  # controller polls and the five EventBridge rules that write to it. The controller's identity
+  # belongs to the IRSA pass, and its NodePools and EC2NodeClasses to GitOps. Karpenter's
+  # reference template keeps a message for 300 seconds, because an interruption notice is
+  # worthless once the instance is gone, and the queue carries notices rather than secrets, so it
+  # takes SQS-managed encryption instead of a customer key of its own.
+  karpenter_queue = {
+    name                      = "${local.governance_prefix}-sqs-karpenter"
+    message_retention_seconds = 300
+    kms_key_arn               = ""
+  }
+
+  karpenter_rule_names = {
+    scheduled_change      = "${local.governance_prefix}-evr-karpsched"
+    spot_interruption     = "${local.governance_prefix}-evr-karpspot"
+    rebalance             = "${local.governance_prefix}-evr-karprebal"
+    instance_state_change = "${local.governance_prefix}-evr-karpstate"
+    capacity_reservation  = "${local.governance_prefix}-evr-karpcapres"
+  }
+
   common_tags = {
     Client      = var.client
     Project     = var.project

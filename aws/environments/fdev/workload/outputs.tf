@@ -38,3 +38,18 @@ output "node_group_arn" {
   description = "ARN of the bootstrap node group."
   value       = module.bootstrap_node_group.node_group_arn
 }
+
+output "karpenter_interruption_queue_name" {
+  description = "Name of the Karpenter interruption queue, the value the controller's interruption queue setting takes."
+  value       = module.karpenter_interruption.queue_name
+}
+
+output "karpenter_interruption_queue_arn" {
+  description = "ARN of the Karpenter interruption queue, which the IRSA pass grants the controller."
+  value       = module.karpenter_interruption.queue_arn
+}
+
+output "karpenter_node_role_name" {
+  description = "Name of the role the EC2NodeClass gives the instance profiles Karpenter generates: the bootstrap node group's role, which Amazon EKS already authorized on the cluster through its access entry."
+  value       = data.aws_iam_role.node.name
+}

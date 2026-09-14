@@ -11,6 +11,8 @@ bootstrap capacity.
 | Access entries with `AmazonEKSClusterAdminPolicy` for `cluster_admin_principal_arns` | `eks-cluster-v1.1.0` | — |
 | Managed add-ons: `eks-pod-identity-agent`, `vpc-cni`, `kube-proxy`, `coredns`, `aws-ebs-csi-driver` | `eks-cluster-v1.1.0` | add-on names |
 | Bootstrap managed node group and its launch template | `eks-node-group-v1.0.0` | `lex-mts-fprd-ng-bootstrap`, `lex-mts-fprd-lt-bootstrap` |
+| Karpenter interruption queue, SQS-managed encryption, 300-second retention | `karpenter-interruption-v1.0.0` | `lex-mts-fprd-sqs-karpenter` |
+| The five EventBridge rules that feed it | `karpenter-interruption-v1.0.0` | `lex-mts-fprd-evr-karpsched`, `-karpspot`, `-karprebal`, `-karpstate`, `-karpcapres` |
 
 **What it reads.** It creates no IAM, KMS, or network resource. It reads what
 `fprd/networking` and `fprd/security` created, by their standard names:
@@ -60,6 +62,36 @@ The bootstrap group keeps the legacy capacity:
 **Access entry.** Amazon EKS creates the node role's access entry itself, so
 `cluster_admin_principal_arns` names only administrators.
 
+## Karpenter prerequisites
+
+Terraform owns the AWS side of Karpenter; GitOps owns the controller, its
+NodePools, and its EC2NodeClasses (constitution principle 11, gitops spec 009
+T086). This root creates what the controller needs to exist before it runs:
+
+- **The interruption queue** `lex-mts-fprd-sqs-karpenter`. Its policy admits
+  only `events.amazonaws.com` and `sqs.amazonaws.com` and denies every request
+  made without TLS. It takes SQS-managed encryption rather than a customer key:
+  the queue carries interruption notices, not secrets, and a key of its own in
+  each of three environments would cost more than it protects.
+- **A 300-second retention**, as Karpenter's reference template sets. An
+  interruption notice is worthless once the instance is gone.
+- **Five EventBridge rules**, one per event Karpenter acts on: an AWS Health
+  scheduled change, a Spot interruption warning, a rebalance recommendation, an
+  instance state change, and a capacity reservation interruption.
+
+**What it does not create.** No node role of its own: the nodes Karpenter
+launches take `lex-mts-fprd-role-node`, the bootstrap group's role, which Amazon
+EKS already authorized on the cluster through the access entry it created for
+that group. A second role would need a second access entry and a second
+`iam:PassRole` grant for nothing. No controller identity either: that is an
+IRSA role, and it belongs to `fprd/security-irsa`.
+
+**What GitOps substitutes.** `karpenter_interruption_queue_name` into the
+controller's interruption-queue setting, `karpenter_node_role_name` into the
+EC2NodeClass `role`, and `cluster_name` into the `karpenter.sh/discovery`
+selectors that find the private subnets fprd/networking tagged and the node
+security group fprd/security tagged.
+
 ## API access
 
 - **Private by default.** The API is private while `endpoint_public_access_cidrs` is
@@ -98,3 +130,5 @@ key is new, so the apply records a `no-prior-state` receipt.
 - `cluster_oidc_issuer_url`, for the IRSA pass
 - `cluster_security_group_id`
 - `node_group_arn`
+- `karpenter_interruption_queue_name`, `karpenter_interruption_queue_arn`
+- `karpenter_node_role_name`
