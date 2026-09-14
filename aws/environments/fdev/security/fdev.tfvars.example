@@ -1,0 +1,8 @@
+# Copy to fdev.tfvars (gitignored) and fill the account from config/aws-account.env.
+client                = "lex"
+project               = "mts"
+environment           = "fdev"
+aws_account_id        = "123456789012"
+aws_region            = "us-east-1"
+deploy_role_arn       = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
+jwt_environment_codes = ["dev", "stg", "prd", "dmo"]

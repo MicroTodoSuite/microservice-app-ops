@@ -48,7 +48,7 @@ run "grants_each_role_only_its_documented_trust_and_policies" {
   command = plan
 
   assert {
-    condition     = jsondfdevde(local.cluster_trust_policy).Statement[0].Principal.Service == "eks.amazonaws.com" && jsondfdevde(local.node_trust_policy).Statement[0].Principal.Service == "ec2.amazonaws.com"
+    condition     = jsondecode(local.cluster_trust_policy).Statement[0].Principal.Service == "eks.amazonaws.com" && jsondecode(local.node_trust_policy).Statement[0].Principal.Service == "ec2.amazonaws.com"
     error_message = "Only the EKS control plane may assume the cluster role, and only EC2 the node role."
   }
 
@@ -58,7 +58,7 @@ run "grants_each_role_only_its_documented_trust_and_policies" {
   }
 
   assert {
-    condition     = jsondfdevde(local.cluster_policies["use-the-secrets-key"]).Statement[0].Resource == "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+    condition     = jsondecode(local.cluster_policies["use-the-secrets-key"]).Statement[0].Resource == "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
     error_message = "The cluster role may use only the secrets key."
   }
 }
@@ -72,17 +72,17 @@ run "trusts_only_each_addon_service_account_through_pod_identity" {
   }
 
   assert {
-    condition     = jsondfdevde(local.addon_trust_policies["vpccni"]).Statement[0].Principal.Service == "pods.eks.amazonaws.com" && toset(jsondfdevde(local.addon_trust_policies["vpccni"]).Statement[0].Action) == toset(["sts:AssumeRole", "sts:TagSession"])
+    condition     = jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Principal.Service == "pods.eks.amazonaws.com" && toset(jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Action) == toset(["sts:AssumeRole", "sts:TagSession"])
     error_message = "Only EKS Pod Identity may assume an add-on role, with the two actions it uses."
   }
 
   assert {
-    condition     = jsondfdevde(local.addon_trust_policies["vpccni"]).Statement[0].Condition.StringEquals == { "aws:RequestTag/eks-cluster-arn" = "arn:aws:eks:us-east-1:123456789012:cluster/lex-mts-fdev-eks-main", "aws:RequestTag/kubernetes-namespace" = "kube-system", "aws:RequestTag/kubernetes-service-account" = "aws-node" }
+    condition     = jsondecode(local.addon_trust_policies["vpccni"]).Statement[0].Condition.StringEquals == { "aws:RequestTag/eks-cluster-arn" = "arn:aws:eks:us-east-1:123456789012:cluster/lex-mts-fdev-eks-main", "aws:RequestTag/kubernetes-namespace" = "kube-system", "aws:RequestTag/kubernetes-service-account" = "aws-node" }
     error_message = "The CNI role must trust only kube-system/aws-node in this cluster."
   }
 
   assert {
-    condition     = jsondfdevde(local.addon_trust_policies["ebscsi"]).Statement[0].Condition.StringEquals["aws:RequestTag/kubernetes-service-account"] == "ebs-csi-controller-sa" && local.addon_pod_identities["ebscsi"].policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" && local.addon_pod_identities["vpccni"].policy_arn == "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+    condition     = jsondecode(local.addon_trust_policies["ebscsi"]).Statement[0].Condition.StringEquals["aws:RequestTag/kubernetes-service-account"] == "ebs-csi-controller-sa" && local.addon_pod_identities["ebscsi"].policy_arn == "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" && local.addon_pod_identities["vpccni"].policy_arn == "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
     error_message = "Each add-on role must get only its AWS managed policy, for its own service account."
   }
 }
@@ -91,7 +91,7 @@ run "limits_the_logs_key_to_the_control_plane_log_group" {
   command = plan
 
   assert {
-    condition     = jsondfdevde(local.logs_key_policy).Statement[1].Principal.Service == "logs.us-east-1.amazonaws.com" && jsondfdevde(local.logs_key_policy).Statement[1].Condition.ArnEquals["kms:EncryptionContext:aws:logs:arn"] == "arn:aws:logs:us-east-1:123456789012:log-group:/aws/eks/lex-mts-fdev-eks-main/cluster"
+    condition     = jsondecode(local.logs_key_policy).Statement[1].Principal.Service == "logs.us-east-1.amazonaws.com" && jsondecode(local.logs_key_policy).Statement[1].Condition.ArnEquals["kms:EncryptionContext:aws:logs:arn"] == "arn:aws:logs:us-east-1:123456789012:log-group:/aws/eks/lex-mts-fdev-eks-main/cluster"
     error_message = "CloudWatch Logs may use the logs key only for the cluster's control-plane log group."
   }
 }
@@ -111,7 +111,7 @@ run "keeps_the_legacy_node_and_cluster_rules" {
 
   assert {
     condition     = local.node_egress_rules["all"].cidr_ipv4 == "0.0.0.0/0" && local.node_egress_rules["all"].ip_protocol == "-1"
-    error_message = "The node group keeps the rfdevrded AWS-0104 egress exception, no wider and no narrower."
+    error_message = "The node group keeps the recorded AWS-0104 egress exception, no wider and no narrower."
   }
 }
 
