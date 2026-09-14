@@ -121,7 +121,15 @@ Use the same commands with `PROFILE=full` only after `make check PROFILE=full` p
 
 **Protected clusters take two bundles on the way down,** exactly as in the economical profile: the first holds only the protected clusters, each planned with its deletion protection off.
 
-**What the full profile does not cover yet.** The full environments have no Karpenter prerequisites; no module covers the interruption queue, its rules, or the controller and node identities. When those land, their records join the wrapper. The first creation of every root is the rebuild's own reviewed apply; the lifecycle starts and stops what already exists.
+**The first creation is not a lifecycle transition.** The lifecycle starts and stops what already exists. The first creation of the full profile is one reviewed saved plan per root, in the PC-IAC-022 order, because each step reads what the one before created:
+
+1. `shd/networking`, the egress hub and its transit gateway.
+2. `fdev`, `fstg`, and `fprd` networking, whose transit attachments read the hub.
+3. `fdev`, `fstg`, and `fprd` security, which the wrapper never plans: their security groups need the spokes' VPCs, and every cluster needs their roles and keys.
+4. `fdev`, `fstg`, and `fprd` workload: the clusters, their bootstrap node groups, and the Karpenter interruption queues and rules (microservice-app-ops#101).
+5. `fdev`, `fstg`, and `fprd` security-irsa: each cluster's OIDC provider and its IRSA roles, the Karpenter controller's and the AWS Load Balancer Controller's included (#101, #107).
+
+Once all thirteen exist, `make plan-down PROFILE=full` and `make plan-up PROFILE=full` operate the runtime classes above.
 
 ## Legacy roots
 
