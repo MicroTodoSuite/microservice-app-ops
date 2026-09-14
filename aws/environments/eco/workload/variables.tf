@@ -111,6 +111,12 @@ variable "control_plane_log_retention_in_days" {
   }
 }
 
+variable "cluster_deletion_protection" {
+  type        = bool
+  description = "Whether Amazon EKS refuses to delete the cluster. The lifecycle's down transition turns it off in a bundle of its own before the destroy bundle; the next plan of this root restores this value."
+  default     = true
+}
+
 variable "addon_versions" {
   type = object({
     vpc_cni            = string

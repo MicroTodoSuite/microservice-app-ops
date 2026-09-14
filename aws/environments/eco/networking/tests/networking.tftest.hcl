@@ -75,6 +75,24 @@ run "reads_the_shared_flow_log_key_and_role_by_name" {
   }
 }
 
+run "removes_only_the_nat_egress_when_nat_gateways_are_disabled" {
+  command = plan
+
+  variables {
+    nat_gateways_enabled = false
+  }
+
+  assert {
+    condition     = length(local.nat_gateways) == 0 && alltrue([for key in ["priva", "privb", "privc"] : local.subnets[key].egress == "none" && local.subnets[key].nat_gateway_key == null])
+    error_message = "Without NAT gateways, no gateway or Elastic IP is planned and no private subnet routes through one."
+  }
+
+  assert {
+    condition     = toset(keys(local.subnets)) == toset(["priva", "privb", "privc", "puba", "pubb", "pubc"]) && local.subnets["privb"].route_table_name == "lex-mts-eco-rtb-privb" && local.subnets["privb"].cidr_block == "10.10.32.0/20"
+    error_message = "The lifecycle's down transition keeps every subnet and route table, so the VPC and eco/security's security groups survive it."
+  }
+}
+
 run "rejects_an_environment_other_than_eco" {
   command = plan
 

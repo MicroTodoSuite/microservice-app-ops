@@ -61,8 +61,10 @@ require_file_text "$WORKFLOW" './tests/contract/aws-profile-lifecycle-make.sh' \
   "AWS foundation workflow must execute the Make interface contract"
 require_file_text "$RUNBOOK" "only after \`make check PROFILE=full\` passes" \
   "full-profile prose must use the primary Make check command"
-require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=full\` again" \
-  "full-profile prose must use the primary Make plan command"
+require_file_text "$RUNBOOK" "run \`make plan-up PROFILE=economical\` again" \
+  "the second up bundle must be planned through the primary Make command"
+require_file_text "$RUNBOOK" "run the same \`make plan-down PROFILE=economical\` command again" \
+  "the destroy bundle after the unprotect bundle must be planned through the primary Make command"
 require_file_text "$RUNBOOK" "make snapshot-volumes PROFILE=" \
   "the runbook must snapshot persistent volumes before GitOps quiescence"
 

@@ -23,6 +23,7 @@ module "eks_cluster" {
   control_plane_log_group      = local.control_plane_log_group
   access_entries               = local.access_entries
   addons                       = local.addons
+  deletion_protection          = var.cluster_deletion_protection
 
   # CoreDNS and the EBS CSI driver wait for the bootstrap nodes.
   compute_ready = [module.bootstrap_node_group.node_group_arn]
