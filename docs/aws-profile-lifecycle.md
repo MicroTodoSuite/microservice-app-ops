@@ -18,7 +18,7 @@ Both profiles operate the rebuilt roots of ops spec 004: the economical profile 
 | `eco/security-irsa` | Runtime | The cluster's OIDC provider and the IRSA roles are destroyed. |
 | `fdev/security`, `fstg/security`, `fprd/security` | Persistent | The cluster, node, and add-on roles, the EKS keys, the security groups, and the secrets remain. |
 | `fdev/networking`, `fstg/networking`, `fprd/networking` | Persistent, with runtime egress | The VPC, subnets, route tables, internet gateway, and flow log remain. The transit attachment, its route table association, its two transit routes, and the private default routes are removed. |
-| `fdev/workload`, `fstg/workload`, `fprd/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, and the control-plane log group are destroyed. |
+| `fdev/workload`, `fstg/workload`, `fprd/workload` | Runtime | The cluster, its add-ons and access entries, the bootstrap node group, the control-plane log group, and the Karpenter interruption queue with its five EventBridge rules are destroyed. |
 | `fdev/security-irsa`, `fstg/security-irsa`, `fprd/security-irsa` | Runtime | Each cluster's OIDC provider and its IRSA roles are destroyed. |
 | `shd/networking` | Runtime | The egress hub is destroyed: its VPC, NAT gateway, Elastic IP, transit gateway, and transit route tables. |
 
