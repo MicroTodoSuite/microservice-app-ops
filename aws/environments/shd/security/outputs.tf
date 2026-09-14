@@ -4,6 +4,11 @@ output "github_oidc_provider_arn" {
   value       = module.github_oidc.provider_arn
 }
 
+output "deploy_role_arn" {
+  description = "ARN of the Terraform deploy role, the deploy_role_arn every rebuilt root assumes once it exists."
+  value       = module.deploy_role.role_arn
+}
+
 output "ecr_publisher_role_arn" {
   description = "ARN of the role the services' main-branch workflows assume to push images."
   value       = module.ecr_publisher_role.role_arn

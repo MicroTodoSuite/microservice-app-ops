@@ -28,6 +28,70 @@ variables {
   github_organization          = "MicroTodoSuite"
   image_publisher_repositories = ["microservice-app-frontend", "microservice-app-auth-api"]
   service_image_keys           = ["frontend", "authapi"]
+  deploy_role_operator_arns    = ["arn:aws:iam::123456789012:user/operator-b", "arn:aws:iam::123456789012:user/operator-a"]
+}
+
+run "lets_only_named_operators_with_mfa_assume_the_deploy_role" {
+  command = plan
+
+  assert {
+    condition     = local.deploy_role_name == "lex-mts-shd-role-tfdeploy"
+    error_message = "The deploy role must carry its spec 004 name."
+  }
+
+  assert {
+    condition     = jsondecode(local.deploy_role_trust_policy).Statement[0].Principal.AWS == ["arn:aws:iam::123456789012:user/operator-a", "arn:aws:iam::123456789012:user/operator-b"] && jsondecode(local.deploy_role_trust_policy).Statement[0].Action == "sts:AssumeRole"
+    error_message = "Only the named operators may assume the deploy role."
+  }
+
+  assert {
+    condition     = jsondecode(local.deploy_role_trust_policy).Statement[0].Condition.Bool["aws:MultiFactorAuthPresent"] == true
+    error_message = "Assuming the deploy role must require MFA."
+  }
+}
+
+run "confines_the_deploy_role_to_the_project_iam" {
+  command = plan
+
+  assert {
+    condition     = local.deploy_role_managed_policy_arns == ["arn:aws:iam::aws:policy/PowerUserAccess"] && alltrue([for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : !contains(flatten([statement.Action]), "iam:*") && statement.Resource != "*" || statement.Sid == "ListOidcProviders"])
+    error_message = "IAM must come only from the scoped inline policy: no iam:* and no wildcard resource beyond listing OIDC providers."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : statement.Resource if statement.Sid == "ManageProjectRoles"][0] == "arn:aws:iam::123456789012:role/lex-mts-*"
+    error_message = "The deploy role may manage only the project's roles."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : statement.Condition.ArnEquals["iam:PolicyARN"] if statement.Sid == "AttachOnlyTheReviewedManagedPolicies"][0] == ["arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly", "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy", "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy", "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy", "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"]
+    error_message = "The deploy role may attach only the managed policies the rebuilt roots use."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : statement.Condition.StringEquals["iam:PassedToService"] if statement.Sid == "PassPodIdentityRolesToEks"][0] == "pods.eks.amazonaws.com"
+    error_message = "The add-on roles may be passed only to EKS Pod Identity."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : statement.Resource if statement.Sid == "DenyChangingTheDeployRoleItself" && statement.Effect == "Deny"][0] == "arn:aws:iam::123456789012:role/lex-mts-shd-role-tfdeploy"
+    error_message = "The deploy role must be denied every change to itself."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.deploy_role_policies["manage-project-iam"]).Statement : statement.Resource if statement.Sid == "DenyAssumingProjectRoles" && statement.Effect == "Deny" && statement.Action == "sts:AssumeRole"][0] == "arn:aws:iam::123456789012:role/lex-mts-*"
+    error_message = "The deploy role must not assume the project roles it manages."
+  }
+}
+
+run "rejects_an_operator_that_is_not_an_iam_principal" {
+  command = plan
+
+  variables {
+    deploy_role_operator_arns = ["123456789012"]
+  }
+
+  expect_failures = [var.deploy_role_operator_arns]
 }
 
 run "builds_the_shared_security_names" {
