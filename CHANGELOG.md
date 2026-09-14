@@ -1,3 +1,11 @@
+# [1.32.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.31.0...v1.32.0) (2026-09-14)
+
+
+### Features
+
+* **capacity:** enforce the full profile's capacity limits ([d7b3c80](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d7b3c80e8cb08fefd643f245fdfe799cac777b17))
+* **capacity:** enforce the full profile's capacity limits ([#103](https://github.com/MicroTodoSuite/microservice-app-ops/issues/103)) ([f46afc0](https://github.com/MicroTodoSuite/microservice-app-ops/commit/f46afc08f91057b0af9b795296714943aaa2e127))
+
 # [1.31.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.30.0...v1.31.0) (2026-09-14)
 
 
