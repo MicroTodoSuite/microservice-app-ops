@@ -140,8 +140,27 @@ reject_text "aws/environments/dev/foundation" 'azurerm|azure|aks-dr|module[[:spa
   "dev foundation root couples to Azure, DR, or the US2 backend module"
 reject_text "aws" 'secret_string[[:space:]]*=' \
   "an ordinary state-persisted Secrets Manager value is forbidden"
-reject_text "aws" 'resource[[:space:]]+"aws_acm_' \
-  "ACM certificate creation must wait for verified registrar delegation"
+# ACM certificates wait for verified registrar delegation (gitops spec 009
+# FR-044). The blanket ban that guarded the hosted-zone-only scope is replaced
+# by the properties that matter once the canonical zone is delegated: a
+# certificate lives only in an environment's workload root, every ACM resource
+# there is counted behind the explicit public_zone_delegation_verified input,
+# and that input defaults to false, so issuing one stays an operator's
+# decision taken after the registrar's name servers match the canonical zone's.
+acm_files="$(rg -l 'resource[[:space:]]+"aws_acm_' "$ROOT/aws" || true)"
+for file in $acm_files; do
+  relative="${file#"$ROOT"/}"
+  [[ "$relative" =~ ^aws/environments/[a-z]+/workload/[a-z_]+\.tf$ ]] \
+    || fail "ACM certificate creation is allowed only in an environment's workload root: $relative"
+  resources="$(grep -cE 'resource[[:space:]]+"aws_acm_' "$file" || true)"
+  gates="$(grep -cE 'count[[:space:]]*=[[:space:]]*var\.public_zone_delegation_verified[[:space:]]*\?[[:space:]]*1[[:space:]]*:[[:space:]]*0' "$file" || true)"
+  [[ "$gates" -ge "$resources" ]] \
+    || fail "ACM certificate creation must wait for verified registrar delegation: $relative"
+  variables="$(dirname "$file")/variables.tf"
+  sed -n '/^variable "public_zone_delegation_verified" {/,/^}/p' "$variables" \
+    | grep -Eq '^[[:space:]]*default[[:space:]]*=[[:space:]]*false[[:space:]]*$' \
+    || fail "public_zone_delegation_verified must default to false in ${variables#"$ROOT"/}"
+done
 # Constitution 3.0.0 authorized the full-profile rollout, which introduces the
 # canonical microtodosuite.online zone and, later, one alias record pointing at
 # it. The blanket ban on aws_route53_record that guarded the earlier

@@ -104,12 +104,13 @@ variables {
     aws_ebs_csi_driver = "v1.64.0-eksbuild.1"
     pod_identity_agent = "v0.0.0-eksbuild.1"
   }
-  node_release_version      = "1.35.6-20260818"
-  node_instance_types       = ["m7i-flex.large"]
-  node_scaling              = { min_size = 2, desired_size = 2, max_size = 4 }
-  node_root_volume_size_gib = 50
-  public_zone_name          = "microtodosuite.online"
-  ingress_host              = "eco.microtodosuite.online"
+  node_release_version            = "1.35.6-20260818"
+  node_instance_types             = ["m7i-flex.large"]
+  node_scaling                    = { min_size = 2, desired_size = 2, max_size = 4 }
+  node_root_volume_size_gib       = 50
+  public_zone_name                = "microtodosuite.online"
+  ingress_host                    = "eco.microtodosuite.online"
+  public_zone_delegation_verified = true
 }
 
 run "builds_the_eco_workload_names" {
@@ -204,7 +205,7 @@ run "validates_the_certificate_with_its_single_shared_record" {
   }
 
   assert {
-    condition     = aws_acm_certificate.ingress.validation_method == "DNS" && aws_acm_certificate.ingress.domain_name == "eco.microtodosuite.online" && aws_acm_certificate.ingress.subject_alternative_names == toset(["*.eco.microtodosuite.online"])
+    condition     = aws_acm_certificate.ingress[0].validation_method == "DNS" && aws_acm_certificate.ingress[0].domain_name == "eco.microtodosuite.online" && aws_acm_certificate.ingress[0].subject_alternative_names == toset(["*.eco.microtodosuite.online"])
     error_message = "The certificate must be DNS-validated for the host and its wildcard."
   }
 }
@@ -234,6 +235,24 @@ run "publishes_the_host_and_its_subdomains_once_the_load_balancer_exists" {
   assert {
     condition     = alltrue([for record in aws_route53_record.ingress : record.type == "A" && one(record.alias).name == "lex-mts-eco-alb-main-1234567890.us-east-1.elb.amazonaws.com" && one(record.alias).evaluate_target_health])
     error_message = "Each record must be an alias to the shared load balancer that follows its health."
+  }
+}
+
+run "requests_no_certificate_and_no_record_before_the_delegation_is_verified" {
+  command = plan
+
+  variables {
+    public_zone_delegation_verified = false
+  }
+
+  override_data {
+    target = data.aws_lbs.ingress
+    values = { arns = ["arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/lex-mts-eco-alb-main/0123456789abcdef"] }
+  }
+
+  assert {
+    condition     = length(aws_acm_certificate.ingress) == 0 && length(aws_acm_certificate_validation.ingress) == 0 && length(aws_route53_record.certificate_validation) == 0 && length(aws_route53_record.ingress) == 0
+    error_message = "Until the registrar's delegation is verified, the root must request no certificate and publish no record, even with the load balancer present (gitops spec 009 FR-044)."
   }
 }
 
