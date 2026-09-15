@@ -94,3 +94,9 @@
     - [X] Add `transit_enabled` to the three spokes, defaulting on, with the hub lookups conditional on it
     - [X] Plan the full roots in dependency order with the hub-first and unprotect bundles, and audit each spoke's down plan with the egress filter
     - [X] Document the full boundary and the second bundles in the runbook and the spoke READMEs
+
+- [ ] **T015 Preserve durable DNS while shutting down the economical ingress runtime**
+  - [ ] Commit a failing contract that distinguishes the ALB aliases from the durable ACM validation record
+  - [ ] Restrict the unprotect pass to the EKS cluster resource
+  - [ ] Allow the economical ALB aliases to leave with the runtime while retaining every other Route 53 record
+  - [ ] Re-plan and inspect both economical shutdown bundles before apply

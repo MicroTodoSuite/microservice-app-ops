@@ -180,6 +180,35 @@ ecr_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_plan")"
 [[ "$ecr_deleted" == 'module.foundation.aws_ecr_repository.services["auth-api"]' ]] || \
   fail "durable ECR repositories must remain protected"
 
+# The economical A aliases are runtime pointers to the shared ALB. GitOps removes
+# that ALB before Terraform removes the cluster, so the aliases leave with the
+# runtime while the hosted zone and ACM validation record remain durable.
+runtime_ingress_alias_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_route53_record.ingress[\"eco.microtodosuite.online\"]",
+      type: "aws_route53_record",
+      change: {actions: ["delete"], before: {type: "A", alias: [{name: "example.elb.amazonaws.com"}]}}
+    }]
+  }
+')"
+runtime_ingress_alias_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$runtime_ingress_alias_plan")"
+[[ -z "$runtime_ingress_alias_deleted" ]] || \
+  fail "the economical ALB alias must be removable with the runtime"
+
+certificate_validation_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_route53_record.certificate_validation[\"eco.microtodosuite.online\"]",
+      type: "aws_route53_record",
+      change: {actions: ["delete"], before: {type: "CNAME"}}
+    }]
+  }
+')"
+certificate_validation_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$certificate_validation_plan")"
+[[ "$certificate_validation_deleted" == 'aws_route53_record.certificate_validation["eco.microtodosuite.online"]' ]] || \
+  fail "the ACM validation record must remain protected"
+
 # A networking down plan may delete its NAT or transit egress and nothing else.
 egress_plan="$(jq -n '
   {
@@ -537,6 +566,8 @@ output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle
   fail "the unprotect bundle must hold only the cluster root"
 grep -Eq '^eco/workload plan .*-var=cluster_deletion_protection=false' "$terraform_log" || \
   fail "the unprotect bundle must plan the cluster with deletion protection off"
+grep -Eq '^eco/workload plan .*-target=module\.eks_cluster\.aws_eks_cluster\.this' "$terraform_log" || \
+  fail "the unprotect bundle must target only the EKS cluster resource"
 if grep -Eq 'plan -destroy|^eco/(security-irsa|networking) plan' "$terraform_log"; then
   fail "the unprotect bundle must destroy nothing and plan no other root"
 fi
