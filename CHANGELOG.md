@@ -1,3 +1,11 @@
+## [1.37.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.37.0...v1.37.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **eco:** key the certificate validation record by the host ([d4168e2](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d4168e2382a43d89a0a893c4cb8522f6bab934cc))
+* **eco:** key the certificate validation record by the host ([#116](https://github.com/MicroTodoSuite/microservice-app-ops/issues/116)) ([6eb5c08](https://github.com/MicroTodoSuite/microservice-app-ops/commit/6eb5c086899dea1ff9b9e8ac37bd8c98d702ba93)), closes [#115](https://github.com/MicroTodoSuite/microservice-app-ops/issues/115) [#115](https://github.com/MicroTodoSuite/microservice-app-ops/issues/115) [#115](https://github.com/MicroTodoSuite/microservice-app-ops/issues/115) [gitops#190](https://github.com/gitops/issues/190)
+
 # [1.37.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.36.0...v1.37.0) (2026-09-15)
 
 
