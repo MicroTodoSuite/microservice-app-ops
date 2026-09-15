@@ -1,3 +1,12 @@
+# [1.38.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.37.1...v1.38.0) (2026-09-15)
+
+
+### Features
+
+* **ci:** report infra pr cost estimates to the slack approval gateway ([b597fa9](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b597fa98e5c3a231e88c785919cef822be54528a))
+* **ci:** report infra pr cost estimates to the slack approval gateway ([#117](https://github.com/MicroTodoSuite/microservice-app-ops/issues/117)) ([0b324ba](https://github.com/MicroTodoSuite/microservice-app-ops/commit/0b324ba58f4b601275668c2b45088823737c412f)), closes [#5](https://github.com/MicroTodoSuite/microservice-app-ops/issues/5) [#106](https://github.com/MicroTodoSuite/microservice-app-ops/issues/106)
+* **iac:** add the ops cost-report route ([45cf1a6](https://github.com/MicroTodoSuite/microservice-app-ops/commit/45cf1a6eba2bb398e721b928d27c3eaf61ed62c0))
+
 ## [1.37.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.37.0...v1.37.1) (2026-09-15)
 
 
