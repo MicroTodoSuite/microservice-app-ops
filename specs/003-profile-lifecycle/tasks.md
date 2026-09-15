@@ -96,7 +96,7 @@
     - [X] Document the full boundary and the second bundles in the runbook and the spoke READMEs
 
 - [ ] **T015 Preserve durable DNS while shutting down the economical ingress runtime**
-  - [ ] Commit a failing contract that distinguishes the ALB aliases from the durable ACM validation record
-  - [ ] Restrict the unprotect pass to the EKS cluster resource
-  - [ ] Allow the economical ALB aliases to leave with the runtime while retaining every other Route 53 record
+  - [X] Commit a failing contract that distinguishes the ALB aliases from the durable ACM validation record
+  - [X] Restrict the unprotect pass to the EKS cluster resource
+  - [X] Allow the economical ALB aliases to leave with the runtime while retaining every other Route 53 record
   - [ ] Re-plan and inspect both economical shutdown bundles before apply

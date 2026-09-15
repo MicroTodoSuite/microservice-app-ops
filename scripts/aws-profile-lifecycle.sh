@@ -570,7 +570,9 @@ plan_profile() {
         ;;
       cluster:down)
         if [[ "$pass" == "unprotect" ]]; then
-          terraform -chdir="$root" plan "${plan_args[@]}" -var=cluster_deletion_protection=false
+          terraform -chdir="$root" plan "${plan_args[@]}" \
+            -target=module.eks_cluster.aws_eks_cluster.this \
+            -var=cluster_deletion_protection=false
         else
           terraform -chdir="$root" plan -destroy "${plan_args[@]}"
         fi
