@@ -75,13 +75,13 @@ resource "aws_acm_certificate" "ingress" {
 }
 
 resource "aws_route53_record" "certificate_validation" {
-  for_each = local.certificate_validation_options
+  for_each = local.certificate_validation_domains
   provider = aws.principal
 
   zone_id         = data.aws_route53_zone.public.zone_id
-  name            = each.value.resource_record_name
-  type            = each.value.resource_record_type
-  records         = [each.value.resource_record_value]
+  name            = one([for option in aws_acm_certificate.ingress[0].domain_validation_options : option.resource_record_name if option.domain_name == each.key])
+  type            = one([for option in aws_acm_certificate.ingress[0].domain_validation_options : option.resource_record_type if option.domain_name == each.key])
+  records         = [one([for option in aws_acm_certificate.ingress[0].domain_validation_options : option.resource_record_value if option.domain_name == each.key])]
   ttl             = 300
   allow_overwrite = true
 }
