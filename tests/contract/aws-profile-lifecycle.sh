@@ -544,6 +544,12 @@ grep -Eq '^eco/security-irsa plan -destroy ' "$terraform_log" || \
   fail "the IRSA pass must be planned for destruction"
 grep -Eq '^eco/workload plan -destroy ' "$terraform_log" || \
   fail "an unprotected cluster must be planned for destruction"
+grep -Eq '^eco/workload plan -destroy .* -target=module\.eks_cluster([[:space:]]|$)' "$terraform_log" || \
+  fail "the economical cluster destroy must target the EKS module"
+grep -Eq '^eco/workload plan -destroy .* -target=module\.bootstrap_node_group([[:space:]]|$)' "$terraform_log" || \
+  fail "the economical cluster destroy must target the bootstrap node module"
+grep -Eq '^eco/workload plan -destroy .* -target=aws_route53_record\.ingress([[:space:]]|$)' "$terraform_log" || \
+  fail "the economical cluster destroy must remove only the runtime ingress aliases"
 grep -Eq '^eco/networking plan .*-var=nat_gateways_enabled=false' "$terraform_log" || \
   fail "eco/networking must be planned without its NAT gateways"
 if grep -Eq '^eco/networking plan -destroy' "$terraform_log"; then
