@@ -1,3 +1,17 @@
+# [1.37.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.36.0...v1.37.0) (2026-09-15)
+
+
+### Bug Fixes
+
+* **eco:** scope the acm contract to terraform resources ([84c5051](https://github.com/MicroTodoSuite/microservice-app-ops/commit/84c505159339da1c3ec14714818cac2a144ed722))
+
+
+### Features
+
+* **eco:** gate the certificate and records on verified delegation ([677014b](https://github.com/MicroTodoSuite/microservice-app-ops/commit/677014b3e1baab7e7f84938388cd8ebaf6ea22d0))
+* **eco:** publish the economical platform under eco.microtodosuite.online ([a16927a](https://github.com/MicroTodoSuite/microservice-app-ops/commit/a16927adbd1e34e9665f42eba70b97b545923307))
+* **eco:** publish the economical platform under eco.microtodosuite.online ([#115](https://github.com/MicroTodoSuite/microservice-app-ops/issues/115)) ([7b57695](https://github.com/MicroTodoSuite/microservice-app-ops/commit/7b57695c140330743370bfd42ed7d39c149e6878)), closes [#107](https://github.com/MicroTodoSuite/microservice-app-ops/issues/107) [#113](https://github.com/MicroTodoSuite/microservice-app-ops/issues/113)
+
 # [1.36.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.35.1...v1.36.0) (2026-09-14)
 
 
