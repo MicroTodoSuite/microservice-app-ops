@@ -68,6 +68,44 @@ mock_provider "aws" {
   }
 }
 
+# The same account with every computed resource attribute unknown at plan time, as a real
+# plan sees it: a certificate's validation options exist only after it is created.
+mock_provider "aws" {
+  alias = "late"
+
+  mock_data "aws_partition" {
+    defaults = { partition = "aws", dns_suffix = "amazonaws.com" }
+  }
+
+  mock_data "aws_vpc" {
+    defaults = { id = "vpc-0123456789abcdef0" }
+  }
+
+  mock_data "aws_subnets" {
+    defaults = { ids = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1", "subnet-0123456789abcdef2"] }
+  }
+
+  mock_data "aws_security_group" {
+    defaults = { id = "sg-0123456789abcdef0" }
+  }
+
+  mock_data "aws_iam_role" {
+    defaults = { arn = "arn:aws:iam::123456789012:role/lex-mts-eco-role-cluster" }
+  }
+
+  mock_data "aws_kms_alias" {
+    defaults = { target_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
+  }
+
+  mock_data "aws_route53_zone" {
+    defaults = { zone_id = "Z08793112C5KLDBKRBY11" }
+  }
+
+  mock_data "aws_lbs" {
+    defaults = { arns = [] }
+  }
+}
+
 # A mock provider cannot set computed attributes inside the cluster's vpc_config block, so the
 # cluster security group ID it invents fails the node group module's sg- check. The node
 # group module is replaced by its output here; its own tests cover its inputs.
@@ -235,6 +273,19 @@ run "publishes_the_host_and_its_subdomains_once_the_load_balancer_exists" {
   assert {
     condition     = alltrue([for record in aws_route53_record.ingress : record.type == "A" && one(record.alias).name == "lex-mts-eco-alb-main-1234567890.us-east-1.elb.amazonaws.com" && one(record.alias).evaluate_target_health])
     error_message = "Each record must be an alias to the shared load balancer that follows its health."
+  }
+}
+
+run "plans_the_validation_record_before_the_certificate_exists" {
+  command = plan
+
+  providers = {
+    aws.principal = aws.late
+  }
+
+  assert {
+    condition     = toset(keys(aws_route53_record.certificate_validation)) == toset(["eco.microtodosuite.online"])
+    error_message = "The validation record must be keyed by the host, which is known at plan time; keys taken from the certificate's validation options are unknown until apply and fail a real plan."
   }
 }
 

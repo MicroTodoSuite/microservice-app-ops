@@ -68,12 +68,10 @@ locals {
     "ingress.k8s.aws/stack" = local.ingress_group_name
   }
 
-  # The host and its wildcard validate through the same record, so one record per distinct
-  # name. Domain names are known at plan time; the wildcard is skipped by name.
-  certificate_validation_options = {
-    for option in flatten(aws_acm_certificate.ingress[*].domain_validation_options) : option.domain_name => option
-    if !startswith(option.domain_name, "*.")
-  }
+  # The host and its wildcard validate through the same record, so there is one record, keyed
+  # by the host: a key known at plan time. Its name and value come from the certificate's
+  # validation options, which exist only after the certificate is created.
+  certificate_validation_domains = var.public_zone_delegation_verified ? toset([var.ingress_host]) : toset([])
 
   # Address records wait for the verified delegation and for the load balancer; a first
   # bring-up plans none.
