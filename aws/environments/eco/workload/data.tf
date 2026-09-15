@@ -77,3 +77,25 @@ data "aws_kms_alias" "logs" {
 
   name = "alias/${local.logs_key_name}"
 }
+
+# The canonical public zone shd/dns created, found by its domain.
+data "aws_route53_zone" "public" {
+  provider = aws.principal
+
+  name         = var.public_zone_name
+  private_zone = false
+}
+
+# The shared load balancer the economical Ingresses create, if it exists yet.
+data "aws_lbs" "ingress" {
+  provider = aws.principal
+
+  tags = local.ingress_load_balancer_tags
+}
+
+data "aws_lb" "ingress" {
+  count    = local.ingress_load_balancer_present ? 1 : 0
+  provider = aws.principal
+
+  arn = one(data.aws_lbs.ingress.arns)
+}

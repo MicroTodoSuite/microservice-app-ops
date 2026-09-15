@@ -177,6 +177,32 @@ variable "node_root_volume_size_gib" {
   }
 }
 
+variable "public_zone_name" {
+  type        = string
+  description = "Domain of the canonical public hosted zone shd/dns created, microtodosuite.online; the economical host and its records live in it."
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", var.public_zone_name))
+    error_message = "The zone name must be a lowercase domain name without a trailing dot."
+  }
+}
+
+variable "ingress_host" {
+  type        = string
+  description = "Host of the economical production environment, such as eco.microtodosuite.online; dev, staging, and demo are its subdomains <env>.<ingress_host>."
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", var.ingress_host)) && endswith(var.ingress_host, ".${var.public_zone_name}")
+    error_message = "The ingress host must be a lowercase subdomain of public_zone_name."
+  }
+}
+
+variable "public_zone_delegation_verified" {
+  type        = bool
+  description = "Whether the registrar delegates public_zone_name to exactly the name servers of shd/dns's canonical zone (its canonical_zone_name_server_names output). The certificate and the address records wait for it (gitops spec 009 FR-044); an operator sets it to true only after verifying the delegation."
+  default     = false
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

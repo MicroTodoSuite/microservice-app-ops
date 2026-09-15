@@ -56,6 +56,30 @@ locals {
     }
   }
 
+  # The economical entry point: one ACM certificate for the production host and every
+  # environment's subdomain of it, and the shared load balancer the economical Ingresses create
+  # through the AWS Load Balancer Controller. The controller tags that load balancer with the
+  # cluster and the IngressGroup, so the root finds it by those tags once it exists.
+  ingress_group_name          = "${local.governance_prefix}-alb-main"
+  ingress_certificate_name    = "${local.governance_prefix}-acm-ingress"
+  ingress_certificate_domains = [var.ingress_host, "*.${var.ingress_host}"]
+  ingress_load_balancer_tags = {
+    "elbv2.k8s.aws/cluster" = local.cluster_name
+    "ingress.k8s.aws/stack" = local.ingress_group_name
+  }
+
+  # The host and its wildcard validate through the same record, so one record per distinct
+  # name. Domain names are known at plan time; the wildcard is skipped by name.
+  certificate_validation_options = {
+    for option in flatten(aws_acm_certificate.ingress[*].domain_validation_options) : option.domain_name => option
+    if !startswith(option.domain_name, "*.")
+  }
+
+  # Address records wait for the verified delegation and for the load balancer; a first
+  # bring-up plans none.
+  ingress_load_balancer_present = length(data.aws_lbs.ingress.arns) == 1
+  ingress_records               = var.public_zone_delegation_verified && local.ingress_load_balancer_present ? toset(local.ingress_certificate_domains) : toset([])
+
   node_labels = { "microtodosuite.io/capacity-owner" = "managed-node-group" }
 
   common_tags = {
