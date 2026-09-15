@@ -130,8 +130,18 @@ run "wires_the_http_api_routes_to_the_matching_lambda" {
   }
 
   assert {
+    condition     = aws_apigatewayv2_route.cost_report.route_key == "POST /internal/cost-report"
+    error_message = "The ops cost-report callback must land on POST /internal/cost-report exactly."
+  }
+
+  assert {
     condition     = aws_apigatewayv2_integration.github_webhook_handler.integration_uri == aws_lambda_function.github_webhook_handler.invoke_arn
     error_message = "The github_webhook_handler route must integrate with the github_webhook_handler Lambda, not any other function."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.cost_report.target == "integrations/${aws_apigatewayv2_integration.github_webhook_handler.id}"
+    error_message = "The cost-report route must reuse the github_webhook_handler integration, not a separate one."
   }
 
   assert {
