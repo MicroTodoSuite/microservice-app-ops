@@ -125,10 +125,15 @@ jobs:
   cost:
     name: Cost estimate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # `infracost comment github` needs this to post/update its own comment
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the merge-base to diff against for "which roots changed"
 
       - name: Check for an Infracost API key
         id: key
@@ -146,19 +151,87 @@ jobs:
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
 
+      # A root is any directory with its own versions.tf (i.e. it is meant to
+      # be `terraform init`-ed on its own, not a reusable module referenced by
+      # one) that has at least one directly changed .tf file. This is every
+      # Terraform root this PR actually touches, not a hand-maintained list
+      # that silently misses new roots (this is exactly how the shared
+      # slack-approval-gateway root went unestimated until now).
+      - name: Find every Terraform root this PR actually changed
+        id: roots
+        if: steps.key.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/infracost
+          changed_dirs="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '*.tf' | xargs -r -n1 dirname | sort -u)"
+          roots=()
+          for d in $changed_dirs; do
+            [[ -f "$d/versions.tf" ]] && roots+=("$d")
+          done
+          if [[ ${#roots[@]} -eq 0 ]]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No changed directory is a Terraform root; nothing to estimate."
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "${roots[@]}" | tee /tmp/infracost/roots.txt
+          fi
+
       # Infracost parses the HCL directly, so this needs no AWS credentials and
       # no saved plan. It is an estimate of the declared configuration, which is
       # what a reviewer needs on a pull request; the authoritative figure comes
       # from the saved plan attached to each apply's evidence.
-      - name: Estimate the full-profile roots
-        if: steps.key.outputs.present == 'true'
+      - name: Estimate every changed root
+        if: steps.key.outputs.present == 'true' && steps.roots.outputs.found == 'true'
         run: |
           set -euo pipefail
-          for root in \
-            aws/shared/egress \
-            aws/environments/full-dev/foundation \
-            aws/environments/full-prod/foundation
-          do
+          while IFS= read -r root; do
+            name="$(echo "$root" | tr '/' '-')"
             echo "=== $root ==="
-            infracost breakdown --path "$root" --format table
-          done
+            infracost breakdown --path "$root" --format json --out-file "/tmp/infracost/$name.json"
+          done < /tmp/infracost/roots.txt
+          infracost output --path "/tmp/infracost/*.json" --format table --out-file /tmp/infracost/combined.txt
+          cat /tmp/infracost/combined.txt
+
+      - name: Comment the cost estimate on the pull request
+        if: steps.key.outputs.present == 'true' && steps.roots.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          infracost comment github \
+            --path "/tmp/infracost/*.json" \
+            --repo "${{ github.repository }}" \
+            --pull-request "${{ github.event.pull_request.number }}" \
+            --github-token "${{ secrets.GITHUB_TOKEN }}" \
+            --behavior update
+
+      # Not a GitHub webhook: this repo's own Slack approval gateway (spec:
+      # microservice-app-docs/full-platform/slack-approval-gateway.md) reads
+      # this directly so the reviewer sees the real cost inside the same
+      # Slack message they approve from, not only as a PR comment they might
+      # not open. Signed with the same secret the gateway already verifies
+      # real GitHub webhooks against.
+      - name: Report the cost estimate to the Slack approval gateway
+        if: steps.key.outputs.present == 'true' && steps.roots.outputs.found == 'true'
+        env:
+          WEBHOOK_SECRET: ${{ secrets.SLACK_GATEWAY_WEBHOOK_SECRET }}
+          API_BASE_URL: ${{ vars.SLACK_GATEWAY_API_BASE_URL }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${WEBHOOK_SECRET:-}" || -z "${API_BASE_URL:-}" ]]; then
+            echo "SLACK_GATEWAY_WEBHOOK_SECRET or SLACK_GATEWAY_API_BASE_URL is not configured; skipping the Slack report."
+            exit 0
+          fi
+          cost_summary="$(cat /tmp/infracost/combined.txt)"
+          payload="$(jq -n \
+            --arg repo "$REPO_NAME" \
+            --argjson prNumber "$PR_NUMBER" \
+            --arg prBody "$PR_BODY" \
+            --arg costSummary "$cost_summary" \
+            '{repo: $repo, prNumber: $prNumber, prBody: $prBody, costSummary: $costSummary}')"
+          signature="sha256=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | sed 's/^.* //')"
+          curl -sf -X POST "${API_BASE_URL}/internal/cost-report" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $signature" \
+            -d "$payload"

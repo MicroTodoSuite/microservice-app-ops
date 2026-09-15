@@ -231,6 +231,16 @@ resource "aws_apigatewayv2_route" "github_webhook_handler" {
   target    = "integrations/${aws_apigatewayv2_integration.github_webhook_handler.id}"
 }
 
+# Not a GitHub webhook: an infra repo's own CI (microservice-app-ops) posts
+# here directly once it has computed a real Infracost figure for a PR, signed
+# with the same shared github_webhook_secret. Routed to the same Lambda --
+# github-webhook-handler dispatches on request path, not just event type.
+resource "aws_apigatewayv2_route" "cost_report" {
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = "POST /internal/cost-report"
+  target    = "integrations/${aws_apigatewayv2_integration.github_webhook_handler.id}"
+}
+
 resource "aws_lambda_permission" "github_webhook_handler_apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
