@@ -37,8 +37,8 @@
 
 - [ ] **T007 Complete live acceptance in a separate approved operation**
   - [ ] Review a refresh-backed enabled migration plan with no physical replacements
-  - [ ] Review economical down plan JSON and persistent-data disposition
-  - [ ] Apply the approved shutdown bundle
+  - [X] Review economical down plan JSON and persistent-data disposition — bundle `economical-down-20260915T215026Z` contains no durable deletion, and volume record `volumes-economical-20260915T164648Z` retains four completed snapshots
+  - [X] Apply the approved shutdown bundle — `economical-down-20260915T214743Z` removed protection and `economical-down-20260915T215026Z` removed the economical runtime on 2026-09-15
   - [ ] Restore through a separately reviewed economical up bundle
   - [ ] Migrate and accept full-profile roots before their first replacement-account apply
 
@@ -94,3 +94,10 @@
     - [X] Add `transit_enabled` to the three spokes, defaulting on, with the hub lookups conditional on it
     - [X] Plan the full roots in dependency order with the hub-first and unprotect bundles, and audit each spoke's down plan with the egress filter
     - [X] Document the full boundary and the second bundles in the runbook and the spoke READMEs
+
+- [X] **T015 Preserve durable DNS while shutting down the economical ingress runtime**
+  - [X] Commit a failing contract that distinguishes the ALB aliases from the durable ACM validation record
+  - [X] Restrict the unprotect pass to the EKS cluster resource
+  - [X] Allow the economical ALB aliases to leave with the runtime while retaining every other Route 53 record
+  - [X] Target the economical cluster and ingress runtime without destroying the colocated ACM resources
+  - [X] Re-plan and inspect both economical shutdown bundles before apply
