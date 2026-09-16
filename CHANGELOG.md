@@ -1,3 +1,12 @@
+## [1.38.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.38.0...v1.38.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **lifecycle:** preserve durable dns during economical shutdown ([#119](https://github.com/MicroTodoSuite/microservice-app-ops/issues/119)) ([14ad8f3](https://github.com/MicroTodoSuite/microservice-app-ops/commit/14ad8f309f1e955566cf52c6785f92fb99ef4897))
+* **lifecycle:** preserve durable economical dns ([0ec9ad4](https://github.com/MicroTodoSuite/microservice-app-ops/commit/0ec9ad40bac6bebec77d363b58a016c9013f6e35))
+* **lifecycle:** retain economical certificate on down ([6a67782](https://github.com/MicroTodoSuite/microservice-app-ops/commit/6a677829894b34b9ef9685ee0babb2f5bc827b01))
+
 # [1.38.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.37.1...v1.38.0) (2026-09-15)
 
 
