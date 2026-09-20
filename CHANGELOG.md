@@ -1,3 +1,17 @@
+# [1.39.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.38.1...v1.39.0) (2026-09-20)
+
+
+### Bug Fixes
+
+* **lifecycle:** enforce cluster-scoped sweep safety ([391bd35](https://github.com/MicroTodoSuite/microservice-app-ops/commit/391bd35e953541fa4edd9b1199e5add82dd92ba8))
+* **lifecycle:** verify snapshot state and recovery planning ([78c49e8](https://github.com/MicroTodoSuite/microservice-app-ops/commit/78c49e8753c23255092b54072b3b22efda1f7e94))
+
+
+### Features
+
+* **lifecycle:** implement post-destroy runtime sweep ([bfa5cec](https://github.com/MicroTodoSuite/microservice-app-ops/commit/bfa5cec2be29800de2a574a66c33f3ef015f032a))
+* **lifecycle:** implement post-destroy runtime sweep ([#122](https://github.com/MicroTodoSuite/microservice-app-ops/issues/122)) ([36cb901](https://github.com/MicroTodoSuite/microservice-app-ops/commit/36cb901b5c13ed003d8b1b421ff2ceb2251c032d)), closes [microservice-app-ops#120](https://github.com/microservice-app-ops/issues/120) [#120](https://github.com/MicroTodoSuite/microservice-app-ops/issues/120)
+
 ## [1.38.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.38.0...v1.38.1) (2026-09-16)
 
 
