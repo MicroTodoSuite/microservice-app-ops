@@ -108,6 +108,8 @@ require_text "scripts/aws-profile-lifecycle.sh" 'ec2[[:space:]]+create-snapshot'
   "wrapper must snapshot persistent volumes before GitOps quiescence"
 require_text "scripts/aws-profile-lifecycle.sh" 'ec2[[:space:]]+wait[[:space:]]+snapshot-completed' \
   "wrapper must wait for volume snapshots to complete"
+require_text "scripts/aws-profile-lifecycle.sh" 'Snapshots\[0\]\.State' \
+  "the sweep must query the recorded snapshot state explicitly"
 require_text "scripts/aws-profile-lifecycle.sh" -- '--volume-record' \
   "down plans must require a persistent-volume record"
 reject_text "scripts/aws-profile-lifecycle.sh" 'kubectl' \
@@ -608,7 +610,9 @@ printf '%s\n' \
   '    if [[ -n "${EXTRA_VOLUME:-}" ]]; then printf "%s\t5\tpvc-new\n" "$EXTRA_VOLUME"; fi ;;' \
   '  *"ec2 create-snapshot"*) printf "snap-0aaa\n" ;;' \
   '  *"ec2 wait snapshot-completed"*) ;;' \
-  '  *"ec2 describe-snapshots"*) printf "snap-0aaa\t%s\n" "${SNAP_STATE:-completed}" ;;' \
+  '  *"ec2 describe-snapshots"*)' \
+  '    [[ "$*" == *"--query"* ]] || { printf "ERROR: snapshot state query is required\n" >&2; exit 98; };' \
+  '    if [[ "$*" == *"Snapshots[0].State"* ]]; then printf "%s\n" "${SNAP_STATE:-completed}"; else printf "snap-0aaa\t%s\n" "${SNAP_STATE:-completed}"; fi ;;' \
   '  *"ec2 describe-vpcs"*) printf "%s\n" "${VPC_COUNT:-1}" ;;' \
   '  *"service-quotas get-service-quota"*) printf "5.0\n" ;;' \
   '  *"elbv2 describe-load-balancers"*--output\ json*)' \
