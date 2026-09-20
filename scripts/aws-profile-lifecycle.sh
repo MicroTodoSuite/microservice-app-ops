@@ -241,7 +241,7 @@ sweep_aws() {
     return 0
   fi
   case "$output" in
-    *NotFound*|*does\ not\ exist*|*already\ deleted*|*already\ absent*)
+    *NotFound*)
       printf 'SWEEP already absent: aws %s\n' "$*"
       return 0 ;;
   esac
@@ -260,7 +260,7 @@ describe_for_sweep() {
     return 0
   fi
   case "$output" in
-    *NotFound*|*does\ not\ exist*|*not\ found*) return 2 ;;
+    *NotFound*) return 2 ;;
   esac
   printf '%s\n' "$output" >&2
   return 1
@@ -771,7 +771,7 @@ revalidate_sweep_target() {
         return 1
       }
       state="$(describe_for_sweep ec2 describe-snapshots --region "$region" --snapshot-ids "$snapshot" \
-        --output text | awk '{print $NF}')" || {
+        --query 'Snapshots[0].State' --output text)" || {
         printf 'ERROR: Cannot read recorded snapshot %s for volume %s; refusing.\n' "$snapshot" "$id" >&2
         return 1
       }

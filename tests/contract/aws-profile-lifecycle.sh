@@ -1099,7 +1099,8 @@ grep -qi 'absent\|NotFound' <<<"$gone_output" || \
   fail "the idempotent rerun must report already-absent resources"
 
 # Partial failure is failure, then recovery: a dependency error aborts the
-# apply instead of being swallowed, and the rerun completes.
+# apply instead of being swallowed; a fresh down plan with the same receipt
+# and volume record then reruns the idempotent sweep.
 failonce_status=0
 output="$(in_sandbox env SWEEP_FAIL_ONCE=1 ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || failonce_status=$?
 if [[ "$failonce_status" -eq 0 ]]; then
@@ -1108,8 +1109,12 @@ fi
 grep -q 'vol-0aaa' <<<"$output" || \
   fail "the partial failure must name the volume it failed on"
 rm -f "$volume_sandbox/sweep-fail-once.done"
-in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" >/dev/null || \
-  fail "the rerun after a partial failure must complete"
+in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --receipt "$quiescence_receipt" --volume-record "$volume_record" >/dev/null || \
+  fail "a fresh down plan after a partial failure must complete"
+recovery_bundle="$(latest_bundle economical down)"
+in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$recovery_bundle" >/dev/null || \
+  fail "the re-planned sweep after a partial failure must complete"
 
 # Permission errors propagate: an arbitrary denial is never turned into success.
 if output="$(in_sandbox env SWEEP_HARD_FAIL=load-balancer ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)"; then
