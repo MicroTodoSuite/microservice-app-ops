@@ -67,7 +67,7 @@ for direction in up down; do
     "wrapper is missing the ${direction} direction"
 done
 
-for command in check init plan inspect apply status snapshot-volumes; do
+for command in check init plan inspect apply status snapshot-volumes quiescence-receipt; do
   require_text "scripts/aws-profile-lifecycle.sh" "^[[:space:]]*${command}\)" \
     "wrapper is missing the ${command} command"
 done
@@ -82,8 +82,14 @@ require_text "scripts/aws-profile-lifecycle.sh" -- '-out=' \
   "wrapper must save plans before apply"
 require_text "scripts/aws-profile-lifecycle.sh" 'sha256sum' \
   "wrapper must checksum saved plans"
-require_text "scripts/aws-profile-lifecycle.sh" 'gitops[_-]revision' \
-  "wrapper must record GitOps quiescence evidence"
+reject_text "scripts/aws-profile-lifecycle.sh" '--gitops-revision' \
+  "wrapper must not require a GitOps revision for down transitions"
+require_text "scripts/aws-profile-lifecycle.sh" '--receipt' \
+  "wrapper down plan must require a quiescence receipt"
+require_text "scripts/aws-profile-lifecycle.sh" 'quiescence_receipt|quiescence-receipt' \
+  "wrapper must record quiescence receipt evidence"
+require_text "scripts/aws-profile-lifecycle.sh" 'post-destroy runtime sweep|sweep' \
+  "wrapper must implement post-destroy runtime sweep"
 require_text "scripts/aws-profile-lifecycle.sh" 'get-caller-identity' \
   "wrapper must verify the active AWS identity"
 require_text "scripts/aws-profile-lifecycle.sh" 'plan[[:space:]]+-destroy' \
@@ -209,6 +215,205 @@ certificate_validation_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$certifi
 [[ "$certificate_validation_deleted" == 'aws_route53_record.certificate_validation["eco.microtodosuite.online"]' ]] || \
   fail "the ACM validation record must remain protected"
 
+secrets_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_secretsmanager_secret.jwt",
+      type: "aws_secretsmanager_secret",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+secrets_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$secrets_plan")"
+[[ "$secrets_deleted" == "aws_secretsmanager_secret.jwt" ]] || \
+  fail "Secrets Manager secrets must remain protected"
+
+acm_certificate_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_acm_certificate.ingress",
+      type: "aws_acm_certificate",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+acm_certificate_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$acm_certificate_plan")"
+[[ "$acm_certificate_deleted" == "aws_acm_certificate.ingress" ]] || \
+  fail "ACM certificates must remain protected"
+
+kms_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_kms_key.eks",
+      type: "aws_kms_key",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+kms_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$kms_plan")"
+[[ "$kms_deleted" == "aws_kms_key.eks" ]] || \
+  fail "KMS keys must remain protected"
+
+s3_state_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_s3_bucket.state",
+      type: "aws_s3_bucket",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+s3_state_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$s3_state_plan")"
+[[ "$s3_state_deleted" == "aws_s3_bucket.state" ]] || \
+  fail "Terraform state bucket must remain protected"
+
+# T016 companion families: every durable family must be unreachable as a whole,
+# not just its primary resource (ACM certificate+validation, all Route53
+# non-ALB-alias records, ECR repository/policy, Secrets secret/version, KMS
+# key/alias/replica, S3 bucket companion resources, GitHub OIDC attachments).
+acm_validation_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_acm_certificate_validation.ingress",
+      type: "aws_acm_certificate_validation",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+acm_validation_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$acm_validation_plan")"
+[[ "$acm_validation_deleted" == "aws_acm_certificate_validation.ingress" ]] || \
+  fail "ACM certificate validations must remain protected"
+
+kms_alias_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_kms_alias.eks",
+      type: "aws_kms_alias",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+kms_alias_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$kms_alias_plan")"
+[[ "$kms_alias_deleted" == "aws_kms_alias.eks" ]] || \
+  fail "KMS aliases must remain protected"
+
+kms_replica_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_kms_replica_key.eks",
+      type: "aws_kms_replica_key",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+kms_replica_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$kms_replica_plan")"
+[[ "$kms_replica_deleted" == "aws_kms_replica_key.eks" ]] || \
+  fail "KMS replica keys must remain protected"
+
+secrets_version_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_secretsmanager_secret_version.jwt",
+      type: "aws_secretsmanager_secret_version",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+secrets_version_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$secrets_version_plan")"
+[[ "$secrets_version_deleted" == "aws_secretsmanager_secret_version.jwt" ]] || \
+  fail "Secrets Manager secret versions must remain protected"
+
+ecr_policy_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "module.foundation.aws_ecr_repository_policy.services[\"auth-api\"]",
+      type: "aws_ecr_repository_policy",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+ecr_policy_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$ecr_policy_plan")"
+[[ "$ecr_policy_deleted" == 'module.foundation.aws_ecr_repository_policy.services["auth-api"]' ]] || \
+  fail "ECR repository policies must remain protected"
+
+s3_versioning_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_s3_bucket_versioning.state",
+      type: "aws_s3_bucket_versioning",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+s3_versioning_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$s3_versioning_plan")"
+[[ "$s3_versioning_deleted" == "aws_s3_bucket_versioning.state" ]] || \
+  fail "Terraform state bucket versioning must remain protected"
+
+s3_policy_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_s3_bucket_policy.state",
+      type: "aws_s3_bucket_policy",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+s3_policy_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$s3_policy_plan")"
+[[ "$s3_policy_deleted" == "aws_s3_bucket_policy.state" ]] || \
+  fail "Terraform state bucket policies must remain protected"
+
+s3_encryption_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_s3_bucket_server_side_encryption_configuration.state",
+      type: "aws_s3_bucket_server_side_encryption_configuration",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+s3_encryption_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$s3_encryption_plan")"
+[[ "$s3_encryption_deleted" == "aws_s3_bucket_server_side_encryption_configuration.state" ]] || \
+  fail "Terraform state bucket encryption configuration must remain protected"
+
+route53_zone_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_route53_zone.primary",
+      type: "aws_route53_zone",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+route53_zone_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$route53_zone_plan")"
+[[ "$route53_zone_deleted" == "aws_route53_zone.primary" ]] || \
+  fail "Route53 hosted zones must remain protected"
+
+route53_txt_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "aws_route53_record.delegation[\"eco.microtodosuite.online\"]",
+      type: "aws_route53_record",
+      change: {actions: ["delete"], before: {type: "TXT"}}
+    }]
+  }
+')"
+route53_txt_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$route53_txt_plan")"
+[[ "$route53_txt_deleted" == 'aws_route53_record.delegation["eco.microtodosuite.online"]' ]] || \
+  fail "Route53 non-alias records must remain protected"
+
+github_attachment_plan="$(jq -n '
+  {
+    resource_changes: [{
+      address: "module.foundation.aws_iam_role_policy_attachment.github_ecr_publisher",
+      type: "aws_iam_role_policy_attachment",
+      change: {actions: ["delete"], before: {}}
+    }]
+  }
+')"
+github_attachment_deleted="$(jq -r -f "$DURABLE_DELETE_FILTER" <<<"$github_attachment_plan")"
+[[ "$github_attachment_deleted" == "module.foundation.aws_iam_role_policy_attachment.github_ecr_publisher" ]] || \
+  fail "GitHub publisher attachments must remain protected"
+
 # A networking down plan may delete its NAT or transit egress and nothing else.
 egress_plan="$(jq -n '
   {
@@ -278,7 +483,6 @@ printf '%s\n' \
   $'direction\tup' \
   $'account\t575172595729' \
   $'commit\tabcdef1' \
-  $'gitops_revision\tabcdef1' \
   $'root\teco-networking\taws/environments/eco/networking\teco-networking.tfplan' \
   >"$fixture_bundle/metadata.tsv"
 (
@@ -377,6 +581,7 @@ for root in eco/networking eco/workload eco/security-irsa shd/networking \
   domain="${root##*/}"
   mkdir -p "$sandbox_ops/aws/environments/$root"
   printf '%s\n' 'aws_account_id = "575172595729"' 'aws_region     = "us-east-1"' \
+    'client           = "lex"' 'project          = "mts"' "environment      = \"$environment\"" \
     >"$sandbox_ops/aws/environments/$root/$environment.tfvars"
   printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/$root/$domain.s3.tfbackend"
 done
@@ -386,15 +591,6 @@ contract_git() {
 contract_git -C "$sandbox_ops" init -q
 contract_git -C "$sandbox_ops" add -A
 contract_git -C "$sandbox_ops" commit -q -m contract
-now="$(date -u +%s)"
-contract_git -C "$sandbox_gitops" init -q
-GIT_COMMITTER_DATE="@$((now - 86400)) +0000" GIT_AUTHOR_DATE="@$((now - 86400)) +0000" \
-  contract_git -C "$sandbox_gitops" commit -q --allow-empty -m 'quiescence merged before the record'
-stale_revision="$(git -C "$sandbox_gitops" rev-parse HEAD)"
-GIT_COMMITTER_DATE="@$((now + 3600)) +0000" GIT_AUTHOR_DATE="@$((now + 3600)) +0000" \
-  contract_git -C "$sandbox_gitops" commit -q --allow-empty -m 'quiescence merged after the record'
-quiescence_revision="$(git -C "$sandbox_gitops" rev-parse HEAD)"
-git -C "$sandbox_gitops" update-ref refs/remotes/origin/main "$quiescence_revision"
 
 printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -403,14 +599,109 @@ printf '%s\n' \
   'case "$*" in' \
   '  --version) printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n" ;;' \
   '  "sts get-caller-identity"*) printf "575172595729\n" ;;' \
-  '  *"ec2 describe-volumes"*)' \
+  '  *"ec2 describe-volumes"*--output\ text*)' \
   '    printf "vol-0aaa\t10\tpvc-prometheus\nvol-0bbb\t2\tpvc-grafana\n"' \
   '    if [[ -n "${EXTRA_VOLUME:-}" ]]; then printf "%s\t5\tpvc-new\n" "$EXTRA_VOLUME"; fi ;;' \
   '  *"ec2 create-snapshot"*) printf "snap-0aaa\n" ;;' \
   '  *"ec2 wait snapshot-completed"*) ;;' \
-  '  *"ec2 describe-snapshots"*) printf "snap-0aaa\tcompleted\n" ;;' \
+  '  *"ec2 describe-snapshots"*) printf "snap-0aaa\t%s\n" "${SNAP_STATE:-completed}" ;;' \
   '  *"ec2 describe-vpcs"*) printf "%s\n" "${VPC_COUNT:-1}" ;;' \
   '  *"service-quotas get-service-quota"*) printf "5.0\n" ;;' \
+  '  *"elbv2 describe-load-balancers"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"LoadBalancers\":[]}\n";' \
+  '    else printf "{\"LoadBalancers\":[{\"LoadBalancerArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\",\"Type\":\"application\"}]}\n"; fi ;;' \
+  '  *"elbv2 describe-tags"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "{\"TagDescriptions\":[]}\n";' \
+  '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
+  '    else' \
+  '      case "${TAG_MODE:-normal}" in' \
+  '        wrong-cluster) tag_value="lex-mts-fprd-eks-main" ;;' \
+  '        missing) tag_value="" ;;' \
+  '        *) tag_value="lex-mts-eco-eks-main" ;;' \
+  '      esac;' \
+  '      case "$*" in' \
+  '        *loadbalancer/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ;;' \
+  '        *listener/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ;;' \
+  '        *targetgroup*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef" ;;' \
+  '        *) resource_arn="unknown" ;;' \
+  '      esac;' \
+  '      if [[ -z "$tag_value" ]]; then printf "{\"TagDescriptions\":[{\"ResourceArn\":\"%s\",\"Tags\":[]}]}\n" "$resource_arn";' \
+  '      else printf "{\"TagDescriptions\":[{\"ResourceArn\":\"%s\",\"Tags\":[{\"Key\":\"elbv2.k8s.aws/cluster\",\"Value\":\"%s\"}]}]}\n" "$resource_arn" "$tag_value"; fi;' \
+  '    fi ;;' \
+  '  *"elbv2 describe-listeners"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"Listeners\":[]}\n";' \
+  '    else printf "{\"Listeners\":[{\"ListenerArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\"}]}\n"; fi ;;' \
+  '  *"elbv2 describe-target-groups"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"TargetGroups\":[]}\n";' \
+  '    else printf "{\"TargetGroups\":[{\"TargetGroupArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\",\"TargetGroupName\":\"k8s-eco-tg\"}]}\n"; fi ;;' \
+  '  *"ec2 describe-security-groups"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"SecurityGroups\":[]}\n";' \
+  '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
+  '    else' \
+  '      case "${TAG_MODE:-normal}" in' \
+  '        wrong-cluster) tag_value="lex-mts-fprd-eks-main" ;;' \
+  '        missing) tag_value="" ;;' \
+  '        *) tag_value="lex-mts-eco-eks-main" ;;' \
+  '      esac;' \
+  '      if [[ -z "$tag_value" ]]; then printf "{\"SecurityGroups\":[{\"GroupId\":\"sg-0123456789abcdef0\",\"GroupName\":\"k8s-elb-eco\",\"Tags\":[]}]}\n";' \
+  '      else printf "{\"SecurityGroups\":[{\"GroupId\":\"sg-0123456789abcdef0\",\"GroupName\":\"k8s-elb-eco\",\"Tags\":[{\"Key\":\"elbv2.k8s.aws/cluster\",\"Value\":\"%s\"}]}]}\n" "$tag_value"; fi;' \
+  '    fi ;;' \
+  '  *"ec2 describe-network-interfaces"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"NetworkInterfaces\":[]}\n";' \
+  '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
+  '    else' \
+  '      case "${TAG_MODE:-normal}" in' \
+  '        wrong-cluster) tag_value="lex-mts-fprd-eks-main" ;;' \
+  '        missing) tag_value="" ;;' \
+  '        *) tag_value="lex-mts-eco-eks-main" ;;' \
+  '      esac;' \
+  '      if [[ -z "$tag_value" ]]; then printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"available\",\"TagSet\":[]}]}\n";' \
+  '      else printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"available\",\"TagSet\":[{\"Key\":\"elbv2.k8s.aws/cluster\",\"Value\":\"%s\"}]}]}\n" "$tag_value"; fi;' \
+  '    fi ;;' \
+  '  *"ec2 describe-volumes"*--output\ json*)' \
+  '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"Volumes\":[]}\n";' \
+  '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
+  '    else' \
+  '      case "${TAG_MODE:-normal}" in' \
+  '        wrong-cluster) tag_value="lex-mts-fprd-eks-main" ;;' \
+  '        missing) tag_value="" ;;' \
+  '        *) tag_value="lex-mts-eco-eks-main" ;;' \
+  '      esac;' \
+  '      if [[ -z "$tag_value" ]]; then printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"available\",\"Tags\":[]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[]}]}\n";' \
+  '      else printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"available\",\"Tags\":[{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"%s\"},{\"Key\":\"kubernetes.io/created-for/pv/name\",\"Value\":\"pvc-prometheus\"}]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"%s\"},{\"Key\":\"kubernetes.io/created-for/pv/name\",\"Value\":\"pvc-grafana\"}]}]}\n" "$tag_value" "$tag_value"; fi;' \
+  '    fi ;;' \
+  '  *"elbv2 describe-load-balancers"*)' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n" ;;' \
+  '  *"elbv2 describe-tags"*loadbalancer*)' \
+  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
+  '  *"elbv2 describe-listeners"*)' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\n" ;;' \
+  '  *"elbv2 describe-target-groups"*)' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\n" ;;' \
+  '  *"elbv2 describe-tags"*targetgroup*)' \
+  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
+  '  *"ec2 describe-security-groups"*)' \
+  '    printf "sg-0123456789abcdef0\tk8s-elb-eco\telbv2.k8s.aws/cluster=lex-mts-eco-eks-main\n" ;;' \
+  '  *"ec2 describe-network-interfaces"*)' \
+  '    printf "eni-0123456789abcdef0\tavailable\telbv2.k8s.aws/cluster=lex-mts-eco-eks-main\n" ;;' \
+  '  *"elbv2 delete-listener"*)' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (ListenerNotFound) when calling the DeleteListener operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"elbv2 delete-load-balancer"*)' \
+  '    if [[ "${SWEEP_HARD_FAIL:-}" == *load-balancer* ]]; then printf "An error occurred (UnauthorizedOperation) when calling the DeleteLoadBalancer operation: denied\n" >&2; exit 254; fi;' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (LoadBalancerNotFound) when calling the DeleteLoadBalancer operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"elbv2 wait load-balancers-deleted"*)' \
+  '    if [[ "${SWEEP_HARD_FAIL:-}" == *wait* ]]; then printf "Waiter encountered a terminal failure state\n" >&2; exit 1; fi ;;' \
+  '  *"elbv2 delete-target-group"*)' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (TargetGroupNotFound) when calling the DeleteTargetGroup operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"ec2 delete-security-group"*)' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (InvalidGroup.NotFound) when calling the DeleteSecurityGroup operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"ec2 delete-volume"*)' \
+  '    if [[ -n "${SWEEP_FAIL_ONCE:-}" && ! -f "$VOLUME_CAPTURE/sweep-fail-once.done" ]]; then : >"$VOLUME_CAPTURE/sweep-fail-once.done"; printf "An error occurred (VolumeInUse) when calling the DeleteVolume operation: in use\n" >&2; exit 1; fi;' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (InvalidVolume.NotFound) when calling the DeleteVolume operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"ec2 delete-network-interface"*)' \
+  '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "An error occurred (InvalidNetworkInterfaceID.NotFound) when calling the DeleteNetworkInterface operation: not found\n" >&2; exit 254; fi ;;' \
+  '  *"acm delete-certificate"*|*"route53 change-resource-record-sets"*|*"ecr delete-repository"*|*"secretsmanager delete-secret"*|*"kms schedule-key-deletion"*|*"s3api delete-bucket"*|*"iam delete-open-id-connect-provider"*)' \
+  '    printf "ERROR: protected resource type deletion attempted: %s\n" "$*" >&2; exit 99 ;;' \
   '  *) exit 2 ;;' \
   'esac' \
   >"$volume_bin/aws"
@@ -449,6 +740,7 @@ case "${2:-}" in
       printf 'module.network.aws_vpc.this\n'
     fi
     ;;
+  apply) ;;
   *) exit 2 ;;
 esac
 FAKE
@@ -494,9 +786,7 @@ grep -Fq 'config/aws-account.env' <<<"$output" || \
 cp "$volume_sandbox/eco.tfvars.saved" "$workload_variables"
 
 # Persistent volumes (spec 003 FR-018 to FR-020). snapshot-volumes records a
-# completed snapshot, or explicit consent, for every EBS CSI volume. A down plan
-# accepts only a record that predates the GitOps quiescence commit and still
-# covers every volume.
+# completed snapshot, or explicit consent, for every EBS CSI volume.
 in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes economical --consent vol-0bbb >/dev/null
 volume_record="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'volumes-economical-*' | head -n 1)"
 [[ -n "$volume_record" && -f "$volume_record/record.tsv" ]] || \
@@ -517,16 +807,42 @@ grep -Eq 'ec2 wait snapshot-completed .*snap-0aaa' "$volume_sandbox/aws.log" || 
 if in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes economical --consent vol-0zzz >/dev/null 2>&1; then
   fail "consent naming a volume that does not exist must be rejected"
 fi
-if in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down --gitops-revision "$quiescence_revision" >/dev/null 2>&1; then
-  fail "a down plan without a volume record must be rejected"
+
+# Quiescence receipt replaces --gitops-revision with checksummed JSON evidence (spec 003 T016).
+if in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down --volume-record "$volume_record" >/dev/null 2>&1; then
+  fail "a down plan without a quiescence receipt must be rejected"
 fi
+
+in_sandbox ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical --volume-record "$volume_record" >/dev/null
+quiescence_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-*' | head -n 1)"
+[[ -n "$quiescence_receipt" && -f "$quiescence_receipt/receipt.json" ]] || \
+  fail "quiescence-receipt must write a receipt.json"
+(cd "$quiescence_receipt" && sha256sum -c --quiet checksums.sha256) || \
+  fail "the quiescence receipt must be checksummed"
+[[ "$(jq -r '.format' "$quiescence_receipt/receipt.json")" == "1" ]] || \
+  fail "quiescence receipt must have format 1"
+[[ "$(jq -r '.profile' "$quiescence_receipt/receipt.json")" == "economical" ]] || \
+  fail "quiescence receipt must record profile"
+[[ "$(jq -r '.account' "$quiescence_receipt/receipt.json")" == "575172595729" ]] || \
+  fail "quiescence receipt must record account"
+[[ "$(jq -r '.region' "$quiescence_receipt/receipt.json")" == "us-east-1" ]] || \
+  fail "quiescence receipt must record region"
+jq -e '.inventory.load_balancers and .inventory.target_groups and .inventory.security_groups and .inventory.volumes and .inventory.network_interfaces' "$quiescence_receipt/receipt.json" >/dev/null || \
+  fail "quiescence receipt must include dry-run inventory across all in-scope resource types"
+
+# Ordering guard: the volume record must predate the receipt.
+stale_receipt_dir="$sandbox_ops/.aws-profile-plans/quiescence-economical-stale"
+mkdir -p "$stale_receipt_dir"
+jq '.created_epoch = 1000' "$quiescence_receipt/receipt.json" >"$stale_receipt_dir/receipt.json"
+(cd "$stale_receipt_dir" && sha256sum receipt.json >checksums.sha256)
 if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
-  --gitops-revision "$stale_revision" --volume-record "$volume_record" 2>&1)"; then
-  fail "a volume record newer than the GitOps quiescence commit must be rejected"
+  --receipt "$stale_receipt_dir" --volume-record "$volume_record" 2>&1)"; then
+  fail "a volume record created after the quiescence receipt must be rejected"
 fi
-grep -q 'predate' <<<"$output" || fail "the stale-record rejection must explain the ordering"
+grep -q 'predate' <<<"$output" || fail "the stale-receipt rejection must explain the ordering"
+
 if in_sandbox env EXTRA_VOLUME=vol-0ccc ./scripts/aws-profile-lifecycle.sh plan economical down \
-  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null 2>&1; then
+  --receipt "$quiescence_receipt" --volume-record "$volume_record" >/dev/null 2>&1; then
   fail "a volume missing from the record must block the down plan"
 fi
 
@@ -535,8 +851,8 @@ fi
 # (FR-022, FR-023).
 fresh_transition
 in_sandbox env CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan economical down \
-  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" >/dev/null || \
-  fail "a record that predates quiescence and covers every volume must allow the down plan"
+  --receipt "$quiescence_receipt" --volume-record "$volume_record" >/dev/null || \
+  fail "a valid receipt and volume record must allow the down plan"
 down_bundle="$(latest_bundle economical down)"
 [[ "$(bundle_roots "$down_bundle")" == "eco-security-irsa eco-workload eco-networking" ]] || \
   fail "the down bundle must destroy the IRSA pass, then the cluster, then remove the NAT egress"
@@ -557,16 +873,237 @@ if grep -Eq '^eco/networking plan -destroy' "$terraform_log"; then
 fi
 grep -q $'^volume_record\t' "$down_bundle/metadata.tsv" || \
   fail "the down bundle must record which volume record it relied on"
+grep -q $'^receipt\t' "$down_bundle/metadata.tsv" || \
+  fail "the down bundle must record which receipt it relied on"
 cmp -s "$volume_record/record.tsv" "$down_bundle/volume-record.tsv" || \
   fail "the down bundle must carry a copy of the volume record"
 (cd "$down_bundle" && sha256sum -c --quiet checksums.sha256) || \
   fail "the down bundle checksums must cover the volume record"
 
+# Apply down executes the runtime sweep BETWEEN cluster destruction and networking (T016).
+# It must delete allow-listed resources, verify completed snapshots before deleting volumes,
+# never touch protected types, and be idempotent.
+: >"$volume_sandbox/aws.log"
+: >"$terraform_log"
+in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" >/dev/null || \
+  fail "apply down must execute successfully"
+
+# Verify ordering: eco/workload apply -> sweep deletes -> eco/networking apply
+workload_apply_line="$(grep -n '^eco/workload apply' "$terraform_log" | cut -d: -f1)"
+networking_apply_line="$(grep -n '^eco/networking apply' "$terraform_log" | cut -d: -f1)"
+[[ -n "$workload_apply_line" && -n "$networking_apply_line" && "$workload_apply_line" -lt "$networking_apply_line" ]] || \
+  fail "workload cluster must be destroyed before networking plan is applied"
+grep -q 'delete-load-balancer' "$volume_sandbox/aws.log" || \
+  fail "apply down sweep must delete the in-cluster load balancer"
+grep -q 'delete-volume' "$volume_sandbox/aws.log" || \
+  fail "apply down sweep must delete PVC volumes"
+grep -q 'delete-security-group' "$volume_sandbox/aws.log" || \
+  fail "apply down sweep must delete controller security groups"
+grep -q 'delete-network-interface' "$volume_sandbox/aws.log" || \
+  fail "apply down sweep must delete orphaned ENIs"
+
+# Verify protected types were never touched regardless of tags:
+for protected_action in 'delete-certificate' 'change-resource-record-sets' 'delete-repository' 'delete-secret' 'schedule-key-deletion' 'delete-bucket' 'delete-open-id-connect-provider'; do
+  if grep -q "$protected_action" "$volume_sandbox/aws.log"; then
+    fail "protected action $protected_action was called during runtime sweep"
+  fi
+done
+
+# T016 hardening: the sweep implementation must require exact current cluster
+# ownership tags for every swept type, revalidate before each delete, tolerate
+# only verified not-found states, keep protected families unreachable, bind the
+# receipt to profile/account/region/cluster-set/volume-record, order volume
+# record before receipt truthfully, emit one ordered event log with the sweep
+# between workload and networking applies, and rerun cleanly after failure.
+require_text "scripts/aws-profile-lifecycle.sh" 'owns_cluster_tag' \
+  "wrapper must parse exact cluster tag key/value pairs instead of grepping substrings"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_target_type' \
+  "wrapper must classify sweep targets through an explicit type allow-list, not name heuristics"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws' \
+  "wrapper must route destructive sweep calls through the not-found-only tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'revalidate_sweep_target' \
+  "wrapper must revalidate exact type and current ownership tags immediately before each deletion"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws elbv2 delete-listener' \
+  "wrapper must delete listeners through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws elbv2 delete-load-balancer' \
+  "wrapper must delete load balancers through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws elbv2 delete-target-group' \
+  "wrapper must delete target groups through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws ec2 delete-security-group' \
+  "wrapper must delete security groups through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws ec2 delete-volume' \
+  "wrapper must delete volumes through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws ec2 delete-network-interface' \
+  "wrapper must delete network interfaces through the tolerant helper"
+require_text "scripts/aws-profile-lifecycle.sh" -- '--output json' \
+  "wrapper sweep queries must parse structured JSON and fail closed on malformed output"
+require_text "scripts/aws-profile-lifecycle.sh" -- '--resource-arns' \
+  "wrapper must read exact ownership tags per load balancer, listener, and target group ARN"
+require_text "scripts/aws-profile-lifecycle.sh" 'EVENT sweep delete' \
+  "wrapper must emit one ordered event log with each sweep deletion"
+require_text "scripts/aws-profile-lifecycle.sh" 'EVENT apply' \
+  "wrapper must emit one ordered event log with each root apply"
+require_text "scripts/aws-profile-lifecycle.sh" 'No literal client' \
+  "wrapper must fail when cluster inputs are absent instead of inventing defaults"
+require_text "scripts/aws-profile-lifecycle.sh" 'No literal project' \
+  "wrapper must fail when the project input is absent instead of inventing defaults"
+require_text "scripts/aws-profile-lifecycle.sh" 'No literal environment' \
+  "wrapper must fail when the environment input is absent instead of inventing defaults"
+require_text "scripts/aws-profile-lifecycle.sh" 'did not advance' \
+  "wrapper must record truthful receipt evidence instead of fabricating a future epoch"
+require_text "scripts/aws-profile-lifecycle.sh" 'NotFound' \
+  "wrapper must recognize verified not-found states"
+require_text "scripts/aws-profile-lifecycle.sh" 'do not match the' \
+  "wrapper must bind the receipt cluster set to the profile clusters"
+require_text "scripts/aws-profile-lifecycle.sh" 'different volume record' \
+  "wrapper must bind the receipt to the exact volume record it was created with"
+reject_text "scripts/aws-profile-lifecycle.sh" 'record_epoch + 1' \
+  "wrapper must not fabricate a future receipt epoch within the same second"
+
+# Positive inventory: every swept resource carries exact current ownership tags,
+# the listener carries its own tag (not its load balancer's trust), the volume
+# carries live cluster-scoped tags plus a recorded completed snapshot, and the
+# consented volume stays out of the sweep inventory.
+[[ "$(jq -r '.clusters[0]' "$quiescence_receipt/receipt.json")" == "lex-mts-eco-eks-main" ]] || \
+  fail "quiescence receipt must record the economical cluster set"
+[[ "$(jq -r '.inventory.load_balancers[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ]] || \
+  fail "quiescence receipt must inventory the cluster-owned load balancer"
+[[ "$(jq -r '.inventory.listeners[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ]] || \
+  fail "quiescence receipt must inventory the listener behind its own exact cluster tag"
+[[ "$(jq -r '.inventory.target_groups[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef" ]] || \
+  fail "quiescence receipt must inventory the cluster-owned target group"
+[[ "$(jq -c '.inventory.security_groups' "$quiescence_receipt/receipt.json")" == '["sg-0123456789abcdef0"]' ]] || \
+  fail "quiescence receipt must inventory the controller security group"
+[[ "$(jq -c '.inventory.volumes' "$quiescence_receipt/receipt.json")" == '["vol-0aaa"]' ]] || \
+  fail "quiescence receipt must inventory only the snapshotted volume, never the consented one"
+[[ "$(jq -c '.inventory.network_interfaces' "$quiescence_receipt/receipt.json")" == '["eni-0123456789abcdef0"]' ]] || \
+  fail "quiescence receipt must inventory the orphaned ENI"
+
+# Negative inventory: missing tags, wrong-cluster tags, and malformed tag
+# output must keep every resource type out (or fail closed), never sweep it.
+sleep 1
+in_sandbox env TAG_MODE=wrong-cluster ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over foreign-tagged resources must still be written with an empty inventory"
+wrong_cluster_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+for inventory_key in load_balancers listeners target_groups security_groups volumes network_interfaces; do
+  [[ "$(jq -c ".inventory.$inventory_key" "$wrong_cluster_receipt/receipt.json")" == "[]" ]] || \
+    fail "wrong-cluster tags must exclude $inventory_key from the receipt inventory"
+done
+sleep 1
+in_sandbox env TAG_MODE=missing ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over untagged resources must still be written with an empty inventory"
+missing_tag_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+for inventory_key in load_balancers listeners target_groups security_groups volumes network_interfaces; do
+  [[ "$(jq -c ".inventory.$inventory_key" "$missing_tag_receipt/receipt.json")" == "[]" ]] || \
+    fail "missing tags must exclude $inventory_key from the receipt inventory"
+done
+if in_sandbox env TAG_MODE=malformed ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical --volume-record "$volume_record" >/dev/null 2>&1; then
+  fail "malformed tag output must fail the receipt closed instead of sweeping blind"
+fi
+
+# Receipt tamper bindings: checksum, profile/account/region/cluster set, and
+# the exact volume record the receipt was created with.
+tampered_receipt_dir="$volume_sandbox/tampered-receipt"
+rm -rf "$tampered_receipt_dir"
+cp -r "$quiescence_receipt" "$tampered_receipt_dir"
+printf ' ' >>"$tampered_receipt_dir/receipt.json"
+if in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --receipt "$tampered_receipt_dir" --volume-record "$volume_record" >/dev/null 2>&1; then
+  fail "a receipt that fails its checksum must be rejected"
+fi
+rebound_receipt_dir="$volume_sandbox/rebound-receipt"
+rm -rf "$rebound_receipt_dir"
+cp -r "$quiescence_receipt" "$rebound_receipt_dir"
+jq '.clusters = ["lex-mts-ooo-eks-main"]' "$rebound_receipt_dir/receipt.json" >"$rebound_receipt_dir/receipt.json.new"
+mv "$rebound_receipt_dir/receipt.json.new" "$rebound_receipt_dir/receipt.json"
+(cd "$rebound_receipt_dir" && sha256sum receipt.json >checksums.sha256)
+if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --receipt "$rebound_receipt_dir" --volume-record "$volume_record" 2>&1)"; then
+  fail "a receipt whose cluster set does not match the profile must be rejected"
+fi
+grep -q 'do not match the' <<<"$output" || \
+  fail "the cluster-set rejection must explain the mismatch"
+copied_record_dir="$volume_sandbox/volume-record-copy"
+rm -rf "$copied_record_dir"
+cp -r "$volume_record" "$copied_record_dir"
+if output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --receipt "$quiescence_receipt" --volume-record "$copied_record_dir" 2>&1)"; then
+  fail "a volume record that is not the receipt's exact record must be rejected"
+fi
+grep -q 'different volume record' <<<"$output" || \
+  fail "the volume-record binding rejection must explain the mismatch"
+
+# One ordered event log: the sweep runs between the workload apply and the
+# networking apply, and every sweep deletion is logged between them.
+: >"$volume_sandbox/aws.log"
+: >"$terraform_log"
+apply_output="$(in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || \
+  fail "apply down rerun must execute successfully"
+workload_event_line="$(grep -n 'EVENT apply eco-workload' <<<"$apply_output" | cut -d: -f1 | head -n 1)"
+first_sweep_line="$(grep -n 'EVENT sweep delete' <<<"$apply_output" | cut -d: -f1 | head -n 1)"
+networking_event_line="$(grep -n 'EVENT apply eco-networking' <<<"$apply_output" | cut -d: -f1 | head -n 1)"
+[[ -n "$workload_event_line" && -n "$first_sweep_line" && -n "$networking_event_line" ]] || \
+  fail "the apply must log workload applies, sweep deletions, and networking applies in one event log"
+[[ "$workload_event_line" -lt "$first_sweep_line" && "$first_sweep_line" -lt "$networking_event_line" ]] || \
+  fail "the sweep must run between the workload destruction and the networking apply in the event log"
+grep -q 'EVENT sweep delete load-balancer' <<<"$apply_output" || \
+  fail "the event log must name the load balancer deletion"
+grep -q 'EVENT sweep delete volume' <<<"$apply_output" || \
+  fail "the event log must name the volume deletion"
+
+# Snapshot gate: a recorded snapshot that is not completed blocks the volume.
+if output="$(in_sandbox env SNAP_STATE=pending ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)"; then
+  fail "an incomplete recorded snapshot must block the volume deletion"
+fi
+grep -qi 'snapshot' <<<"$output" || \
+  fail "the snapshot refusal must name the snapshot"
+
+# Gone is success: already-absent resources are skipped, verified not-found
+# deletes are tolerated, and the rerun still succeeds.
+gone_output="$(in_sandbox env SWEEP_GONE=1 ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || \
+  fail "an idempotent rerun over already-absent resources must succeed"
+grep -qi 'absent\|NotFound' <<<"$gone_output" || \
+  fail "the idempotent rerun must report already-absent resources"
+
+# Partial failure is failure, then recovery: a dependency error aborts the
+# apply instead of being swallowed, and the rerun completes.
+failonce_status=0
+output="$(in_sandbox env SWEEP_FAIL_ONCE=1 ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || failonce_status=$?
+if [[ "$failonce_status" -eq 0 ]]; then
+  fail "a dependency failure during the sweep must fail the apply"
+fi
+grep -q 'vol-0aaa' <<<"$output" || \
+  fail "the partial failure must name the volume it failed on"
+rm -f "$volume_sandbox/sweep-fail-once.done"
+in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" >/dev/null || \
+  fail "the rerun after a partial failure must complete"
+
+# Permission errors propagate: an arbitrary denial is never turned into success.
+if output="$(in_sandbox env SWEEP_HARD_FAIL=load-balancer ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)"; then
+  fail "a permission failure during the sweep must fail the apply"
+fi
+grep -q 'UnauthorizedOperation' <<<"$output" || \
+  fail "the permission failure must propagate its cause"
+
+# An empty inventory applies cleanly and deletes nothing.
+fresh_transition
+in_sandbox env TAG_MODE=missing ./scripts/aws-profile-lifecycle.sh plan economical down \
+  --receipt "$missing_tag_receipt" --volume-record "$volume_record" >/dev/null || \
+  fail "a down plan over an empty inventory must succeed"
+empty_bundle="$(latest_bundle economical down)"
+: >"$volume_sandbox/aws.log"
+: >"$terraform_log"
+in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$empty_bundle" >/dev/null || \
+  fail "an apply over an empty sweep inventory must succeed"
+if grep -q 'delete-' "$volume_sandbox/aws.log"; then
+  fail "an empty sweep inventory must delete nothing"
+fi
+
 # Amazon EKS refuses to delete a protected cluster, so a protected cluster first
 # gets a bundle that only turns the protection off (FR-024).
 fresh_transition
 output="$(in_sandbox env CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan economical down \
-  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" 2>&1)" || \
+  --receipt "$quiescence_receipt" --volume-record "$volume_record" 2>&1)" || \
   fail "a down plan against a protected cluster must create the unprotect bundle"
 [[ "$(bundle_roots "$(latest_bundle economical down)")" == "eco-workload" ]] || \
   fail "the unprotect bundle must hold only the cluster root"
@@ -583,7 +1120,7 @@ grep -q 'again' <<<"$output" || \
 fresh_transition
 subnet_delete='{"resource_changes":[{"address":"module.network.aws_subnet.this[\"priva\"]","type":"aws_subnet","change":{"actions":["delete"]}}]}'
 if output="$(in_sandbox env CLUSTER_PROTECTION=false PLAN_JSON="$subnet_delete" ./scripts/aws-profile-lifecycle.sh plan economical down \
-  --gitops-revision "$quiescence_revision" --volume-record "$volume_record" 2>&1)"; then
+  --receipt "$quiescence_receipt" --volume-record "$volume_record" 2>&1)"; then
   fail "a networking down plan that deletes a subnet must be rejected"
 fi
 grep -Fq 'module.network.aws_subnet.this["priva"]' <<<"$output" || \
@@ -689,9 +1226,13 @@ in_sandbox env HUB_PRESENT=1 SPOKES_PRESENT=1 CLUSTER_PROTECTION=false VPC_COUNT
 in_sandbox ./scripts/aws-profile-lifecycle.sh snapshot-volumes full >/dev/null
 full_volume_record="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'volumes-full-*' | head -n 1)"
 [[ -n "$full_volume_record" ]] || fail "snapshot-volumes must write a full-profile volume record"
+in_sandbox ./scripts/aws-profile-lifecycle.sh quiescence-receipt full --volume-record "$full_volume_record" >/dev/null
+full_quiescence_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-full-*' | head -n 1)"
+[[ -n "$full_quiescence_receipt" && -f "$full_quiescence_receipt/receipt.json" ]] || \
+  fail "quiescence-receipt must write a full-profile receipt.json"
 fresh_transition
 in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=false ./scripts/aws-profile-lifecycle.sh plan full down \
-  --gitops-revision "$quiescence_revision" --volume-record "$full_volume_record" >/dev/null || \
+  --receipt "$full_quiescence_receipt" --volume-record "$full_volume_record" >/dev/null || \
   fail "a full down plan against unprotected clusters must succeed"
 [[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-security-irsa fstg-security-irsa fdev-security-irsa fprd-workload fstg-workload fdev-workload fprd-networking fstg-networking fdev-networking shd-networking" ]] || \
   fail "the full down bundle must destroy the IRSA passes, then the clusters, then remove the spokes' transit egress, then destroy the hub"
@@ -711,7 +1252,7 @@ grep -Eq '^shd/networking plan -destroy ' "$terraform_log" || \
 
 fresh_transition
 in_sandbox env HUB_PRESENT=1 CLUSTER_PROTECTION=true ./scripts/aws-profile-lifecycle.sh plan full down \
-  --gitops-revision "$quiescence_revision" --volume-record "$full_volume_record" >/dev/null || \
+  --receipt "$full_quiescence_receipt" --volume-record "$full_volume_record" >/dev/null || \
   fail "a full down plan against protected clusters must create the unprotect bundle"
 [[ "$(bundle_roots "$(latest_bundle full down)")" == "fprd-workload fstg-workload fdev-workload" ]] || \
   fail "the full unprotect bundle must hold only the protected clusters"
