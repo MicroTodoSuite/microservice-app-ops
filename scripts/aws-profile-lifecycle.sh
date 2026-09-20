@@ -200,14 +200,25 @@ owns_cluster_tag() {
 }
 
 # Exact live ownership for a PVC EBS volume: the EBS CSI cluster tag naming
-# this cluster (or true), or the Kubernetes owned cluster tag. Fails closed.
+# this cluster, or the Kubernetes owned cluster tag. A generic CSI true value
+# names no cluster and is unsafe in this shared account.
 owns_volume_tag() {
   local tags_json=$1 cluster=$2
   jq -e --arg cluster "$cluster" '
     ([.[]? | select(.Key == "ebs.csi.aws.com/cluster"
-                    and (.Value == $cluster or .Value == "true"))]
+                    and .Value == $cluster)]
      + [.[]? | select(.Key == ("kubernetes.io/cluster/" + $cluster)
                       and (.Value == "owned" or .Value == "true"))]
+     | length > 0)' <<<"$tags_json" >/dev/null
+}
+
+# AWS Load Balancer Controller ownership is deliberately narrower than generic
+# Kubernetes cluster ownership. This prevents EKS/Terraform security groups
+# carrying kubernetes.io/cluster/<name> from becoming sweep targets.
+owns_controller_tag() {
+  local tags_json=$1 cluster=$2
+  jq -e --arg cluster "$cluster" '
+    ([.[]? | select(.Key == "elbv2.k8s.aws/cluster" and .Value == $cluster)]
      | length > 0)' <<<"$tags_json" >/dev/null
 }
 
@@ -236,6 +247,23 @@ sweep_aws() {
   esac
   printf '%s\n' "$output" >&2
   return "$status"
+}
+
+# Describe calls fail closed. Only an API response that identifies a missing
+# resource is absence; denied, throttled, malformed, and dependency errors are
+# propagated to the caller instead of being mistaken for an empty result.
+describe_for_sweep() {
+  local output status=0
+  output="$(aws "$@" 2>&1)" || status=$?
+  if [[ "$status" -eq 0 ]]; then
+    printf '%s\n' "$output"
+    return 0
+  fi
+  case "$output" in
+    *NotFound*|*does\ not\ exist*|*not\ found*) return 2 ;;
+  esac
+  printf '%s\n' "$output" >&2
+  return 1
 }
 
 verify_quiescence_receipt() {
@@ -602,9 +630,10 @@ to_json_array() {
 # or parsed, so callers fail closed on malformed output.
 elbv2_tags_for() {
   local arn=$1 region=$2
-  local described count tags
-  described="$(aws elbv2 describe-tags --region "$region" \
-    --resource-arns "$arn" --output json 2>/dev/null)" || return 2
+  local described count tags status=0
+  described="$(describe_for_sweep elbv2 describe-tags --region "$region" \
+    --resource-arns "$arn" --output json)" || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
   count="$(jq -r '.TagDescriptions | length' <<<"$described" 2>/dev/null)" || return 1
   [[ "$count" =~ ^[0-9]+$ ]] || return 1
   [[ "$count" -gt 0 ]] || return 2
@@ -629,8 +658,9 @@ revalidate_sweep_target() {
 
   case "$kind" in
     load-balancer)
-      described="$(aws elbv2 describe-load-balancers --region "$region" \
-        --load-balancer-arns "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep elbv2 describe-load-balancers --region "$region" \
+        --load-balancer-arns "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       entry_type="$(jq -r --arg id "$id" '.LoadBalancers[]? | select(.LoadBalancerArn == $id) | .Type // empty' <<<"$described")" || return 1
       [[ -n "$entry_type" ]] || return 2
@@ -644,14 +674,15 @@ revalidate_sweep_target() {
         printf 'ERROR: Cannot read tags of load balancer %s; refusing.\n' "$id" >&2
         return 1
       }
-      owns_cluster_tag "$tags_json" "$cluster" || {
+      owns_controller_tag "$tags_json" "$cluster" || {
         printf 'ERROR: Load balancer %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
       ;;
     listener)
-      described="$(aws elbv2 describe-listeners --region "$region" \
-        --listener-arns "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep elbv2 describe-listeners --region "$region" \
+        --listener-arns "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       found="$(jq -r --arg id "$id" '[.Listeners[]? | .ListenerArn] | map(select(. == $id)) | length' <<<"$described")" || return 1
       [[ "$found" =~ ^[0-9]+$ && "$found" -gt 0 ]] || return 2
@@ -661,14 +692,15 @@ revalidate_sweep_target() {
         printf 'ERROR: Cannot read tags of listener %s; refusing.\n' "$id" >&2
         return 1
       }
-      owns_cluster_tag "$tags_json" "$cluster" || {
+      owns_controller_tag "$tags_json" "$cluster" || {
         printf 'ERROR: Listener %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
       ;;
     target-group)
-      described="$(aws elbv2 describe-target-groups --region "$region" \
-        --target-group-arns "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep elbv2 describe-target-groups --region "$region" \
+        --target-group-arns "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       found="$(jq -r --arg id "$id" '[.TargetGroups[]? | .TargetGroupArn] | map(select(. == $id)) | length' <<<"$described")" || return 1
       [[ "$found" =~ ^[0-9]+$ && "$found" -gt 0 ]] || return 2
@@ -678,38 +710,40 @@ revalidate_sweep_target() {
         printf 'ERROR: Cannot read tags of target group %s; refusing.\n' "$id" >&2
         return 1
       }
-      owns_cluster_tag "$tags_json" "$cluster" || {
+      owns_controller_tag "$tags_json" "$cluster" || {
         printf 'ERROR: Target group %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
       ;;
     security-group)
-      described="$(aws ec2 describe-security-groups --region "$region" \
-        --group-ids "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep ec2 describe-security-groups --region "$region" \
+        --group-ids "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       selected="$(jq -c --arg id "$id" '[.SecurityGroups[]? | select(.GroupId == $id)] | .[0] // empty' <<<"$described")" || return 1
       [[ -n "$selected" ]] || return 2
       tags_json="$(jq -c '.Tags // []' <<<"$selected")" || return 1
       jq -e 'type == "array"' <<<"$tags_json" >/dev/null 2>&1 || return 1
-      owns_cluster_tag "$tags_json" "$cluster" || {
+      owns_controller_tag "$tags_json" "$cluster" || {
         printf 'ERROR: Security group %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
       ;;
     network-interface)
-      described="$(aws ec2 describe-network-interfaces --region "$region" \
-        --network-interface-ids "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep ec2 describe-network-interfaces --region "$region" \
+        --network-interface-ids "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       selected="$(jq -c --arg id "$id" '[.NetworkInterfaces[]? | select(.NetworkInterfaceId == $id)] | .[0] // empty' <<<"$described")" || return 1
       [[ -n "$selected" ]] || return 2
       state="$(jq -r '.Status // empty' <<<"$selected")" || return 1
       [[ "$state" == "available" ]] || {
-        printf 'SWEEP skip network-interface %s: status %s is not orphaned.\n' "$id" "$state"
-        return 2
+        printf 'ERROR: Network interface %s remains %s, not available; refusing.\n' "$id" "$state" >&2
+        return 1
       }
       tags_json="$(jq -c '.TagSet // []' <<<"$selected")" || return 1
       jq -e 'type == "array"' <<<"$tags_json" >/dev/null 2>&1 || return 1
-      owns_cluster_tag "$tags_json" "$cluster" || {
+      owns_controller_tag "$tags_json" "$cluster" || {
         printf 'ERROR: Network interface %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
@@ -719,8 +753,9 @@ revalidate_sweep_target() {
         printf 'ERROR: Volume %s has no recorded snapshot; refusing.\n' "$id" >&2
         return 1
       }
-      described="$(aws ec2 describe-volumes --region "$region" \
-        --volume-ids "$id" --output json 2>/dev/null)" || return 2
+      described="$(describe_for_sweep ec2 describe-volumes --region "$region" \
+        --volume-ids "$id" --output json)" || {
+        tag_status=$?; return "$tag_status"; }
       jq -e . <<<"$described" >/dev/null 2>&1 || return 1
       selected="$(jq -c --arg id "$id" '[.Volumes[]? | select(.VolumeId == $id)] | .[0] // empty' <<<"$described")" || return 1
       [[ -n "$selected" ]] || return 2
@@ -735,8 +770,8 @@ revalidate_sweep_target() {
         printf 'ERROR: Volume %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
         return 1
       }
-      state="$(aws ec2 describe-snapshots --region "$region" --snapshot-ids "$snapshot" \
-        --output text 2>/dev/null | awk '{print $NF}')" || {
+      state="$(describe_for_sweep ec2 describe-snapshots --region "$region" --snapshot-ids "$snapshot" \
+        --output text | awk '{print $NF}')" || {
         printf 'ERROR: Cannot read recorded snapshot %s for volume %s; refusing.\n' "$snapshot" "$id" >&2
         return 1
       }
@@ -765,9 +800,9 @@ quiescence_receipt() {
   local canonical_volume_record record_epoch now_epoch waited created_epoch
   local clusters_text cluster_list_json lbs_json lb_tags owned_cluster
   local listeners_json listener_tags tgs_json tg_tags sgs_json
-  local sg_tags_json vol_json vol_selected vol_state vol_tags
+  local sg_tags_json vol_json vol_selected vol_status vol_tags
   local enis_json eni_tags_json
-  local lb_arn lb_type listener_arn tg_arn sg_id eni_id eni_status
+  local lb_arn lb_type listener_arn tg_arn sg_id eni_id
   local lb_row sg_row eni_row
   local marker vol_id pv size status snap_id
   local -a clusters=()
@@ -807,7 +842,7 @@ quiescence_receipt() {
       fail "Cannot read tags of load balancer $lb_arn; failing closed."
     owned_cluster=""
     for c in "${clusters[@]}"; do
-      if owns_cluster_tag "$lb_tags" "$c"; then owned_cluster="$c"; break; fi
+      if owns_controller_tag "$lb_tags" "$c"; then owned_cluster="$c"; break; fi
     done
     [[ -n "$owned_cluster" ]] || continue
     load_balancers+=("$lb_arn")
@@ -821,7 +856,7 @@ quiescence_receipt() {
       sweep_target_type "$listener_arn" >/dev/null || continue
       listener_tags="$(elbv2_tags_for "$listener_arn" "$region")" || \
         fail "Cannot read tags of listener $listener_arn; failing closed."
-      owns_cluster_tag "$listener_tags" "$owned_cluster" || continue
+      owns_controller_tag "$listener_tags" "$owned_cluster" || continue
       listeners+=("$listener_arn")
     done < <(jq -r '.Listeners[]? | .ListenerArn // empty' <<<"$listeners_json")
   done < <(jq -c '.LoadBalancers[]? | {arn: .LoadBalancerArn, type: .Type}' <<<"$lbs_json")
@@ -836,7 +871,7 @@ quiescence_receipt() {
     tg_tags="$(elbv2_tags_for "$tg_arn" "$region")" || \
       fail "Cannot read tags of target group $tg_arn; failing closed."
     for c in "${clusters[@]}"; do
-      if owns_cluster_tag "$tg_tags" "$c"; then target_groups+=("$tg_arn"); break; fi
+      if owns_controller_tag "$tg_tags" "$c"; then target_groups+=("$tg_arn"); break; fi
     done
   done < <(jq -r '.TargetGroups[]? | .TargetGroupArn // empty' <<<"$tgs_json")
 
@@ -851,7 +886,7 @@ quiescence_receipt() {
     sweep_target_type "$sg_id" >/dev/null || continue
     require_tags_array "$sg_tags_json" "security group $sg_id"
     for c in "${clusters[@]}"; do
-      if owns_cluster_tag "$sg_tags_json" "$c"; then security_groups+=("$sg_id"); break; fi
+      if owns_controller_tag "$sg_tags_json" "$c"; then security_groups+=("$sg_id"); break; fi
     done
   done < <(jq -c '.SecurityGroups[]? | {id: .GroupId, tags: (.Tags // [])}' <<<"$sgs_json")
 
@@ -860,18 +895,16 @@ quiescence_receipt() {
   while IFS=$'\t' read -r marker vol_id pv size status snap_id; do
     [[ "$marker" == "volume" && "$status" == "snapshot" && -n "$snap_id" && "$snap_id" != "-" ]] || continue
     sweep_target_type "$vol_id" >/dev/null || continue
-    vol_json="$(aws ec2 describe-volumes --region "$region" --volume-ids "$vol_id" \
-      --output json 2>/dev/null)" || continue
+    vol_json="$(describe_for_sweep ec2 describe-volumes --region "$region" --volume-ids "$vol_id" \
+      --output json)" || {
+      vol_status=$?
+      [[ "$vol_status" -eq 2 ]] && continue
+      fail "Cannot describe volume $vol_id; failing closed."
+    }
     jq -e . <<<"$vol_json" >/dev/null 2>&1 || fail "Cannot parse volume $vol_id; failing closed."
     vol_selected="$(jq -c --arg id "$vol_id" '[.Volumes[]? | select(.VolumeId == $id)] | .[0] // empty' <<<"$vol_json")" || \
       fail "Cannot parse volume $vol_id; failing closed."
     [[ -n "$vol_selected" ]] || continue
-    vol_state="$(jq -r '.State // empty' <<<"$vol_selected")" || \
-      fail "Cannot parse state of volume $vol_id; failing closed."
-    if [[ "$vol_state" != "available" ]]; then
-      printf 'SWEEP defer volume %s: state %s is not available.\n' "$vol_id" "$vol_state"
-      continue
-    fi
     vol_tags="$(jq -c '.Tags // []' <<<"$vol_selected")" || fail "Cannot parse tags of volume $vol_id; failing closed."
     require_tags_array "$vol_tags" "volume $vol_id"
     for c in "${clusters[@]}"; do
@@ -879,19 +912,19 @@ quiescence_receipt() {
     done
   done <"$canonical_volume_record/record.tsv"
 
-  # 5. Orphaned ENIs: available status plus exact tags, explicit output.
+  # 5. ENIs left by the controller: inventory their pre-destroy state and
+  # require available immediately before deletion after the load balancer is gone.
   enis_json="$(aws ec2 describe-network-interfaces --region "$region" --output json)" || \
     fail "Cannot list network interfaces in $region."
   jq -e . <<<"$enis_json" >/dev/null 2>&1 || fail "Cannot parse network interfaces in $region; failing closed."
   while IFS= read -r eni_row; do
     eni_id="$(jq -r '.id // empty' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
-    eni_status="$(jq -r '.status // empty' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
     eni_tags_json="$(jq -c '.tags // []' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
-    [[ -n "$eni_id" && "$eni_status" == "available" ]] || continue
+    [[ -n "$eni_id" ]] || continue
     sweep_target_type "$eni_id" >/dev/null || continue
     require_tags_array "$eni_tags_json" "network interface $eni_id"
     for c in "${clusters[@]}"; do
-      if owns_cluster_tag "$eni_tags_json" "$c"; then network_interfaces+=("$eni_id"); break; fi
+      if owns_controller_tag "$eni_tags_json" "$c"; then network_interfaces+=("$eni_id"); break; fi
     done
   done < <(jq -c '.NetworkInterfaces[]? | {id: .NetworkInterfaceId, status: .Status, tags: (.TagSet // [])}' <<<"$enis_json")
 
@@ -1294,8 +1327,8 @@ execute_post_destroy_sweep() {
     done
   fi
   for id in ${tgs[@]+"${tgs[@]}"}; do sweep_one target-group "$id" "$region" "" "${clusters[@]}"; done
-  for id in ${sgs[@]+"${sgs[@]}"}; do sweep_one security-group "$id" "$region" "" "${clusters[@]}"; done
   for id in ${enis[@]+"${enis[@]}"}; do sweep_one network-interface "$id" "$region" "" "${clusters[@]}"; done
+  for id in ${sgs[@]+"${sgs[@]}"}; do sweep_one security-group "$id" "$region" "" "${clusters[@]}"; done
   for id in ${vols[@]+"${vols[@]}"}; do
     snap_id="$(awk -F '\t' -v vol="$id" '$1 == "volume" && $2 == vol && $5 == "snapshot" { print $6; exit }' "$vol_record_file")"
     [[ -n "$snap_id" && "$snap_id" != "-" ]] || \

@@ -926,6 +926,8 @@ done
 # between workload and networking applies, and rerun cleanly after failure.
 require_text "scripts/aws-profile-lifecycle.sh" 'owns_cluster_tag' \
   "wrapper must parse exact cluster tag key/value pairs instead of grepping substrings"
+require_text "scripts/aws-profile-lifecycle.sh" 'owns_controller_tag' \
+  "wrapper must prove controller ownership before deleting load-balancer security groups"
 require_text "scripts/aws-profile-lifecycle.sh" 'sweep_target_type' \
   "wrapper must classify sweep targets through an explicit type allow-list, not name heuristics"
 require_text "scripts/aws-profile-lifecycle.sh" 'sweep_aws' \
@@ -968,6 +970,24 @@ require_text "scripts/aws-profile-lifecycle.sh" 'different volume record' \
   "wrapper must bind the receipt to the exact volume record it was created with"
 reject_text "scripts/aws-profile-lifecycle.sh" 'record_epoch + 1' \
   "wrapper must not fabricate a future receipt epoch within the same second"
+
+# The runtime classifier itself is the final durable boundary: protected
+# families are not valid sweep target types, regardless of any tags a hostile
+# receipt might carry. Route 53 aliases remain Terraform-managed; the sweep
+# has no Route 53 target type at all.
+sweep_type_function="$(sed -n '/^sweep_target_type() {/,/^}/p' scripts/aws-profile-lifecycle.sh)"
+for protected_runtime_id in \
+  'arn:aws:acm:us-east-1:575172595729:certificate/example' \
+  'route53-record:ZEXAMPLE:_acme-challenge.example.com' \
+  'arn:aws:ecr:us-east-1:575172595729:repository/microtodosuite' \
+  'arn:aws:secretsmanager:us-east-1:575172595729:secret:microtodosuite/example' \
+  'arn:aws:kms:us-east-1:575172595729:key/example' \
+  'arn:aws:s3:::microtodosuite-terraform-state' \
+  'arn:aws:iam::575172595729:oidc-provider/token.actions.githubusercontent.com'; do
+  if bash -c "$sweep_type_function; sweep_target_type \"\$1\"" -- "$protected_runtime_id" >/dev/null 2>&1; then
+    fail "protected runtime resource $protected_runtime_id must be unreachable by the sweep"
+  fi
+done
 
 # Positive inventory: every swept resource carries exact current ownership tags,
 # the listener carries its own tag (not its load balancer's trust), the volume
