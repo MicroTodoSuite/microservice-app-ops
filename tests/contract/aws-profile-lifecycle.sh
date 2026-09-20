@@ -596,6 +596,10 @@ printf '%s\n' \
   '#!/usr/bin/env bash' \
   'set -euo pipefail' \
   'printf "%s\n" "$*" >>"$VOLUME_CAPTURE/aws.log"' \
+  'if [[ -n "${DESCRIBE_DENY:-}" && "$*" == *"describe-${DESCRIBE_DENY}"* ]]; then' \
+  '  printf "An error occurred (AccessDenied) when calling the Describe operation: denied\n" >&2; exit 254; fi' \
+  'if [[ -n "${DESCRIBE_THROTTLE:-}" && "$*" == *"describe-${DESCRIBE_THROTTLE}"* ]]; then' \
+  '  printf "An error occurred (Throttling) when calling the Describe operation: rate exceeded\n" >&2; exit 254; fi' \
   'case "$*" in' \
   '  --version) printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n" ;;' \
   '  "sts get-caller-identity"*) printf "575172595729\n" ;;' \
@@ -655,8 +659,8 @@ printf '%s\n' \
   '        missing) tag_value="" ;;' \
   '        *) tag_value="lex-mts-eco-eks-main" ;;' \
   '      esac;' \
-  '      if [[ -z "$tag_value" ]]; then printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"available\",\"TagSet\":[]}]}\n";' \
-  '      else printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"available\",\"TagSet\":[{\"Key\":\"elbv2.k8s.aws/cluster\",\"Value\":\"%s\"}]}]}\n" "$tag_value"; fi;' \
+  '      if [[ -z "$tag_value" ]]; then printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"%s\",\"TagSet\":[]}]}\n" "${ENI_STATUS:-available}";' \
+  '      else printf "{\"NetworkInterfaces\":[{\"NetworkInterfaceId\":\"eni-0123456789abcdef0\",\"Status\":\"%s\",\"TagSet\":[{\"Key\":\"elbv2.k8s.aws/cluster\",\"Value\":\"%s\"}]}]}\n" "${ENI_STATUS:-available}" "$tag_value"; fi;' \
   '    fi ;;' \
   '  *"ec2 describe-volumes"*--output\ json*)' \
   '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"Volumes\":[]}\n";' \
@@ -667,8 +671,13 @@ printf '%s\n' \
   '        missing) tag_value="" ;;' \
   '        *) tag_value="lex-mts-eco-eks-main" ;;' \
   '      esac;' \
-  '      if [[ -z "$tag_value" ]]; then printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"available\",\"Tags\":[]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[]}]}\n";' \
-  '      else printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"available\",\"Tags\":[{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"%s\"},{\"Key\":\"kubernetes.io/created-for/pv/name\",\"Value\":\"pvc-prometheus\"}]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"%s\"},{\"Key\":\"kubernetes.io/created-for/pv/name\",\"Value\":\"pvc-grafana\"}]}]}\n" "$tag_value" "$tag_value"; fi;' \
+  '      case "${TAG_MODE:-normal}" in' \
+  '        generic-volume) volume_tags="{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"true\"}" ;;' \
+  '        k8s-owned-volume) volume_tags="{\"Key\":\"kubernetes.io/cluster/lex-mts-eco-eks-main\",\"Value\":\"owned\"}" ;;' \
+  '        missing) volume_tags="" ;;' \
+  '        *) volume_tags="{\"Key\":\"ebs.csi.aws.com/cluster\",\"Value\":\"$tag_value\"},{\"Key\":\"kubernetes.io/created-for/pv/name\",\"Value\":\"pvc-prometheus\"}" ;;' \
+  '      esac;' \
+  '      printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"%s\",\"Tags\":[%s]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[%s]}]}\n" "${VOL_STATE:-available}" "$volume_tags" "$volume_tags";' \
   '    fi ;;' \
   '  *"elbv2 describe-load-balancers"*)' \
   '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n" ;;' \
@@ -1084,6 +1093,103 @@ if output="$(in_sandbox env SWEEP_HARD_FAIL=load-balancer ./scripts/aws-profile-
 fi
 grep -q 'UnauthorizedOperation' <<<"$output" || \
   fail "the permission failure must propagate its cause"
+
+# Cluster-scoped sweep safety (spec 003 T016 review). The sweep runs in a shared
+# account, against a receipt written before the cluster is destroyed, and its
+# deletions must leave the networking teardown unblocked. Ownership must name
+# the exact cluster, the inventory must not depend on a pre-destroy attachment
+# state, ENIs must precede the security groups they hold, and only a verified
+# not-found may count as absence.
+require_text "scripts/aws-profile-lifecycle.sh" 'describe_for_sweep' \
+  "wrapper must revalidate through a describe helper that counts only a verified not-found as absence"
+reject_text "scripts/aws-profile-lifecycle.sh" '\.Value == \$cluster or \.Value == "true"' \
+  "wrapper must not accept a generic ebs.csi.aws.com/cluster=true value as cluster ownership"
+
+# A generic ownership value names no cluster, so in a shared account it can
+# never make a volume sweepable. The exact cluster value and the Kubernetes
+# owned tag both must.
+sleep 1
+in_sandbox env TAG_MODE=generic-volume ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical \
+  --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over generically tagged volumes must still be written"
+generic_volume_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+[[ "$(jq -c '.inventory.volumes' "$generic_volume_receipt/receipt.json")" == "[]" ]] || \
+  fail "a generic ebs.csi.aws.com/cluster=true value must never make a volume sweepable in a shared account"
+sleep 1
+in_sandbox env TAG_MODE=k8s-owned-volume ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical \
+  --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over Kubernetes-owned volumes must be written"
+k8s_owned_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+[[ "$(jq -c '.inventory.volumes' "$k8s_owned_receipt/receipt.json")" == '["vol-0aaa"]' ]] || \
+  fail "a volume tagged kubernetes.io/cluster/<cluster>=owned must stay sweepable"
+
+# The receipt is created before the cluster is destroyed, so an exact-tagged,
+# snapshot-recorded volume may still be attached. It must be inventoried, and
+# the availability requirement must hold immediately before the delete instead.
+sleep 1
+in_sandbox env VOL_STATE=in-use ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical \
+  --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over an attached PVC volume must still be written"
+attached_volume_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+[[ "$(jq -c '.inventory.volumes' "$attached_volume_receipt/receipt.json")" == '["vol-0aaa"]' ]] || \
+  fail "a volume attached when the receipt is written must still be inventoried; the cluster is destroyed after the receipt"
+if output="$(in_sandbox env VOL_STATE=in-use ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)"; then
+  fail "a volume still attached immediately before its delete must refuse"
+fi
+grep -q 'vol-0aaa' <<<"$output" || fail "the attached-volume refusal must name the volume"
+grep -qi 'available' <<<"$output" || fail "the attached-volume refusal must name the state it requires"
+
+# The same holds for ENIs: in use when the receipt is written is expected, and
+# still in use once the load balancers are gone blocks the networking teardown,
+# so it must fail closed rather than be called absent or silently deferred.
+sleep 1
+in_sandbox env ENI_STATUS=in-use ./scripts/aws-profile-lifecycle.sh quiescence-receipt economical \
+  --volume-record "$volume_record" >/dev/null || \
+  fail "a receipt over an in-use ENI must still be written"
+in_use_eni_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d -name 'quiescence-economical-2*' | sort | tail -n 1)"
+[[ "$(jq -c '.inventory.network_interfaces' "$in_use_eni_receipt/receipt.json")" == '["eni-0123456789abcdef0"]' ]] || \
+  fail "an ENI in use when the receipt is written must still be inventoried; the cluster is destroyed after the receipt"
+in_use_eni_status=0
+output="$(in_sandbox env ENI_STATUS=in-use ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || in_use_eni_status=$?
+[[ "$in_use_eni_status" -ne 0 ]] || \
+  fail "an ENI still in use after the load balancers are deleted must fail the apply instead of being deferred"
+grep -q 'eni-0123456789abcdef0' <<<"$output" || \
+  fail "the in-use ENI refusal must name the interface"
+if grep -q 'network-interface eni-0123456789abcdef0: already absent' <<<"$output"; then
+  fail "a present but in-use ENI must never be reported as already absent"
+fi
+
+# An orphaned ENI holds the controller security group, so it must be deleted
+# first or the security-group delete fails on a dependency the sweep created.
+: >"$volume_sandbox/aws.log"
+: >"$terraform_log"
+in_sandbox ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" >/dev/null || \
+  fail "apply down must succeed before the sweep ordering is checked"
+eni_delete_line="$(grep -n 'ec2 delete-network-interface' "$volume_sandbox/aws.log" | cut -d: -f1 | head -n 1)"
+security_group_delete_line="$(grep -n 'ec2 delete-security-group' "$volume_sandbox/aws.log" | cut -d: -f1 | head -n 1)"
+[[ -n "$eni_delete_line" && -n "$security_group_delete_line" ]] || \
+  fail "the sweep must delete both the orphaned ENI and the controller security group"
+[[ "$eni_delete_line" -lt "$security_group_delete_line" ]] || \
+  fail "orphaned ENIs must be deleted before the controller security groups that they hold"
+
+# Only a verified not-found is absence. A denied or throttled describe during
+# revalidation must propagate and fail the apply.
+for denied_describe in tags load-balancers listeners target-groups security-groups network-interfaces volumes; do
+  denied_status=0
+  output="$(in_sandbox env DESCRIBE_DENY="$denied_describe" \
+    ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || denied_status=$?
+  [[ "$denied_status" -ne 0 ]] || \
+    fail "a denied describe-$denied_describe during revalidation must fail the apply instead of counting as absence"
+  grep -q 'AccessDenied' <<<"$output" || \
+    fail "the denied describe-$denied_describe must propagate its cause"
+done
+throttled_status=0
+output="$(in_sandbox env DESCRIBE_THROTTLE=security-groups \
+  ./scripts/aws-profile-lifecycle.sh apply economical down "$down_bundle" 2>&1)" || throttled_status=$?
+[[ "$throttled_status" -ne 0 ]] || \
+  fail "a throttled describe during revalidation must fail the apply instead of counting as absence"
+grep -q 'Throttling' <<<"$output" || \
+  fail "the throttled describe must propagate its cause"
 
 # An empty inventory applies cleanly and deletes nothing.
 fresh_transition
