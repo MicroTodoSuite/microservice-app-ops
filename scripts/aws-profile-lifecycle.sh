@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLAN_ROOT="$ROOT_DIR/.aws-profile-plans"
-GITOPS_DIR="$(cd "$ROOT_DIR/.." && pwd)/microservice-app-gitops"
 EXPECTED_TERRAFORM_VERSION="$(tr -d '[:space:]' <"$ROOT_DIR/.terraform-version")"
 DURABLE_DELETE_FILTER="$ROOT_DIR/scripts/aws-profile-durable-deletes.jq"
 EGRESS_DELETE_FILTER="$ROOT_DIR/scripts/aws-profile-egress-deletes.jq"
@@ -15,14 +14,17 @@ Usage:
   scripts/aws-profile-lifecycle.sh check {economical|full}
   scripts/aws-profile-lifecycle.sh init {economical|full}
   scripts/aws-profile-lifecycle.sh snapshot-volumes {economical|full} [--consent VOLUME_ID]...
-  scripts/aws-profile-lifecycle.sh plan {economical|full} {up|down} [--gitops-revision REVISION --volume-record RECORD_DIRECTORY]
+  scripts/aws-profile-lifecycle.sh quiescence-receipt {economical|full} --volume-record RECORD_DIRECTORY
+  scripts/aws-profile-lifecycle.sh plan {economical|full} {up|down} [--receipt RECEIPT_DIRECTORY --volume-record RECORD_DIRECTORY]
   scripts/aws-profile-lifecycle.sh inspect BUNDLE_DIRECTORY
   scripts/aws-profile-lifecycle.sh apply {economical|full} {up|down} BUNDLE_DIRECTORY
   scripts/aws-profile-lifecycle.sh status {economical|full}
 
 Planning never applies. Applying accepts only an unchanged saved-plan bundle.
-A down plan requires the commit of a reviewed, merged GitOps quiescence change and
-a persistent-volume record that snapshot-volumes wrote before that change merged.
+A down plan requires a quiescence receipt produced by quiescence-receipt and
+a persistent-volume record that snapshot-volumes wrote before the receipt.
+During a down apply, a post-destroy runtime sweep removes controller runtime
+resources between the cluster destruction and the first networking apply.
 EOF
 }
 
@@ -144,14 +146,141 @@ verify_git_clean() {
   git -C "$ROOT_DIR" diff --cached --quiet || fail "Staged changes must be committed before creating or applying a saved plan."
 }
 
-verify_gitops_revision() {
-  local revision=$1
-  [[ "$revision" =~ ^[0-9a-f]{7,40}$ ]] || fail "A down plan requires --gitops-revision with a Git commit SHA."
-  [[ -d "$GITOPS_DIR/.git" ]] || fail "GitOps repository not found at $GITOPS_DIR."
-  git -C "$GITOPS_DIR" cat-file -e "${revision}^{commit}" 2>/dev/null || \
-    fail "GitOps revision $revision is not available in the local GitOps repository."
-  git -C "$GITOPS_DIR" merge-base --is-ancestor "$revision" origin/main || \
-    fail "GitOps revision $revision is not merged into the locally known origin/main. Fetch the GitOps repository and retry."
+# The cluster names of a profile come from the literal client, project, and
+# environment inputs of each cluster root's variables file, matching
+# local.cluster_name ("${var.client}-${var.project}-${var.environment}-eks-main").
+# Missing inputs are a hard failure: the wrapper never invents defaults.
+profile_clusters() {
+  local profile=$1
+  local name relative_root backend_name variables_name kind variables_file
+  local client project env
+  while IFS='|' read -r name relative_root backend_name variables_name kind; do
+    [[ "$kind" == "cluster" ]] || continue
+    variables_file="$ROOT_DIR/$relative_root/$variables_name"
+    require_file "$variables_file"
+    client="$(read_literal_string "$variables_file" client)"
+    project="$(read_literal_string "$variables_file" project)"
+    env="$(read_literal_string "$variables_file" environment)"
+    [[ -n "$client" ]] || fail "No literal client in $relative_root/$variables_name."
+    [[ -n "$project" ]] || fail "No literal project in $relative_root/$variables_name."
+    [[ -n "$env" ]] || fail "No literal environment in $relative_root/$variables_name."
+    printf '%s-%s-%s-eks-main\n' "$client" "$project" "$env"
+  done < <(profile_records "$profile" down)
+}
+
+# Explicit type allow-list for the post-destroy runtime sweep (spec 003 T016).
+# Only controller runtime resources are reachable: ALB/NLB load balancers plus
+# their listeners and target groups, controller security groups, snapshotted
+# PVC EBS volumes, and orphaned ENIs. Every protected family (ACM, Route 53,
+# ECR, Secrets Manager, KMS, Terraform state S3, GitHub OIDC) falls through to
+# the refusal, unreachable regardless of tags. Prints the kind or fails.
+sweep_target_type() {
+  case "$1" in
+    arn:aws:elasticloadbalancing:*:loadbalancer/app/*|arn:aws:elasticloadbalancing:*:loadbalancer/net/*)
+      printf 'load-balancer' ;;
+    arn:aws:elasticloadbalancing:*:listener/*) printf 'listener' ;;
+    arn:aws:elasticloadbalancing:*:targetgroup/*) printf 'target-group' ;;
+    sg-*) printf 'security-group' ;;
+    eni-*) printf 'network-interface' ;;
+    vol-*) printf 'volume' ;;
+    *) return 1 ;;
+  esac
+}
+
+# Exact cluster ownership over a JSON array of {Key,Value} tags. True only for
+# elbv2.k8s.aws/cluster equal to the cluster, or kubernetes.io/cluster/<name>
+# owned by it. Malformed input fails closed through jq. No substring matching.
+owns_cluster_tag() {
+  local tags_json=$1 cluster=$2
+  jq -e --arg cluster "$cluster" '
+    ([.[]? | select(.Key == "elbv2.k8s.aws/cluster" and .Value == $cluster)]
+     + [.[]? | select(.Key == ("kubernetes.io/cluster/" + $cluster)
+                      and (.Value == "owned" or .Value == "true"))]
+     | length > 0)' <<<"$tags_json" >/dev/null
+}
+
+# Exact live ownership for a PVC EBS volume: the EBS CSI cluster tag naming
+# this cluster (or true), or the Kubernetes owned cluster tag. Fails closed.
+owns_volume_tag() {
+  local tags_json=$1 cluster=$2
+  jq -e --arg cluster "$cluster" '
+    ([.[]? | select(.Key == "ebs.csi.aws.com/cluster"
+                    and (.Value == $cluster or .Value == "true"))]
+     + [.[]? | select(.Key == ("kubernetes.io/cluster/" + $cluster)
+                      and (.Value == "owned" or .Value == "true"))]
+     | length > 0)' <<<"$tags_json" >/dev/null
+}
+
+# Fails closed unless the input parses as a JSON array of tags. A non-match
+# against valid tags excludes the resource; unparseable output aborts.
+require_tags_array() {
+  local tags_json=$1 what=$2
+  jq -e 'type == "array"' <<<"$tags_json" >/dev/null || \
+    fail "Cannot parse tags of $what; failing closed."
+}
+
+# Destructive sweep calls tolerate only verified not-found or already-absent
+# states (exit 0 with a log line). Permission, dependency, and every other
+# error propagates to the caller. Never blanket `|| true`.
+sweep_aws() {
+  local output status=0
+  output="$(aws "$@" 2>&1)" || status=$?
+  if [[ "$status" -eq 0 ]]; then
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+    return 0
+  fi
+  case "$output" in
+    *NotFound*|*does\ not\ exist*|*already\ deleted*|*already\ absent*)
+      printf 'SWEEP already absent: aws %s\n' "$*"
+      return 0 ;;
+  esac
+  printf '%s\n' "$output" >&2
+  return "$status"
+}
+
+verify_quiescence_receipt() {
+  local profile=$1
+  local supplied_receipt=$2
+  local supplied_volume_record=$3
+  local receipt stored_profile stored_account region created_epoch stored_record
+  local stored_clusters live_clusters
+  local canonical_volume_record record_epoch
+
+  [[ -n "$supplied_receipt" && -d "$supplied_receipt" ]] || \
+    fail "Quiescence receipt does not exist: ${supplied_receipt:-none}. Run quiescence-receipt before planning down."
+  receipt="$(cd "$supplied_receipt" && pwd -P)"
+  require_file "$receipt/receipt.json"
+  require_file "$receipt/checksums.sha256"
+  (cd "$receipt" && sha256sum -c --quiet checksums.sha256) || fail "Quiescence receipt $receipt fails its checksum."
+
+  stored_profile="$(jq -r '.profile // empty' "$receipt/receipt.json")"
+  stored_account="$(jq -r '.account // empty' "$receipt/receipt.json")"
+  region="$(jq -r '.region // empty' "$receipt/receipt.json")"
+  created_epoch="$(jq -r '.created_epoch // empty' "$receipt/receipt.json")"
+  stored_record="$(jq -r '.volume_record // empty' "$receipt/receipt.json")"
+  stored_clusters="$(jq -c '.clusters // empty | sort' "$receipt/receipt.json")"
+
+  [[ "$stored_profile" == "$profile" ]] || fail "Quiescence receipt profile is $stored_profile, not $profile."
+  [[ "$stored_account" == "$(caller_account)" ]] || fail "Quiescence receipt account $stored_account is not the active AWS account."
+  [[ "$region" == "$(profile_region "$profile")" ]] || fail "Quiescence receipt region $region is not the $profile region."
+  [[ "$created_epoch" =~ ^[0-9]+$ ]] || fail "Quiescence receipt $receipt has invalid created_epoch."
+  jq -e '.format == 1 and (.clusters | type == "array") and (.inventory | type == "object")' \
+    "$receipt/receipt.json" >/dev/null || fail "Quiescence receipt $receipt is not a format-1 sweep receipt."
+
+  live_clusters="$(profile_clusters "$profile" | sort | jq -R . | jq -s -c .)" || return 1
+  [[ "$stored_clusters" == "$live_clusters" ]] || \
+    fail "Quiescence receipt clusters $stored_clusters do not match the $profile clusters $live_clusters."
+
+  [[ -n "$supplied_volume_record" && -d "$supplied_volume_record" ]] || \
+    fail "Volume record does not exist: ${supplied_volume_record:-none}. Run snapshot-volumes before planning down."
+  canonical_volume_record="$(cd "$supplied_volume_record" && pwd -P)"
+  [[ "$stored_record" == "$canonical_volume_record" ]] || \
+    fail "Quiescence receipt was created with a different volume record ($stored_record) than supplied ($canonical_volume_record). Create the receipt again with this record."
+  record_epoch="$(record_value "$canonical_volume_record" created_epoch)"
+  [[ "$record_epoch" =~ ^[0-9]+$ && "$record_epoch" -lt "$created_epoch" ]] || \
+    fail "Volume record $canonical_volume_record must predate quiescence receipt $receipt. Snapshot the volumes before creating the receipt."
+
+  printf '%s\n' "$receipt"
 }
 
 # The active session, config/aws-account.env, and every root's aws_account_id
@@ -408,20 +537,19 @@ snapshot_volumes() {
   } >"$record/record.tsv"
   (cd "$record" && sha256sum record.tsv >checksums.sha256)
   printf 'Volume record: %s\n' "$record"
-  printf 'Merge the GitOps quiescence change only now; plan-down rejects a record newer than that commit.\n'
+  printf 'Create the quiescence receipt next; plan-down rejects a volume record newer than that receipt.\n'
 }
 
 # Prints the canonical record directory when the record is fit for a down plan.
 verify_volume_record() {
   local profile=$1
-  local gitops_revision=$2
-  local supplied_record=$3
-  local record region stored_profile stored_account created_epoch quiescence_epoch
+  local supplied_record=$2
+  local record region stored_profile stored_account created_epoch
   local volume size pv snapshot states
   local -a snapshots=()
 
   [[ -n "$supplied_record" && -d "$supplied_record" ]] || \
-    fail "Volume record does not exist: ${supplied_record:-none}. Run snapshot-volumes before merging GitOps quiescence."
+    fail "Volume record does not exist: ${supplied_record:-none}. Run snapshot-volumes before creating a quiescence receipt or planning down."
   record="$(cd "$supplied_record" && pwd -P)"
   require_file "$record/record.tsv"
   require_file "$record/checksums.sha256"
@@ -431,12 +559,10 @@ verify_volume_record() {
   stored_account="$(record_value "$record" account)"
   region="$(record_value "$record" region)"
   created_epoch="$(record_value "$record" created_epoch)"
+  [[ "$created_epoch" =~ ^[0-9]+$ ]] || fail "Volume record $record has invalid created_epoch."
   [[ "$stored_profile" == "$profile" ]] || fail "Volume record profile is $stored_profile, not $profile."
   [[ "$stored_account" == "$(caller_account)" ]] || fail "Volume record account $stored_account is not the active AWS account."
   [[ "$region" == "$(profile_region "$profile")" ]] || fail "Volume record region $region is not the $profile region."
-  quiescence_epoch="$(git -C "$GITOPS_DIR" show -s --format=%ct "$gitops_revision")"
-  [[ "$created_epoch" =~ ^[0-9]+$ && "$created_epoch" -lt "$quiescence_epoch" ]] || \
-    fail "Volume record $record must predate GitOps quiescence commit $gitops_revision. Snapshot the volumes before merging quiescence."
 
   while IFS=$'\t' read -r volume size pv; do
     [[ -n "$volume" ]] || continue
@@ -458,11 +584,387 @@ verify_volume_record() {
   printf '%s\n' "$record"
 }
 
+to_json_array() {
+  if [[ $# -eq 0 ]]; then
+    printf '[]'
+  else
+    printf '%s\n' "$@" | awk 'NF' | jq -R . | jq -s .
+  fi
+}
+
+# Revalidates one sweep target immediately before deletion: exact resource type
+# through the allow-list, live existence through a structured describe, and
+# exact current cluster ownership tags. Receipt IDs alone are insufficient.
+# Returns 0 when present and exactly owned (delete may proceed), 2 when already
+# absent (caller skips with a log line), and 1 when the target must be refused.
+# Prints the tags array for one ELBv2 ARN (load balancer, listener, or target
+# group). Returns 2 when the resource is absent, 1 when tags cannot be read
+# or parsed, so callers fail closed on malformed output.
+elbv2_tags_for() {
+  local arn=$1 region=$2
+  local described count tags
+  described="$(aws elbv2 describe-tags --region "$region" \
+    --resource-arns "$arn" --output json 2>/dev/null)" || return 2
+  count="$(jq -r '.TagDescriptions | length' <<<"$described" 2>/dev/null)" || return 1
+  [[ "$count" =~ ^[0-9]+$ ]] || return 1
+  [[ "$count" -gt 0 ]] || return 2
+  tags="$(jq -c '.TagDescriptions[0].Tags // []' <<<"$described" 2>/dev/null)" || return 1
+  jq -e 'type == "array"' <<<"$tags" >/dev/null 2>&1 || return 1
+  printf '%s\n' "$tags"
+}
+
+revalidate_sweep_target() {
+  local kind=$1 id=$2 cluster=$3 region=$4 snapshot=${5:-}
+  local classified described selected tags_json state entry_type tag_status
+  local found
+
+  classified="$(sweep_target_type "$id")" || {
+    printf 'ERROR: Sweep target %s is not an allow-listed runtime type; refusing.\n' "$id" >&2
+    return 1
+  }
+  [[ "$classified" == "$kind" ]] || {
+    printf 'ERROR: Sweep target %s is a %s, not a %s; refusing.\n' "$id" "$classified" "$kind" >&2
+    return 1
+  }
+
+  case "$kind" in
+    load-balancer)
+      described="$(aws elbv2 describe-load-balancers --region "$region" \
+        --load-balancer-arns "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      entry_type="$(jq -r --arg id "$id" '.LoadBalancers[]? | select(.LoadBalancerArn == $id) | .Type // empty' <<<"$described")" || return 1
+      [[ -n "$entry_type" ]] || return 2
+      [[ "$entry_type" == "application" || "$entry_type" == "network" ]] || {
+        printf 'ERROR: Load balancer %s has unexpected type %s; refusing.\n' "$id" "$entry_type" >&2
+        return 1
+      }
+      tags_json="$(elbv2_tags_for "$id" "$region")" || {
+        tag_status=$?
+        [[ "$tag_status" -eq 2 ]] && return 2
+        printf 'ERROR: Cannot read tags of load balancer %s; refusing.\n' "$id" >&2
+        return 1
+      }
+      owns_cluster_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Load balancer %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      ;;
+    listener)
+      described="$(aws elbv2 describe-listeners --region "$region" \
+        --listener-arns "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      found="$(jq -r --arg id "$id" '[.Listeners[]? | .ListenerArn] | map(select(. == $id)) | length' <<<"$described")" || return 1
+      [[ "$found" =~ ^[0-9]+$ && "$found" -gt 0 ]] || return 2
+      tags_json="$(elbv2_tags_for "$id" "$region")" || {
+        tag_status=$?
+        [[ "$tag_status" -eq 2 ]] && return 2
+        printf 'ERROR: Cannot read tags of listener %s; refusing.\n' "$id" >&2
+        return 1
+      }
+      owns_cluster_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Listener %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      ;;
+    target-group)
+      described="$(aws elbv2 describe-target-groups --region "$region" \
+        --target-group-arns "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      found="$(jq -r --arg id "$id" '[.TargetGroups[]? | .TargetGroupArn] | map(select(. == $id)) | length' <<<"$described")" || return 1
+      [[ "$found" =~ ^[0-9]+$ && "$found" -gt 0 ]] || return 2
+      tags_json="$(elbv2_tags_for "$id" "$region")" || {
+        tag_status=$?
+        [[ "$tag_status" -eq 2 ]] && return 2
+        printf 'ERROR: Cannot read tags of target group %s; refusing.\n' "$id" >&2
+        return 1
+      }
+      owns_cluster_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Target group %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      ;;
+    security-group)
+      described="$(aws ec2 describe-security-groups --region "$region" \
+        --group-ids "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      selected="$(jq -c --arg id "$id" '[.SecurityGroups[]? | select(.GroupId == $id)] | .[0] // empty' <<<"$described")" || return 1
+      [[ -n "$selected" ]] || return 2
+      tags_json="$(jq -c '.Tags // []' <<<"$selected")" || return 1
+      jq -e 'type == "array"' <<<"$tags_json" >/dev/null 2>&1 || return 1
+      owns_cluster_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Security group %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      ;;
+    network-interface)
+      described="$(aws ec2 describe-network-interfaces --region "$region" \
+        --network-interface-ids "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      selected="$(jq -c --arg id "$id" '[.NetworkInterfaces[]? | select(.NetworkInterfaceId == $id)] | .[0] // empty' <<<"$described")" || return 1
+      [[ -n "$selected" ]] || return 2
+      state="$(jq -r '.Status // empty' <<<"$selected")" || return 1
+      [[ "$state" == "available" ]] || {
+        printf 'SWEEP skip network-interface %s: status %s is not orphaned.\n' "$id" "$state"
+        return 2
+      }
+      tags_json="$(jq -c '.TagSet // []' <<<"$selected")" || return 1
+      jq -e 'type == "array"' <<<"$tags_json" >/dev/null 2>&1 || return 1
+      owns_cluster_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Network interface %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      ;;
+    volume)
+      [[ -n "$snapshot" ]] || {
+        printf 'ERROR: Volume %s has no recorded snapshot; refusing.\n' "$id" >&2
+        return 1
+      }
+      described="$(aws ec2 describe-volumes --region "$region" \
+        --volume-ids "$id" --output json 2>/dev/null)" || return 2
+      jq -e . <<<"$described" >/dev/null 2>&1 || return 1
+      selected="$(jq -c --arg id "$id" '[.Volumes[]? | select(.VolumeId == $id)] | .[0] // empty' <<<"$described")" || return 1
+      [[ -n "$selected" ]] || return 2
+      state="$(jq -r '.State // empty' <<<"$selected")" || return 1
+      [[ "$state" == "available" ]] || {
+        printf 'ERROR: Volume %s has state %s, not available; refusing.\n' "$id" "$state" >&2
+        return 1
+      }
+      tags_json="$(jq -c '.Tags // []' <<<"$selected")" || return 1
+      jq -e 'type == "array"' <<<"$tags_json" >/dev/null 2>&1 || return 1
+      owns_volume_tag "$tags_json" "$cluster" || {
+        printf 'ERROR: Volume %s is not owned by cluster %s; refusing.\n' "$id" "$cluster" >&2
+        return 1
+      }
+      state="$(aws ec2 describe-snapshots --region "$region" --snapshot-ids "$snapshot" \
+        --output text 2>/dev/null | awk '{print $NF}')" || {
+        printf 'ERROR: Cannot read recorded snapshot %s for volume %s; refusing.\n' "$snapshot" "$id" >&2
+        return 1
+      }
+      [[ "$state" == "completed" ]] || {
+        printf 'ERROR: Recorded snapshot %s for volume %s is %s, not completed; refusing.\n' "$snapshot" "$id" "$state" >&2
+        return 1
+      }
+      ;;
+    *)
+      printf 'ERROR: Unknown sweep kind %s for %s; refusing.\n' "$kind" "$id" >&2
+      return 1 ;;
+  esac
+  return 0
+}
+
+# Quiescence receipt (spec 003 T016): checksummed JSON evidence that replaces
+# the former GitOps revision gate. Inventories every sweepable runtime resource whose live,
+# exact cluster ownership tags name a profile cluster, and records the volume
+# record it was created with. Volume-record-before-receipt ordering is enforced
+# by creation time: the receipt is truthfully stamped now, and creation refuses
+# when the clock has not advanced past the volume record.
+quiescence_receipt() {
+  local profile=$1
+  local supplied_volume_record=$2
+  local region active_account timestamp receipt_dir
+  local canonical_volume_record record_epoch now_epoch waited created_epoch
+  local clusters_text cluster_list_json lbs_json lb_tags owned_cluster
+  local listeners_json listener_tags tgs_json tg_tags sgs_json
+  local sg_tags_json vol_json vol_selected vol_state vol_tags
+  local enis_json eni_tags_json
+  local lb_arn lb_type listener_arn tg_arn sg_id eni_id eni_status
+  local lb_row sg_row eni_row
+  local marker vol_id pv size status snap_id
+  local -a clusters=()
+  local -a load_balancers=()
+  local -a listeners=()
+  local -a target_groups=()
+  local -a security_groups=()
+  local -a volumes=()
+  local -a network_interfaces=()
+
+  verify_toolchain
+  verify_profile "$profile" down
+  region="$(profile_region "$profile")"
+  active_account="$(caller_account)"
+  canonical_volume_record="$(verify_volume_record "$profile" "$supplied_volume_record")"
+  record_epoch="$(record_value "$canonical_volume_record" created_epoch)"
+
+  clusters_text="$(profile_clusters "$profile")" || return 1
+  mapfile -t clusters <<<"$clusters_text"
+  [[ ${#clusters[@]} -gt 0 && -n "${clusters[0]}" ]] || fail "No cluster found for profile $profile."
+
+  cluster_list_json="$(printf '%s\n' "${clusters[@]}" | jq -R . | jq -s .)"
+
+  # 1. Cluster-owned ALB/NLB load balancers, each with its own exact tag, plus
+  # each listener behind its own exact listener tag (never inherited trust).
+  # Structured JSON throughout; unparseable output fails closed.
+  lbs_json="$(aws elbv2 describe-load-balancers --region "$region" --output json)" || \
+    fail "Cannot list load balancers in $region."
+  jq -e . <<<"$lbs_json" >/dev/null 2>&1 || fail "Cannot parse load balancers in $region; failing closed."
+  while IFS= read -r lb_row; do
+    lb_arn="$(jq -r '.arn // empty' <<<"$lb_row")" || fail "Cannot parse load balancer entry; failing closed."
+    lb_type="$(jq -r '.type // empty' <<<"$lb_row")" || fail "Cannot parse load balancer entry; failing closed."
+    [[ -n "$lb_arn" ]] || continue
+    [[ "$lb_type" == "application" || "$lb_type" == "network" ]] || continue
+    sweep_target_type "$lb_arn" >/dev/null || continue
+    lb_tags="$(elbv2_tags_for "$lb_arn" "$region")" || \
+      fail "Cannot read tags of load balancer $lb_arn; failing closed."
+    owned_cluster=""
+    for c in "${clusters[@]}"; do
+      if owns_cluster_tag "$lb_tags" "$c"; then owned_cluster="$c"; break; fi
+    done
+    [[ -n "$owned_cluster" ]] || continue
+    load_balancers+=("$lb_arn")
+    listeners_json="$(aws elbv2 describe-listeners --region "$region" \
+      --load-balancer-arn "$lb_arn" --output json)" || \
+      fail "Cannot list listeners of load balancer $lb_arn; failing closed."
+    jq -e . <<<"$listeners_json" >/dev/null 2>&1 || \
+      fail "Cannot parse listeners of load balancer $lb_arn; failing closed."
+    while IFS= read -r listener_arn; do
+      [[ -n "$listener_arn" ]] || continue
+      sweep_target_type "$listener_arn" >/dev/null || continue
+      listener_tags="$(elbv2_tags_for "$listener_arn" "$region")" || \
+        fail "Cannot read tags of listener $listener_arn; failing closed."
+      owns_cluster_tag "$listener_tags" "$owned_cluster" || continue
+      listeners+=("$listener_arn")
+    done < <(jq -r '.Listeners[]? | .ListenerArn // empty' <<<"$listeners_json")
+  done < <(jq -c '.LoadBalancers[]? | {arn: .LoadBalancerArn, type: .Type}' <<<"$lbs_json")
+
+  # 2. Cluster-owned target groups behind their own exact tags.
+  tgs_json="$(aws elbv2 describe-target-groups --region "$region" --output json)" || \
+    fail "Cannot list target groups in $region."
+  jq -e . <<<"$tgs_json" >/dev/null 2>&1 || fail "Cannot parse target groups in $region; failing closed."
+  while IFS= read -r tg_arn; do
+    [[ -n "$tg_arn" ]] || continue
+    sweep_target_type "$tg_arn" >/dev/null || continue
+    tg_tags="$(elbv2_tags_for "$tg_arn" "$region")" || \
+      fail "Cannot read tags of target group $tg_arn; failing closed."
+    for c in "${clusters[@]}"; do
+      if owns_cluster_tag "$tg_tags" "$c"; then target_groups+=("$tg_arn"); break; fi
+    done
+  done < <(jq -r '.TargetGroups[]? | .TargetGroupArn // empty' <<<"$tgs_json")
+
+  # 3. Controller security groups behind exact tags, read with explicit output.
+  sgs_json="$(aws ec2 describe-security-groups --region "$region" --output json)" || \
+    fail "Cannot list security groups in $region."
+  jq -e . <<<"$sgs_json" >/dev/null 2>&1 || fail "Cannot parse security groups in $region; failing closed."
+  while IFS= read -r sg_row; do
+    sg_id="$(jq -r '.id // empty' <<<"$sg_row")" || fail "Cannot parse security group entry; failing closed."
+    sg_tags_json="$(jq -c '.tags // []' <<<"$sg_row")" || fail "Cannot parse security group entry; failing closed."
+    [[ -n "$sg_id" ]] || continue
+    sweep_target_type "$sg_id" >/dev/null || continue
+    require_tags_array "$sg_tags_json" "security group $sg_id"
+    for c in "${clusters[@]}"; do
+      if owns_cluster_tag "$sg_tags_json" "$c"; then security_groups+=("$sg_id"); break; fi
+    done
+  done < <(jq -c '.SecurityGroups[]? | {id: .GroupId, tags: (.Tags // [])}' <<<"$sgs_json")
+
+  # 4. Recorded PVC volumes: exact live cluster-scoped ownership tags plus the
+  # record entry plus a live completed snapshot. Consent entries never sweep.
+  while IFS=$'\t' read -r marker vol_id pv size status snap_id; do
+    [[ "$marker" == "volume" && "$status" == "snapshot" && -n "$snap_id" && "$snap_id" != "-" ]] || continue
+    sweep_target_type "$vol_id" >/dev/null || continue
+    vol_json="$(aws ec2 describe-volumes --region "$region" --volume-ids "$vol_id" \
+      --output json 2>/dev/null)" || continue
+    jq -e . <<<"$vol_json" >/dev/null 2>&1 || fail "Cannot parse volume $vol_id; failing closed."
+    vol_selected="$(jq -c --arg id "$vol_id" '[.Volumes[]? | select(.VolumeId == $id)] | .[0] // empty' <<<"$vol_json")" || \
+      fail "Cannot parse volume $vol_id; failing closed."
+    [[ -n "$vol_selected" ]] || continue
+    vol_state="$(jq -r '.State // empty' <<<"$vol_selected")" || \
+      fail "Cannot parse state of volume $vol_id; failing closed."
+    if [[ "$vol_state" != "available" ]]; then
+      printf 'SWEEP defer volume %s: state %s is not available.\n' "$vol_id" "$vol_state"
+      continue
+    fi
+    vol_tags="$(jq -c '.Tags // []' <<<"$vol_selected")" || fail "Cannot parse tags of volume $vol_id; failing closed."
+    require_tags_array "$vol_tags" "volume $vol_id"
+    for c in "${clusters[@]}"; do
+      if owns_volume_tag "$vol_tags" "$c"; then volumes+=("$vol_id"); break; fi
+    done
+  done <"$canonical_volume_record/record.tsv"
+
+  # 5. Orphaned ENIs: available status plus exact tags, explicit output.
+  enis_json="$(aws ec2 describe-network-interfaces --region "$region" --output json)" || \
+    fail "Cannot list network interfaces in $region."
+  jq -e . <<<"$enis_json" >/dev/null 2>&1 || fail "Cannot parse network interfaces in $region; failing closed."
+  while IFS= read -r eni_row; do
+    eni_id="$(jq -r '.id // empty' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
+    eni_status="$(jq -r '.status // empty' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
+    eni_tags_json="$(jq -c '.tags // []' <<<"$eni_row")" || fail "Cannot parse network interface entry; failing closed."
+    [[ -n "$eni_id" && "$eni_status" == "available" ]] || continue
+    sweep_target_type "$eni_id" >/dev/null || continue
+    require_tags_array "$eni_tags_json" "network interface $eni_id"
+    for c in "${clusters[@]}"; do
+      if owns_cluster_tag "$eni_tags_json" "$c"; then network_interfaces+=("$eni_id"); break; fi
+    done
+  done < <(jq -c '.NetworkInterfaces[]? | {id: .NetworkInterfaceId, status: .Status, tags: (.TagSet // [])}' <<<"$enis_json")
+
+  # Truthful evidence: the receipt is stamped with the real clock, and creation
+  # refuses when the clock has not advanced past the volume record, so the
+  # volume-record-before-receipt ordering is never fabricated.
+  now_epoch="$(date -u +%s)"
+  waited=0
+  while [[ "$now_epoch" -le "$record_epoch" && "$waited" -lt 5 ]]; do
+    sleep 1
+    now_epoch="$(date -u +%s)"
+    waited=$((waited + 1))
+  done
+  if [[ "$now_epoch" -le "$record_epoch" ]]; then
+    fail "System clock ($now_epoch) did not advance past the volume record ($record_epoch); wait a second and retry quiescence-receipt."
+  fi
+  created_epoch="$now_epoch"
+
+  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  receipt_dir="$PLAN_ROOT/quiescence-${profile}-${timestamp}"
+  mkdir -p "$receipt_dir"
+  chmod 700 "$PLAN_ROOT" "$receipt_dir"
+  umask 077
+
+  json_clusters="$cluster_list_json"
+  json_lbs="$(to_json_array ${load_balancers[@]+"${load_balancers[@]}"})"
+  json_listeners="$(to_json_array ${listeners[@]+"${listeners[@]}"})"
+  json_tgs="$(to_json_array ${target_groups[@]+"${target_groups[@]}"})"
+  json_sgs="$(to_json_array ${security_groups[@]+"${security_groups[@]}"})"
+  json_vols="$(to_json_array ${volumes[@]+"${volumes[@]}"})"
+  json_enis="$(to_json_array ${network_interfaces[@]+"${network_interfaces[@]}"})"
+
+  jq -n \
+    --arg profile "$profile" \
+    --arg account "$active_account" \
+    --arg region "$region" \
+    --arg created_epoch "$created_epoch" \
+    --arg volume_record "$canonical_volume_record" \
+    --argjson clusters "$json_clusters" \
+    --argjson lbs "$json_lbs" \
+    --argjson listeners "$json_listeners" \
+    --argjson tgs "$json_tgs" \
+    --argjson sgs "$json_sgs" \
+    --argjson vols "$json_vols" \
+    --argjson enis "$json_enis" \
+    '{
+      format: 1,
+      profile: $profile,
+      account: $account,
+      region: $region,
+      created_epoch: ($created_epoch | tonumber),
+      volume_record: $volume_record,
+      clusters: $clusters,
+      inventory: {
+        load_balancers: $lbs,
+        listeners: $listeners,
+        target_groups: $tgs,
+        security_groups: $sgs,
+        volumes: $vols,
+        network_interfaces: $enis
+      }
+    }' >"$receipt_dir/receipt.json"
+
+  (cd "$receipt_dir" && sha256sum receipt.json >checksums.sha256)
+  printf 'Quiescence receipt: %s\n' "$receipt_dir"
+}
+
 plan_profile() {
   local profile=$1
   local direction=$2
-  local gitops_revision=$3
+  local supplied_receipt=${3:-}
   local supplied_volume_record=${4:-}
+  local receipt=""
   local volume_record=""
   local timestamp bundle active_account commit pass="complete"
   local any_protected=false any_absent=false has_identity=false has_hub=false hub_present=false
@@ -476,8 +978,8 @@ plan_profile() {
     assert_vpc_capacity "$profile"
   fi
   if [[ "$direction" == "down" ]]; then
-    verify_gitops_revision "$gitops_revision"
-    volume_record="$(verify_volume_record "$profile" "$gitops_revision" "$supplied_volume_record")"
+    volume_record="$(verify_volume_record "$profile" "$supplied_volume_record")"
+    receipt="$(verify_quiescence_receipt "$profile" "$supplied_receipt" "$volume_record")"
   fi
 
   # Three transitions take a second bundle. Amazon EKS refuses to delete a
@@ -525,7 +1027,7 @@ plan_profile() {
     printf 'direction\t%s\n' "$direction"
     printf 'account\t%s\n' "$active_account"
     printf 'commit\t%s\n' "$commit"
-    printf 'gitops_revision\t%s\n' "$gitops_revision"
+    printf 'receipt\t%s\n' "$receipt"
     printf 'pass\t%s\n' "$pass"
     if [[ -n "$volume_record" ]]; then
       printf 'volume_record\t%s\n' "$volume_record"
@@ -533,6 +1035,9 @@ plan_profile() {
   } >"$bundle/metadata.tsv"
   if [[ -n "$volume_record" ]]; then
     cp "$volume_record/record.tsv" "$bundle/volume-record.tsv"
+  fi
+  if [[ -n "$receipt" ]]; then
+    cp "$receipt/receipt.json" "$bundle/quiescence-receipt.json"
   fi
 
   while IFS='|' read -r name relative_root backend_name variables_name kind; do
@@ -608,13 +1113,16 @@ plan_profile() {
     if [[ -f volume-record.tsv ]]; then
       checksum_files+=(volume-record.tsv)
     fi
+    if [[ -f quiescence-receipt.json ]]; then
+      checksum_files+=(quiescence-receipt.json)
+    fi
     sha256sum "${checksum_files[@]}" >checksums.sha256
   )
   printf 'Saved plan bundle: %s\n' "$bundle"
   case "$pass" in
     unprotect)
       printf 'A cluster refuses deletion, so this bundle only turns deletion protection off on each protected cluster.\n'
-      printf 'Apply it, then plan down again with the same GitOps revision and volume record for the destroy bundle.\n'
+      printf 'Apply it, then plan down again with the same receipt and volume record for the destroy bundle.\n'
       ;;
     hub-first)
       printf 'The egress hub does not exist yet and the spokes read its transit gateway, so this bundle holds only the hub.\n'
@@ -647,7 +1155,7 @@ inspect_bundle() {
   printf 'Pass: %s\n' "$(metadata_value "$bundle" pass)"
   printf 'Account: %s\n' "$(metadata_value "$bundle" account)"
   printf 'Commit: %s\n' "$(metadata_value "$bundle" commit)"
-  printf 'GitOps revision: %s\n' "$(metadata_value "$bundle" gitops_revision)"
+  printf 'Receipt: %s\n' "$(metadata_value "$bundle" receipt)"
   printf 'Volume record: %s\n' "$(metadata_value "$bundle" volume_record)"
 
   while IFS=$'\t' read -r marker name relative_root plan_name; do
@@ -682,13 +1190,130 @@ backup_state() {
   fi
 }
 
+# Post-destroy runtime sweep (spec 003 T016). Runs during a down apply AFTER
+# every workload/cluster plan has destroyed the cluster(s) and BEFORE the first
+# networking plan applies. Deletes only allow-listed controller runtime
+# resources with exact current cluster ownership tags, revalidated immediately
+# before each deletion. Idempotent: already-absent targets are skipped or
+# tolerated, and a rerun after a partial failure completes. Every deletion and
+# every root apply is logged as an EVENT line, forming one ordered event log.
+execute_post_destroy_sweep() {
+  local bundle=$1
+  local receipt_file="$bundle/quiescence-receipt.json"
+  local receipt_dir vol_record_file vol_rec_dir
+  local region profile clusters_text
+  local -a clusters=()
+  local id snap_id
+  local -a listeners=() lbs=() tgs=() sgs=() vols=() enis=()
+
+  receipt_dir="$(metadata_value "$bundle" receipt)"
+  [[ -n "$receipt_dir" && -d "$receipt_dir" ]] || \
+    fail "The down bundle carries no quiescence receipt. Re-plan with --receipt."
+  require_file "$receipt_file"
+  require_file "$receipt_dir/receipt.json"
+  require_file "$receipt_dir/checksums.sha256"
+  (cd "$receipt_dir" && sha256sum -c --quiet checksums.sha256) || \
+    fail "Quiescence receipt $receipt_dir fails its checksum at apply."
+  cmp -s "$receipt_dir/receipt.json" "$receipt_file" || \
+    fail "The bundle's quiescence receipt copy differs from $receipt_dir/receipt.json. Re-plan."
+
+  vol_rec_dir="$(metadata_value "$bundle" volume_record)"
+  vol_record_file="$bundle/volume-record.tsv"
+  [[ -n "$vol_rec_dir" && -d "$vol_rec_dir" ]] || \
+    fail "The down bundle carries no persistent-volume record. Re-plan with --volume-record."
+  require_file "$vol_record_file"
+  (cd "$vol_rec_dir" && sha256sum -c --quiet checksums.sha256) || \
+    fail "Volume record $vol_rec_dir fails its checksum at apply."
+  cmp -s "$vol_rec_dir/record.tsv" "$vol_record_file" || \
+    fail "The bundle's volume record copy differs from $vol_rec_dir/record.tsv. Re-plan."
+
+  profile="$(jq -r '.profile // empty' "$receipt_file")"
+  region="$(jq -r '.region // empty' "$receipt_file")"
+  [[ -n "$profile" && -n "$region" ]] || fail "The quiescence receipt has no profile or region."
+  [[ "$(jq -r '.account // empty' "$receipt_file")" == "$(caller_account)" ]] || \
+    fail "Quiescence receipt account does not match the active AWS account at apply."
+  [[ "$region" == "$(profile_region "$profile")" ]] || \
+    fail "Quiescence receipt region $region is not the $profile region at apply."
+  clusters_text="$(profile_clusters "$profile")" || return 1
+  mapfile -t clusters <<<"$clusters_text"
+  [[ "$(jq -c '.clusters | sort' "$receipt_file")" == "$(printf '%s\n' "${clusters[@]}" | sort | jq -R . | jq -s -c .)" ]] || \
+    fail "Quiescence receipt clusters do not match the $profile clusters at apply."
+
+  printf 'Executing post-destroy runtime sweep for %s in %s...\n' "$profile" "$region"
+
+  mapfile -t listeners < <(jq -r '.inventory.listeners[]? // empty' "$receipt_file")
+  mapfile -t lbs < <(jq -r '.inventory.load_balancers[]? // empty' "$receipt_file")
+  mapfile -t tgs < <(jq -r '.inventory.target_groups[]? // empty' "$receipt_file")
+  mapfile -t sgs < <(jq -r '.inventory.security_groups[]? // empty' "$receipt_file")
+  mapfile -t vols < <(jq -r '.inventory.volumes[]? // empty' "$receipt_file")
+  mapfile -t enis < <(jq -r '.inventory.network_interfaces[]? // empty' "$receipt_file")
+
+  sweep_one() {
+    local kind=$1 id=$2 region=$3 snapshot=${4:-}
+    shift 4
+    local owner="" refused=false c st
+    [[ -n "$id" ]] || return 0
+    sweep_target_type "$id" >/dev/null || \
+      fail "Sweep target $id is not an allow-listed runtime type; refusing."
+    [[ "$(sweep_target_type "$id")" == "$kind" ]] || \
+      fail "Sweep target $id is not a $kind; refusing."
+    for c in "$@"; do
+      st=0
+      revalidate_sweep_target "$kind" "$id" "$c" "$region" "$snapshot" || st=$?
+      if [[ "$st" -eq 0 ]]; then
+        owner="$c"
+        break
+      elif [[ "$st" -eq 1 ]]; then
+        refused=true
+      fi
+    done
+    if [[ -z "$owner" ]]; then
+      if [[ "$refused" == true ]]; then
+        fail "Sweep target $kind $id failed revalidation; refusing."
+      fi
+      printf 'SWEEP skip %s %s: already absent.\n' "$kind" "$id"
+      return 0
+    fi
+    case "$kind" in
+      load-balancer) sweep_aws elbv2 delete-load-balancer --region "$region" --load-balancer-arn "$id" ;;
+      listener) sweep_aws elbv2 delete-listener --region "$region" --listener-arn "$id" ;;
+      target-group) sweep_aws elbv2 delete-target-group --region "$region" --target-group-arn "$id" ;;
+      security-group) sweep_aws ec2 delete-security-group --region "$region" --group-id "$id" ;;
+      volume) sweep_aws ec2 delete-volume --region "$region" --volume-id "$id" ;;
+      network-interface) sweep_aws ec2 delete-network-interface --region "$region" --network-interface-id "$id" ;;
+    esac || fail "Sweep deletion of $kind $id failed."
+    printf 'EVENT sweep delete %s %s\n' "$kind" "$id"
+  }
+
+  for id in ${listeners[@]+"${listeners[@]}"}; do sweep_one listener "$id" "$region" "" "${clusters[@]}"; done
+  for id in ${lbs[@]+"${lbs[@]}"}; do sweep_one load-balancer "$id" "$region" "" "${clusters[@]}"; done
+  if [[ ${#lbs[@]} -gt 0 ]]; then
+    for id in "${lbs[@]}"; do
+      sweep_aws elbv2 wait load-balancers-deleted --region "$region" --load-balancer-arns "$id" || \
+        fail "Load balancer $id did not finish deleting."
+    done
+  fi
+  for id in ${tgs[@]+"${tgs[@]}"}; do sweep_one target-group "$id" "$region" "" "${clusters[@]}"; done
+  for id in ${sgs[@]+"${sgs[@]}"}; do sweep_one security-group "$id" "$region" "" "${clusters[@]}"; done
+  for id in ${enis[@]+"${enis[@]}"}; do sweep_one network-interface "$id" "$region" "" "${clusters[@]}"; done
+  for id in ${vols[@]+"${vols[@]}"}; do
+    snap_id="$(awk -F '\t' -v vol="$id" '$1 == "volume" && $2 == vol && $5 == "snapshot" { print $6; exit }' "$vol_record_file")"
+    [[ -n "$snap_id" && "$snap_id" != "-" ]] || \
+      fail "Sweep volume $id has no recorded snapshot; refusing."
+    sweep_one volume "$id" "$region" "$snap_id" "${clusters[@]}"
+  done
+
+  printf 'Post-destroy runtime sweep completed successfully.\n'
+}
+
 apply_bundle() {
   local requested_profile=$1
   local requested_direction=$2
   local supplied_bundle=$3
   local bundle
-  local stored_profile stored_direction stored_account stored_commit active_account
+  local stored_profile stored_direction stored_account stored_commit stored_pass active_account
   local name relative_root plan_name root
+  local sweep_executed=false
 
   bundle="$(canonical_bundle_path "$supplied_bundle")"
   verify_toolchain
@@ -699,6 +1324,7 @@ apply_bundle() {
   stored_direction="$(metadata_value "$bundle" direction)"
   stored_account="$(metadata_value "$bundle" account)"
   stored_commit="$(metadata_value "$bundle" commit)"
+  stored_pass="$(metadata_value "$bundle" pass)"
   active_account="$(caller_account)"
 
   [[ "$stored_profile" == "$requested_profile" ]] || fail "Bundle profile is $stored_profile, not $requested_profile."
@@ -706,7 +1332,8 @@ apply_bundle() {
   [[ "$stored_account" == "$active_account" ]] || fail "Bundle account is $stored_account but AWS STS reports $active_account."
   [[ "$stored_commit" == "$(git -C "$ROOT_DIR" rev-parse HEAD)" ]] || fail "The checked-out commit differs from the plan bundle commit. Re-plan."
   if [[ "$requested_direction" == "down" ]]; then
-    verify_gitops_revision "$(metadata_value "$bundle" gitops_revision)"
+    [[ -n "$(metadata_value "$bundle" receipt)" && -f "$bundle/quiescence-receipt.json" ]] || \
+      fail "The down bundle carries no quiescence receipt. Re-plan with --receipt."
     [[ -n "$(metadata_value "$bundle" volume_record)" && -f "$bundle/volume-record.tsv" ]] || \
       fail "The down bundle carries no persistent-volume record. Re-plan with --volume-record."
   fi
@@ -716,7 +1343,21 @@ apply_bundle() {
     [[ "$marker" == "root" ]] || continue
     root="$ROOT_DIR/$relative_root"
     require_file "$bundle/$plan_name"
+
+    # Post-destroy runtime sweep (spec 003 T016): runs during a down apply
+    # after every workload/cluster plan has destroyed the cluster(s) and
+    # before the first networking plan applies.
+    if [[ "$requested_direction" == "down" && "$stored_pass" != "unprotect" && "$sweep_executed" == false ]]; then
+      case "$name" in
+        *-networking)
+          execute_post_destroy_sweep "$bundle"
+          sweep_executed=true
+          ;;
+      esac
+    fi
+
     backup_state "$name" "$root" "$stored_account"
+    printf 'EVENT apply %s\n' "$name"
     printf 'Applying reviewed saved plan for %s...\n' "$name"
     terraform -chdir="$root" apply -input=false "$bundle/$plan_name"
   done <"$bundle/metadata.tsv"
@@ -764,16 +1405,16 @@ case "$command" in
     direction=${3:-}
     validate_profile "$profile"
     validate_direction "$direction"
-    gitops_revision=""
+    receipt=""
     volume_record=""
     if [[ "$direction" == "down" ]]; then
-      [[ "${4:-}" == "--gitops-revision" && -n "${5:-}" && "${6:-}" == "--volume-record" && -n "${7:-}" && -z "${8:-}" ]] || { usage; exit 2; }
-      gitops_revision=$5
+      [[ "${4:-}" == "--receipt" && -n "${5:-}" && "${6:-}" == "--volume-record" && -n "${7:-}" && -z "${8:-}" ]] || { usage; exit 2; }
+      receipt=$5
       volume_record=$7
     else
       [[ -z "${4:-}" ]] || { usage; exit 2; }
     fi
-    plan_profile "$profile" "$direction" "$gitops_revision" "$volume_record"
+    plan_profile "$profile" "$direction" "$receipt" "$volume_record"
     ;;
   inspect)
     [[ -n "${2:-}" && -z "${3:-}" ]] || { usage; exit 2; }
@@ -804,6 +1445,12 @@ case "$command" in
       shift 2
     done
     snapshot_volumes "$profile" "${consent[@]}"
+    ;;
+  quiescence-receipt)
+    profile=${2:-}
+    validate_profile "$profile"
+    [[ "${3:-}" == "--volume-record" && -n "${4:-}" && -z "${5:-}" ]] || { usage; exit 2; }
+    quiescence_receipt "$profile" "$4"
     ;;
   *)
     usage

@@ -76,29 +76,39 @@ Before planning shutdown:
    - It snapshots each one and waits for the snapshots to complete.
    - It writes a checksummed record under `.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ/`.
    - A volume whose data may be lost is named with `CONSENT="vol-..."`; the record keeps that consent instead of a snapshot.
-2. Only then commit a GitOps change that quiesces the selected environment without deleting durable AWS assets. Quiescence prunes the PersistentVolumeClaims. With the `Delete` reclaim policy, the driver then deletes their volumes, as it did to four observability volumes on 2026-09-11.
-3. Merge the change, wait for ArgoCD reconciliation, and record the merged commit SHA.
+2. Quiesce the workloads through the established GitOps process so that PVC volumes detach. No new pull request is cut for the shutdown itself; the quiescence receipt below is the evidence instead.
+3. Create the quiescence receipt: `make quiescence-receipt PROFILE=economical VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ`.
+   - It writes checksummed JSON under `.aws-profile-plans/quiescence-economical-YYYYMMDDTHHMMSSZ/` with the profile, account, region, cluster set, creation time, volume record, and a dry-run inventory of every sweepable runtime resource.
+   - Only resources with exact current cluster ownership tags are inventoried: ALB/NLB load balancers plus their listeners (each behind its own listener tag) and target groups, controller security groups, snapshotted PVC volumes with live cluster-scoped tags, and available orphaned ENIs.
+   - A volume still attached at receipt time is deferred with a log line and never swept; a consented volume is never swept either.
+   - Protected families are unreachable regardless of tags: ACM certificates and validation, all Route 53 records except the runtime ALB aliases, ECR repositories and policies, Secrets Manager secrets and versions, KMS keys/aliases/replicas, the Terraform state bucket and its companions, and GitHub OIDC.
+   - The receipt is refused unless its clock is past the volume record; the wrapper waits briefly for the clock rather than fabricating time.
 4. Create and inspect the shutdown bundle. The wrapper rejects:
-   - a volume record created after the quiescence commit;
+   - a missing or checksummed-tampered receipt or volume record;
+   - a receipt whose profile, account, region, or cluster set does not match, or that names a different volume record;
+   - a volume record created after the receipt;
    - a record that misses a volume still present;
    - a record whose snapshots are not complete;
-   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities;
+   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, ACM, KMS, S3 state, or publication identities;
    - an `eco/networking` plan that deletes anything but the NAT gateways, their Elastic IPs, and the private NAT routes.
 
 Recreating an EKS cluster restores no data by itself. Restoring a volume from its snapshot is a separate, reviewed GitOps change; the lifecycle does not restore data.
 
 ```bash
 make snapshot-volumes PROFILE=economical
-make plan-down PROFILE=economical GITOPS_REVISION=GITOPS_COMMIT_SHA VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
+make quiescence-receipt PROFILE=economical VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
+make plan-down PROFILE=economical RECEIPT=.aws-profile-plans/quiescence-economical-YYYYMMDDTHHMMSSZ VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
 make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
 
 The bundle destroys `eco/security-irsa`, then `eco/workload`, and plans `eco/networking` without its NAT gateways.
 
+During the apply, a post-destroy runtime sweep runs between the cluster destruction and the first networking apply. It revalidates the exact resource type and current ownership tags of every inventoried ID immediately before deletion, verifies each recorded snapshot is still completed before deleting its volume, tolerates only verified not-found states, and logs every deletion and every root apply as `EVENT` lines forming one ordered event log. Rerunning the apply after a partial failure completes the sweep; already-absent resources are skipped.
+
 **A protected cluster takes two bundles.** Amazon EKS refuses to delete a cluster whose deletion protection is on, and `eco/workload` keeps it on by default.
 - While the protection is on, the bundle holds only an `eco/workload` plan that turns it off, and `inspect` shows `Pass: unprotect`. The wrapper rejects that plan if it deletes anything.
-- Apply it, then run the same `make plan-down PROFILE=economical` command again, with the same `GITOPS_REVISION` and `VOLUME_RECORD`. That second bundle is the destroy bundle.
+- Apply it, then run the same `make plan-down PROFILE=economical` command again, with the same `RECEIPT` and `VOLUME_RECORD`. That second bundle is the destroy bundle.
 - The two cannot share a bundle: applying the first changes `eco/workload`'s state, and Terraform refuses a saved plan whose state has changed.
 - If the teardown is abandoned after the first bundle, the next plan of `eco/workload` turns the protection back on.
 

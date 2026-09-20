@@ -37,7 +37,9 @@ profile requires `PROFILE=economical` or `PROFILE=full`; there is no default.
 | --- | --- |
 | `make check`, `make init`, `make status` | Read-only preflight, initialization, and status |
 | `make plan-up` | Saves the plans that bring a profile up |
-| `make plan-down GITOPS_REVISION=<commit>` | Saves the plans that bring a profile down, after GitOps quiescence |
+| `make snapshot-volumes` | Snapshots every PVC EBS volume and writes the checksummed volume record |
+| `make quiescence-receipt VOLUME_RECORD=<directory>` | Writes the checksummed quiescence receipt with the dry-run sweep inventory |
+| `make plan-down RECEIPT=<directory> VOLUME_RECORD=<directory>` | Saves the plans that bring a profile down, after the quiescence receipt |
 | `make inspect BUNDLE=<directory>` | Shows a saved plan bundle for review |
 | `make apply-up BUNDLE=<directory>`, `make apply-down BUNDLE=<directory>` | Applies a reviewed bundle |
 
