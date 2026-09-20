@@ -101,3 +101,12 @@
   - [X] Allow the economical ALB aliases to leave with the runtime while retaining every other Route 53 record
   - [X] Target the economical cluster and ingress runtime without destroying the colocated ACM resources
   - [X] Re-plan and inspect both economical shutdown bundles before apply
+
+- [ ] **T016 Bring a profile down without a GitOps pull request** — not started; scoped in microservice-app-ops#120
+  - [ ] Record the maintainer decision between a post-destroy runtime sweep and an audited teardown mutation, and amend the constitution first if the second is chosen
+  - [ ] Commit a failing contract in `tests/contract/aws-profile-lifecycle.sh`: a down plan is refused without a quiescence receipt, and refused when the receipt predates the volume record
+  - [ ] Produce the receipt in `scripts/aws-profile-lifecycle.sh` as checksummed JSON evidence, in the same shape as the saved plans
+  - [ ] Implement the chosen mechanism so that only runtime-class resources are reachable, reusing the durable and egress delete filters
+  - [ ] Replace the `--gitops-revision` gate with the receipt, keeping the volume-record ordering guard
+  - [ ] Document the operator flow and the residual durable cost in `docs/aws-profile-lifecycle.md`
+  - [ ] Exercise one complete economical down and up cycle with no pull request in `microservice-app-gitops`, and retain both receipts **[approval]**
