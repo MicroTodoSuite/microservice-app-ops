@@ -102,11 +102,11 @@
   - [X] Target the economical cluster and ingress runtime without destroying the colocated ACM resources
   - [X] Re-plan and inspect both economical shutdown bundles before apply
 
-- [ ] **T016 Bring a profile down without a GitOps pull request** — not started; scoped in microservice-app-ops#120
-  - [ ] Record the maintainer decision between a post-destroy runtime sweep and an audited teardown mutation, and amend the constitution first if the second is chosen
-  - [ ] Commit a failing contract in `tests/contract/aws-profile-lifecycle.sh`: a down plan is refused without a quiescence receipt, and refused when the receipt predates the volume record
-  - [ ] Produce the receipt in `scripts/aws-profile-lifecycle.sh` as checksummed JSON evidence, in the same shape as the saved plans
-  - [ ] Implement the chosen mechanism so that only runtime-class resources are reachable, reusing the durable and egress delete filters
-  - [ ] Replace the `--gitops-revision` gate with the receipt, keeping the volume-record ordering guard
-  - [ ] Document the operator flow and the residual durable cost in `docs/aws-profile-lifecycle.md`
-  - [ ] Exercise one complete economical down and up cycle with no pull request in `microservice-app-gitops`, and retain both receipts **[approval]**
+- [ ] **T016 Bring a profile down without a GitOps pull request** — in progress; scoped in microservice-app-ops#120
+  - [X] Record the maintainer decision between a post-destroy runtime sweep and an audited teardown mutation, and amend the constitution first if the second is chosen — maintainer authorized the post-destroy runtime sweep; no constitution amendment, no GitOps-managed cluster mutation, no kubectl
+  - [X] Commit a failing contract in `tests/contract/aws-profile-lifecycle.sh`: a down plan is refused without a quiescence receipt, and refused when the receipt predates the volume record — red commits `test(lifecycle): specify post-destroy runtime sweep and quiescence receipt contracts`, `test(lifecycle): specify cluster-scoped sweep safety`, and `test(lifecycle): specify snapshot-query and rerun recovery safety`, with tag negatives, protected-type classifier checks, tamper bindings, ordered event log, snapshot gate, and re-planned partial-failure recovery
+  - [X] Produce the receipt in `scripts/aws-profile-lifecycle.sh` as checksummed JSON evidence, in the same shape as the saved plans — `quiescence-receipt` writes checksummed `receipt.json` with dry-run inventory, truthful clock, and volume-record binding
+  - [X] Implement the chosen mechanism so that only runtime-class resources are reachable, reusing the durable and egress delete filters — `execute_post_destroy_sweep` runs between workload destruction and the first networking apply with an explicit type allow-list, exact controller-tag revalidation, snapshot/state gates, and not-found-only tolerance; durable filter protects the ACM, Route53, ECR, Secrets, KMS, S3, and GitHub OIDC families
+  - [X] Replace the `--gitops-revision` gate with the receipt, keeping the volume-record ordering guard — wrapper, Makefile, Make contract, README, and runbook use `--receipt`; `tests/contract/aws-profile-lifecycle.sh` and `tests/contract/aws-profile-lifecycle-make.sh` pass with `shellcheck --severity=warning` clean
+  - [X] Document the operator flow and the residual durable cost in `docs/aws-profile-lifecycle.md` — shutdown section rewritten for snapshot, receipt, plan, and sweep; a residual durable-cost section lists the retained storage, keys, registries, hosted-zone, secrets, VPC, and snapshot charges
+  - [ ] Exercise one complete economical down and up cycle with no pull request in `microservice-app-gitops`, and retain both receipts **[approval]** — awaiting maintainer approval; no live AWS mutation, Terraform plan/apply, or GitOps change was run from this work

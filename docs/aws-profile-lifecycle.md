@@ -1,6 +1,6 @@
 # AWS Profile Lifecycle
 
-This runbook controls the cost-bearing AWS runtime while preserving the persistent Terraform-managed assets. The repository-root Makefile is the primary operator interface and delegates to the lifecycle wrapper, which remains the single implementation of profile ordering, saved plans, and safety gates. Neither layer changes Kubernetes resources directly: environment activation and quiescence remain GitOps changes reconciled by ArgoCD.
+This runbook controls the cost-bearing AWS runtime while preserving the persistent Terraform-managed assets. The repository-root Makefile is the primary operator interface and delegates to the lifecycle wrapper, which remains the single implementation of profile ordering, saved plans, and safety gates. Normal desired-state changes remain GitOps changes reconciled by ArgoCD; this shutdown flow does not mutate Kubernetes directly and uses its receipt and AWS-only post-destroy sweep instead.
 
 ## Resource boundary
 
@@ -76,29 +76,44 @@ Before planning shutdown:
    - It snapshots each one and waits for the snapshots to complete.
    - It writes a checksummed record under `.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ/`.
    - A volume whose data may be lost is named with `CONSENT="vol-..."`; the record keeps that consent instead of a snapshot.
-2. Only then commit a GitOps change that quiesces the selected environment without deleting durable AWS assets. Quiescence prunes the PersistentVolumeClaims. With the `Delete` reclaim policy, the driver then deletes their volumes, as it did to four observability volumes on 2026-09-11.
-3. Merge the change, wait for ArgoCD reconciliation, and record the merged commit SHA.
+2. Make no GitOps change for the shutdown. There is no quiescence pull request, no `kubectl`, and no mutation of the ArgoCD-managed cluster. Terraform destroys `eco/workload`, and the post-destroy runtime sweep below removes what the cluster's controllers left behind in AWS.
+3. Create the quiescence receipt: `make quiescence-receipt PROFILE=economical VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ`.
+   - The receipt is a dry run. It reads the AWS APIs and writes a file; it deletes nothing and changes nothing, in AWS or in the cluster.
+   - It writes checksummed JSON under `.aws-profile-plans/quiescence-economical-YYYYMMDDTHHMMSSZ/` with the profile, account, region, cluster set, creation time, volume record, and the dry-run inventory of every sweepable runtime resource.
+   - Only resources whose live tags name a profile cluster exactly are inventoried: ALB/NLB load balancers plus their listeners (each behind its own listener tag) and target groups, controller security groups, snapshotted PVC volumes, and orphaned ENIs.
+   - Exactly means exactly. A volume is owned only by `ebs.csi.aws.com/cluster` carrying the cluster name, or by `kubernetes.io/cluster/<cluster>` set to `owned` or `true`. A generic `ebs.csi.aws.com/cluster=true` names no cluster and is never ownership in a shared account.
+   - The receipt is written before the cluster is destroyed, so a volume that is still attached and an ENI that is still in use are inventoried as they stand. The sweep requires `available` immediately before each delete instead, which is where the cluster is already gone.
+   - A consented volume is never inventoried and never swept.
+   - Protected families are unreachable regardless of tags: ACM certificates and validation, all Route 53 records except the runtime ALB aliases, ECR repositories and policies, Secrets Manager secrets and versions, KMS keys/aliases/replicas, the Terraform state bucket and its companions, and GitHub OIDC.
+   - The receipt is refused unless its clock is past the volume record; the wrapper waits briefly for the clock rather than fabricating time.
 4. Create and inspect the shutdown bundle. The wrapper rejects:
-   - a volume record created after the quiescence commit;
+   - a missing or checksummed-tampered receipt or volume record;
+   - a receipt whose profile, account, region, or cluster set does not match, or that names a different volume record;
+   - a volume record created after the receipt;
    - a record that misses a volume still present;
    - a record whose snapshots are not complete;
-   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, or publication identities;
+   - any planned deletion of ECR, Secrets Manager, Route 53, GitHub OIDC, ACM, KMS, S3 state, or publication identities;
    - an `eco/networking` plan that deletes anything but the NAT gateways, their Elastic IPs, and the private NAT routes.
 
 Recreating an EKS cluster restores no data by itself. Restoring a volume from its snapshot is a separate, reviewed GitOps change; the lifecycle does not restore data.
 
 ```bash
 make snapshot-volumes PROFILE=economical
-make plan-down PROFILE=economical GITOPS_REVISION=GITOPS_COMMIT_SHA VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
+make quiescence-receipt PROFILE=economical VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
+make plan-down PROFILE=economical RECEIPT=.aws-profile-plans/quiescence-economical-YYYYMMDDTHHMMSSZ VOLUME_RECORD=.aws-profile-plans/volumes-economical-YYYYMMDDTHHMMSSZ
 make inspect BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 make apply-down PROFILE=economical BUNDLE=.aws-profile-plans/economical-down-YYYYMMDDTHHMMSSZ
 ```
 
 The bundle destroys `eco/security-irsa`, then `eco/workload`, and plans `eco/networking` without its NAT gateways.
 
+During the apply, a post-destroy runtime sweep runs between the cluster destruction and the first networking apply. It deletes listeners, then load balancers, and waits for them to finish deleting; then target groups; then the orphaned ENIs, before the controller security groups those ENIs hold; then the snapshotted volumes.
+
+Every deletion is guarded. The sweep revalidates the exact resource type and the current ownership tags of each inventoried ID immediately before deleting it, requires a volume and an ENI to be `available` at that moment, and verifies the recorded snapshot is still `completed` before deleting its volume. It fails closed: only a describe that the API answers with a verified not-found counts as already absent, so a denial, a throttle, or an ENI that is still in use once the load balancers are gone aborts the apply rather than passing for absence. If a sweep partially fails, re-plan down with the same receipt and volume record before applying again; saved Terraform plans are state-bound, while a genuinely absent target is skipped by the fresh sweep. Every deletion and every root apply is logged as an `EVENT` line, forming one ordered event log.
+
 **A protected cluster takes two bundles.** Amazon EKS refuses to delete a cluster whose deletion protection is on, and `eco/workload` keeps it on by default.
 - While the protection is on, the bundle holds only an `eco/workload` plan that turns it off, and `inspect` shows `Pass: unprotect`. The wrapper rejects that plan if it deletes anything.
-- Apply it, then run the same `make plan-down PROFILE=economical` command again, with the same `GITOPS_REVISION` and `VOLUME_RECORD`. That second bundle is the destroy bundle.
+- Apply it, then run the same `make plan-down PROFILE=economical` command again, with the same `RECEIPT` and `VOLUME_RECORD`. That second bundle is the destroy bundle.
 - The two cannot share a bundle: applying the first changes `eco/workload`'s state, and Terraform refuses a saved plan whose state has changed.
 - If the teardown is abandoned after the first bundle, the next plan of `eco/workload` turns the protection back on.
 
@@ -107,6 +122,19 @@ resolves it to a canonical absolute directory before Terraform changes to a
 root with `-chdir`, so inspection and apply read the same checksummed plan.
 
 Every apply first writes an external state backup under `~/backups-microtodosuite/`. A genuinely empty state gets a timestamped `no-prior-state` receipt instead.
+
+### Residual durable cost
+
+The sweep removes runtime resources only, so a profile that is down still charges for everything the resource-boundary table keeps:
+
+- the S3 state bucket and the KMS keys that encrypt it, the EKS keys, and the flow-log key;
+- the ECR repositories and every image in them;
+- the public hosted zone and its records, and the ACM certificates with their validation records;
+- the Secrets Manager secrets and their versions;
+- the VPCs, subnets, route tables, internet gateways, and flow logs of `eco/networking` and of every spoke;
+- the EBS snapshots that `snapshot-volumes` wrote, which grow with each cycle and are never pruned by the lifecycle.
+
+`down` removes the dominant hourly spend — the clusters, the NAT gateways and their public IPv4 addresses, the transit attachments and the hub, the load balancers, and the PVC volumes the sweep deletes. It does not promise a zero-dollar account, and the snapshots it leaves behind are the one residual cost that rises with use.
 
 ## Full profile
 

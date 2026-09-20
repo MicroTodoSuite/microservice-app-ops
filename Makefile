@@ -2,14 +2,14 @@ LIFECYCLE := ./scripts/aws-profile-lifecycle.sh
 
 PROFILE ?=
 BUNDLE ?=
-GITOPS_REVISION ?=
+RECEIPT ?=
 VOLUME_RECORD ?=
 CONSENT ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check init status snapshot-volumes plan-up plan-down inspect apply-up apply-down
-.PHONY: require-profile require-bundle require-gitops-revision require-volume-record
+.PHONY: help check init status snapshot-volumes quiescence-receipt plan-up plan-down inspect apply-up apply-down
+.PHONY: require-profile require-bundle require-quiescence-receipt require-volume-record
 
 help:
 	@printf '%s\n' \
@@ -25,13 +25,16 @@ help:
 		'Saved-plan workflow:' \
 		'  make plan-up PROFILE=economical|full' \
 		'  make snapshot-volumes PROFILE=economical|full [CONSENT="<volume-id> ..."]' \
-		'  make plan-down PROFILE=economical|full GITOPS_REVISION=<merged-commit> VOLUME_RECORD=<volume-record-directory>' \
+		'  make quiescence-receipt PROFILE=economical|full VOLUME_RECORD=<volume-record-directory>' \
+		'  make plan-down PROFILE=economical|full RECEIPT=<quiescence-receipt-directory> VOLUME_RECORD=<volume-record-directory>' \
 		'  make inspect BUNDLE=<saved-plan-directory>' \
 		'  make apply-up PROFILE=economical|full BUNDLE=<saved-plan-directory>' \
 		'  make apply-down PROFILE=economical|full BUNDLE=<saved-plan-directory>' \
 		'' \
 		'Resource boundary: down removes runtime/ephemeral resources and preserves durable assets.' \
-		'PersistentVolume data survives only as a snapshot taken by snapshot-volumes before GitOps quiescence.' \
+		'PersistentVolume data survives only as a snapshot taken by snapshot-volumes before the quiescence receipt.' \
+		'During a down apply, a post-destroy runtime sweep removes controller runtime resources' \
+		'between the cluster destruction and the first networking apply.' \
 		'Planning, inspection, and applying are always separate operations.'
 
 require-profile:
@@ -46,15 +49,15 @@ require-bundle:
 		exit 2; \
 	fi
 
-require-gitops-revision:
-	@if [ -z "$(GITOPS_REVISION)" ]; then \
-		printf 'ERROR: GITOPS_REVISION is required for plan-down.\n' >&2; \
+require-quiescence-receipt:
+	@if [ -z "$(RECEIPT)" ]; then \
+		printf 'ERROR: RECEIPT is required for plan-down; run make quiescence-receipt first.\n' >&2; \
 		exit 2; \
 	fi
 
 require-volume-record:
 	@if [ -z "$(VOLUME_RECORD)" ]; then \
-		printf 'ERROR: VOLUME_RECORD is required for plan-down; run make snapshot-volumes before merging GitOps quiescence.\n' >&2; \
+		printf 'ERROR: VOLUME_RECORD is required for plan-down; run make snapshot-volumes before make quiescence-receipt.\n' >&2; \
 		exit 2; \
 	fi
 
@@ -73,8 +76,11 @@ plan-up: require-profile
 snapshot-volumes: require-profile
 	@$(strip $(LIFECYCLE) snapshot-volumes $(PROFILE) $(addprefix --consent ,$(CONSENT)))
 
-plan-down: require-profile require-gitops-revision require-volume-record
-	@$(LIFECYCLE) plan $(PROFILE) down --gitops-revision "$(GITOPS_REVISION)" --volume-record "$(VOLUME_RECORD)"
+quiescence-receipt: require-profile require-volume-record
+	@$(LIFECYCLE) quiescence-receipt $(PROFILE) --volume-record "$(VOLUME_RECORD)"
+
+plan-down: require-profile require-quiescence-receipt require-volume-record
+	@$(LIFECYCLE) plan $(PROFILE) down --receipt "$(RECEIPT)" --volume-record "$(VOLUME_RECORD)"
 
 inspect: require-bundle
 	@$(LIFECYCLE) inspect "$(BUNDLE)"

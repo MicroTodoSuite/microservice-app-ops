@@ -105,9 +105,13 @@ for profile in economical full; do
   require_single_wrapper_command "$output" "$LIFECYCLE snapshot-volumes $profile --consent vol-0aaa --consent vol-0bbb" \
     "snapshot-volumes must pass each consented volume for $profile"
 
-  output="$(dry_run plan-down "PROFILE=$profile" GITOPS_REVISION=abcdef1 VOLUME_RECORD=.aws-profile-plans/volumes-example)"
-  require_single_wrapper_command "$output" "$LIFECYCLE plan $profile down --gitops-revision \"abcdef1\" --volume-record \".aws-profile-plans/volumes-example\"" \
-    "plan-down must pass GitOps quiescence and volume evidence for $profile"
+  output="$(dry_run quiescence-receipt "PROFILE=$profile" "VOLUME_RECORD=.aws-profile-plans/volumes-example")"
+  require_single_wrapper_command "$output" "$LIFECYCLE quiescence-receipt $profile --volume-record \".aws-profile-plans/volumes-example\"" \
+    "quiescence-receipt must pass the volume record for $profile"
+
+  output="$(dry_run plan-down "PROFILE=$profile" RECEIPT=.aws-profile-plans/quiescence-example VOLUME_RECORD=.aws-profile-plans/volumes-example)"
+  require_single_wrapper_command "$output" "$LIFECYCLE plan $profile down --receipt \".aws-profile-plans/quiescence-example\" --volume-record \".aws-profile-plans/volumes-example\"" \
+    "plan-down must pass the quiescence receipt and volume evidence for $profile"
 
   output="$(dry_run apply-up "PROFILE=$profile" BUNDLE=.aws-profile-plans/example-up)"
   require_single_wrapper_command "$output" "$LIFECYCLE apply $profile up \".aws-profile-plans/example-up\"" \
@@ -141,13 +145,19 @@ require_output "$output" 'BUNDLE is required' \
   "missing BUNDLE rejection must be actionable"
 
 if output="$(make --no-print-directory --silent -C "$ROOT" plan-down PROFILE=economical 2>&1)"; then
-  fail "plan-down must reject a missing GITOPS_REVISION"
+  fail "plan-down must reject a missing RECEIPT"
 fi
-require_output "$output" 'GITOPS_REVISION is required' \
-  "missing GitOps revision rejection must be actionable"
+require_output "$output" 'RECEIPT is required' \
+  "missing quiescence receipt rejection must be actionable"
 
-if output="$(make --no-print-directory --silent -C "$ROOT" plan-down PROFILE=economical GITOPS_REVISION=abcdef1 2>&1)"; then
+if output="$(make --no-print-directory --silent -C "$ROOT" plan-down PROFILE=economical RECEIPT=.aws-profile-plans/quiescence-example 2>&1)"; then
   fail "plan-down must reject a missing VOLUME_RECORD"
+fi
+require_output "$output" 'VOLUME_RECORD is required' \
+  "missing volume record rejection must be actionable"
+
+if output="$(make --no-print-directory --silent -C "$ROOT" quiescence-receipt PROFILE=economical 2>&1)"; then
+  fail "quiescence-receipt must reject a missing VOLUME_RECORD"
 fi
 require_output "$output" 'VOLUME_RECORD is required' \
   "missing volume record rejection must be actionable"
