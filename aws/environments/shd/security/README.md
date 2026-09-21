@@ -20,7 +20,9 @@ creates.
 
 **The flow-log role** may be assumed by the VPC Flow Logs service only for
 flow logs of this account (`aws:SourceAccount`, `aws:SourceArn`), and it
-writes only to `/aws/vpc-flow-logs/*` groups. Because those groups are
+writes only to `/aws/vpc-flow-logs/*` groups. It cannot create a group: the
+`network` module owns each one, and a role with `logs:CreateLogGroup` let the
+service re-create a group Terraform had just destroyed (ops spec 003 T017). Because those groups are
 encrypted with a customer managed key, the role may also use that one key,
 only through CloudWatch Logs (`kms:ViaService`). **The key** lets CloudWatch Logs
 in this region use it only for those groups, through the
