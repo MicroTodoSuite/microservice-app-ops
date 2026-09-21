@@ -87,7 +87,10 @@ locals {
 
   # A caller that writes to a log group encrypted with a customer managed key also needs
   # the key, and only through CloudWatch Logs (kms:ViaService), as the CloudWatch Logs
-  # user guide sets out; the role has no read action on the groups.
+  # user guide sets out; the role has no read action on the groups. The role cannot create
+  # a group either: the network module owns every flow-log group, and the flow-logs service
+  # uses logs:CreateLogGroup only to create a missing one, which re-created a group
+  # Terraform had just destroyed (ops spec 003 T017).
   flow_log_policies = {
     deliver-vpc-flow-logs = jsonencode({
       Version = "2012-10-17"
@@ -96,7 +99,6 @@ locals {
           Sid    = "WriteVpcFlowLogGroups"
           Effect = "Allow"
           Action = [
-            "logs:CreateLogGroup",
             "logs:CreateLogStream",
             "logs:DescribeLogGroups",
             "logs:DescribeLogStreams",
