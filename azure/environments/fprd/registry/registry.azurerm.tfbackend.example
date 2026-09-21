@@ -1,0 +1,7 @@
+# Copy to registry.azurerm.tfbackend (gitignored). The coordinates are the state
+# root's outputs; Entra ID authentication only, never an access key or SAS.
+resource_group_name  = "lex-mts-fprd-rg-state"
+storage_account_name = "lexmtsfprdsttfstate"
+container_name       = "tfstate"
+key                  = "fprd/registry/terraform.tfstate"
+use_azuread_auth     = true

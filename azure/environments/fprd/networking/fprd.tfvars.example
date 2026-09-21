@@ -1,0 +1,21 @@
+# Copy to fprd.tfvars (gitignored) and fill the values the DR preflight
+# (spec 009 T124) verifies from the live account (PC-IAC-024).
+client          = "lex"
+project         = "mts"
+environment     = "fprd"
+subscription_id = ""
+location        = ""
+
+# Placeholders: research decision 8 planned 10.50.0.0/16, which the AWS shd hub
+# VPC now owns, so T124 must select another collision-free range.
+vnet_cidr        = ""
+node_subnet_cidr = ""
+
+# Every AWS VPC of the rebuilt estate: eco, fstg, fprd, fdev, shd.
+reserved_cidrs = [
+  "10.10.0.0/16",
+  "10.20.0.0/16",
+  "10.30.0.0/16",
+  "10.40.0.0/16",
+  "10.50.0.0/16",
+]
