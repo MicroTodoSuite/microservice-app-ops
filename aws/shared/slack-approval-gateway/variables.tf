@@ -133,14 +133,14 @@ variable "github_app_private_key_wo_version" {
   default     = 1
 }
 
-variable "gemini_api_key_wo" {
-  description = "Gemini API key used to generate the non-technical summary."
+variable "groq_api_key_wo" {
+  description = "Groq API key used to generate the non-technical summary."
   type        = string
   ephemeral   = true
   sensitive   = true
 }
-variable "gemini_api_key_wo_version" {
-  description = "Increment to rotate gemini_api_key_wo."
+variable "groq_api_key_wo_version" {
+  description = "Increment to rotate groq_api_key_wo."
   type        = number
   default     = 1
 }
