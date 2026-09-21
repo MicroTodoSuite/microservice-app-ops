@@ -145,6 +145,27 @@ run "limits_flow_log_delivery_to_this_account_and_its_flow_log_groups" {
   }
 }
 
+# Terraform owns every flow-log group. A role that can create one lets the flow-logs service
+# re-create a group Terraform has just destroyed, and the next apply fails on it (ops spec 003 T017).
+run "lets_flow_log_delivery_write_only_to_existing_flow_log_groups" {
+  command = plan
+
+  assert {
+    condition     = !anytrue([for statement in jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement : contains(flatten([statement.Action]), "logs:CreateLogGroup") || contains(flatten([statement.Action]), "logs:*")])
+    error_message = "The flow-log role must not be able to create a log group."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement : sort(statement.Action) if statement.Sid == "WriteVpcFlowLogGroups"][0] == ["logs:CreateLogStream", "logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:PutLogEvents"]
+    error_message = "The flow-log role must keep exactly the stream, event, and describe actions delivery to an existing group needs."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement : statement.Resource if statement.Sid == "WriteVpcFlowLogGroups"][0] == ["arn:aws:logs:us-east-1:123456789012:log-group:/aws/vpc-flow-logs/*", "arn:aws:logs:us-east-1:123456789012:log-group:/aws/vpc-flow-logs/*:*"]
+    error_message = "The flow-log role may write only to the flow-log groups and their streams."
+  }
+}
+
 run "records_every_access_to_the_state_bucket" {
   command = plan
 
