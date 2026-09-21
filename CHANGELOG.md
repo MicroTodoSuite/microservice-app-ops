@@ -1,3 +1,11 @@
+# [1.40.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.39.0...v1.40.0) (2026-09-21)
+
+
+### Features
+
+* **iac:** switch the slack gateway's non-technical-summary secret to groq ([373efd2](https://github.com/MicroTodoSuite/microservice-app-ops/commit/373efd2ebfd62057d8c718cf57b8787e06390ff2)), closes [microservice-app-slack-approval-gateway#6](https://github.com/microservice-app-slack-approval-gateway/issues/6)
+* **iac:** switch the slack gateway's non-technical-summary secret to groq ([#126](https://github.com/MicroTodoSuite/microservice-app-ops/issues/126)) ([6221c94](https://github.com/MicroTodoSuite/microservice-app-ops/commit/6221c94b189fab397754fd340711648a787b39ab)), closes [#6](https://github.com/MicroTodoSuite/microservice-app-ops/issues/6) [#118](https://github.com/MicroTodoSuite/microservice-app-ops/issues/118)
+
 # [1.39.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.38.1...v1.39.0) (2026-09-20)
 
 
