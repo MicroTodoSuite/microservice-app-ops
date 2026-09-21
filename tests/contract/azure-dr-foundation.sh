@@ -13,6 +13,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODULE_DIR="$ROOT/azure/modules/aks-foundation"
 ROOT_DIR="$ROOT/azure/environments/dr/foundation"
 BACKEND_EXAMPLE="$ROOT_DIR/foundation.azurerm.tfbackend.example"
+TFVARS_EXAMPLE="$ROOT_DIR/fprd.tfvars.example"
+MODULE_TFVARS_EXAMPLE="$MODULE_DIR/sample/terraform.tfvars.example"
 AZURERM_VERSION="5.0.1"
 
 failures=0
@@ -25,6 +27,24 @@ fail() {
 pass() {
   printf 'PASS: %s\n' "$*"
 }
+
+require_exact_assignment() {
+  local file=$1 key=$2 value=$3
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"${value//./\\.}\"[[:space:]]*$" "$file"; then
+    pass "${file#"$ROOT"/} selects $key = $value"
+  else
+    fail "${file#"$ROOT"/} must select $key = $value"
+  fi
+}
+
+# Maintainer decision, 2026-09-21: the DR VNet moves from the rejected
+# 10.50.0.0/16 candidate to 10.60.0.0/16. The node subnet is the first /22.
+# Both reviewed examples must carry the same selection so an operator cannot
+# bootstrap the obsolete placeholder accidentally.
+require_exact_assignment "$TFVARS_EXAMPLE" "vnet_cidr" "10.60.0.0/16"
+require_exact_assignment "$TFVARS_EXAMPLE" "node_subnet_cidr" "10.60.0.0/22"
+require_exact_assignment "$MODULE_TFVARS_EXAMPLE" "vnet_cidr" "10.60.0.0/16"
+require_exact_assignment "$MODULE_TFVARS_EXAMPLE" "node_subnet_cidr" "10.60.0.0/22"
 
 # Terraform sources of a directory, without tests or the .terraform cache.
 tf_files() {

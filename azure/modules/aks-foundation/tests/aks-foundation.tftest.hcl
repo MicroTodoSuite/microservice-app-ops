@@ -180,8 +180,8 @@ variables {
 
   # Placeholder ranges for the offline contract only. T124 selects the real
   # ranges from live Azure evidence; none of these is a selection.
-  vnet_cidr        = "10.70.0.0/16"
-  node_subnet_cidr = "10.70.0.0/22"
+  vnet_cidr        = "10.60.0.0/16"
+  node_subnet_cidr = "10.60.0.0/22"
   pod_cidr         = "192.168.0.0/16"
   service_cidr     = "172.16.0.0/16"
   dns_service_ip   = "172.16.0.10"
@@ -749,7 +749,7 @@ run "rejects_a_node_subnet_outside_the_vnet" {
   }
 
   variables {
-    node_subnet_cidr = "10.71.0.0/22"
+    node_subnet_cidr = "10.61.0.0/22"
   }
 
   expect_failures = [var.node_subnet_cidr]
@@ -763,7 +763,7 @@ run "rejects_a_pod_range_overlapping_the_vnet" {
   }
 
   variables {
-    pod_cidr = "10.70.128.0/17"
+    pod_cidr = "10.60.128.0/17"
   }
 
   expect_failures = [var.pod_cidr]
@@ -791,8 +791,8 @@ run "rejects_a_service_range_overlapping_the_vnet" {
   }
 
   variables {
-    service_cidr   = "10.70.192.0/18"
-    dns_service_ip = "10.70.192.10"
+    service_cidr   = "10.60.192.0/18"
+    dns_service_ip = "10.60.192.10"
   }
 
   expect_failures = [var.service_cidr]

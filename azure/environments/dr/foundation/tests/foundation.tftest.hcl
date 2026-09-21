@@ -150,8 +150,8 @@ variables {
 
   subscription_id  = "00000000-0000-0000-0000-00000000d0d0"
   location         = "eastus2"
-  vnet_cidr        = "10.70.0.0/16"
-  node_subnet_cidr = "10.70.0.0/22"
+  vnet_cidr        = "10.60.0.0/16"
+  node_subnet_cidr = "10.60.0.0/22"
   pod_cidr         = "192.168.0.0/16"
   service_cidr     = "172.16.0.0/16"
   dns_service_ip   = "172.16.0.10"
