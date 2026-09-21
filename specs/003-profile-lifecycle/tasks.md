@@ -115,5 +115,5 @@
   - [X] Commit a failing Terraform test in `aws/environments/shd/security/tests/security.tftest.hcl`: the delivery role has no `logs:CreateLogGroup`, and keeps `CreateLogStream`, `PutLogEvents`, `DescribeLogGroups`, and `DescribeLogStreams` on the flow-log groups only
   - [X] Confirm through the documentation MCP what flow-log delivery to an existing CloudWatch Logs group requires, and remove `logs:CreateLogGroup` from `WriteVpcFlowLogGroups`
   - [X] Check every other root and module for a flow-log role that can create a log group
-  - [ ] Run `terraform fmt -check`, `terraform validate`, and `terraform test` in `aws/environments/shd/security`, and the repository's contract tests, without a plan or apply
+  - [X] Run `terraform fmt -check`, `terraform validate`, and `terraform test` in `aws/environments/shd/security`, and the repository's contract tests, without a plan or apply
   - [ ] Apply to `shd/security` from a reviewed saved plan, and confirm every environment's flow log stays `ACTIVE` with no delivery error **[approval]**
