@@ -24,6 +24,121 @@ mock_provider "azurerm" {
 
 }
 
+# Mock computed values are unknown at plan unless an override supplies them.
+# Each override gives one resource distinct, well-formed identifiers so scope
+# and identity wiring can be compared exactly. Overrides replace computed
+# values only; an argument the configuration sets is never masked.
+
+override_resource {
+  target          = module.aks_foundation.azurerm_resource_group.main
+  override_during = plan
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_resource_group.ingress
+  override_during = plan
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-ingress"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_subnet.nodes
+  override_during = plan
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.Network/virtualNetworks/lex-mts-fprd-vnet-dr/subnets/lex-mts-fprd-snet-nodes"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_user_assigned_identity.cluster
+  override_during = plan
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-aks"
+    principal_id = "aaaaaaaa-0000-0000-0000-00000000000a"
+    client_id    = "aaaaaaaa-1111-1111-1111-11111111111a"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_user_assigned_identity.kubelet
+  override_during = plan
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-kubelet"
+    principal_id = "bbbbbbbb-0000-0000-0000-00000000000b"
+    client_id    = "bbbbbbbb-1111-1111-1111-11111111111b"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_user_assigned_identity.key_vault_reader
+  override_during = plan
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-kvreader"
+    principal_id = "cccccccc-0000-0000-0000-00000000000c"
+    client_id    = "cccccccc-1111-1111-1111-11111111111c"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_user_assigned_identity.github_seed
+  override_during = plan
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-drseed"
+    principal_id = "dddddddd-0000-0000-0000-00000000000d"
+    client_id    = "dddddddd-1111-1111-1111-11111111111d"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_kubernetes_cluster.this
+  override_during = plan
+  values = {
+    id                  = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ContainerService/managedClusters/lex-mts-fprd-aks-dr"
+    oidc_issuer_url     = "https://eastus2.oic.prod-aks.azure.com/33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000000/"
+    node_resource_group = "MC_lex-mts-fprd-rg-dr_lex-mts-fprd-aks-dr_eastus2"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_key_vault.main
+  override_during = plan
+  values = {
+    id            = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.KeyVault/vaults/lex-mts-fprd-kv-dr"
+    vault_uri     = "https://lex-mts-fprd-kv-dr.vault.azure.net/"
+    access_policy = []
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_container_registry.main
+  override_during = plan
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ContainerRegistry/registries/lexmtsfprdacrdr"
+    login_server = "lexmtsfprdacrdr.azurecr.io"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_role_definition.github_seed
+  override_during = plan
+  values = {
+    role_definition_resource_id = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/providers/Microsoft.Authorization/roleDefinitions/eeeeeeee-0000-0000-0000-00000000000e"
+  }
+}
+
+override_resource {
+  target          = module.aks_foundation.azurerm_public_ip.ingress
+  override_during = plan
+  values = {
+    ip_address = "203.0.113.10"
+    fqdn       = "lex-mts-fprd-dr.abcdefgh.eastus2.cloudapp.azure.com"
+  }
+}
+
 # Environment configuration arrives from the operator-owned .tfvars
 # (PC-IAC-024); these are offline placeholders. Subscription, location, and
 # every network range are the values T124 verifies from the live account; none
