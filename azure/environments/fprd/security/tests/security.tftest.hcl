@@ -67,6 +67,7 @@ override_resource {
   target          = module.seed_identity.azurerm_user_assigned_identity.this
   override_during = plan
   values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-security/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-drseed"
     principal_id = "dddddddd-0000-0000-0000-00000000000d"
     client_id    = "dddddddd-1111-1111-1111-11111111111d"
   }

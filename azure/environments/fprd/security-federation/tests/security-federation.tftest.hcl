@@ -34,6 +34,7 @@ override_resource {
   target          = module.reader_identity.azurerm_user_assigned_identity.this
   override_during = plan
   values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-security/providers/Microsoft.ManagedIdentity/userAssignedIdentities/lex-mts-fprd-id-kvreader"
     principal_id = "cccccccc-0000-0000-0000-00000000000c"
     client_id    = "cccccccc-1111-1111-1111-11111111111c"
   }
