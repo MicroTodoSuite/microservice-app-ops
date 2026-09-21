@@ -1,0 +1,49 @@
+# Copy to fprd.tfvars (gitignored) and fill the values the DR preflight
+# (spec 009 T124) verifies from the live account. The network ranges below are
+# placeholders, not a selection: the planned VNet from research decision 8 now
+# belongs to the AWS shd hub VPC, so T124 must select another collision-free
+# range.
+client      = "lex"
+project     = "mts"
+environment = "fprd"
+
+subscription_id = ""
+location        = ""
+
+vnet_cidr        = ""
+node_subnet_cidr = ""
+pod_cidr         = ""
+service_cidr     = ""
+dns_service_ip   = ""
+
+# Every AWS VPC of the rebuilt estate: eco, fstg, fprd, fdev, shd.
+reserved_cidrs = [
+  "10.10.0.0/16",
+  "10.20.0.0/16",
+  "10.30.0.0/16",
+  "10.40.0.0/16",
+  "10.50.0.0/16",
+]
+
+# The four approved operator addresses (spec 009 FR-012, FR-016).
+api_server_authorized_cidrs = [
+  "181.50.102.191/32",
+  "186.112.71.16/32",
+  "190.108.77.190/32",
+  "200.3.193.225/32",
+]
+
+github_organization = "MicroTodoSuite"
+
+# Must fit the regional vCPU quota: max_count * vcpus <= regional_vcpu_quota.
+# The proposed size is confirmed against the live quota of its family in T124.
+system_node_pool = {
+  vm_size   = "Standard_D2s_v5"
+  vcpus     = 2
+  min_count = 1
+  max_count = 3
+}
+regional_vcpu_quota = 6
+
+# Entra object IDs of the operators who administer the cluster.
+cluster_admin_principal_ids = []
