@@ -91,8 +91,8 @@ variables {
   slack_bot_token_wo_version        = 1
   github_app_private_key_wo         = "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----"
   github_app_private_key_wo_version = 1
-  gemini_api_key_wo                 = "AIzaTest0000000000000000000000000"
-  gemini_api_key_wo_version         = 1
+  groq_api_key_wo                   = "gsk_test0000000000000000000000000000000000"
+  groq_api_key_wo_version           = 1
 }
 
 run "refuses_to_apply_against_the_wrong_account" {
