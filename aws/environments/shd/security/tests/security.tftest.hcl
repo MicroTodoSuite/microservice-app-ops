@@ -156,7 +156,7 @@ run "lets_flow_log_delivery_write_only_to_existing_flow_log_groups" {
   }
 
   assert {
-    condition     = [for statement in jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement : sort(statement.Action) if statement.Sid == "WriteVpcFlowLogGroups"][0] == ["logs:CreateLogStream", "logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:PutLogEvents"]
+    condition     = [for statement in jsondecode(local.flow_log_policies["deliver-vpc-flow-logs"]).Statement : sort(statement.Action) if statement.Sid == "WriteVpcFlowLogGroups"][0] == tolist(["logs:CreateLogStream", "logs:DescribeLogGroups", "logs:DescribeLogStreams", "logs:PutLogEvents"])
     error_message = "The flow-log role must keep exactly the stream, event, and describe actions delivery to an existing group needs."
   }
 
