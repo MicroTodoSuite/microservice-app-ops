@@ -64,7 +64,7 @@ variable "lambda_runtime" {
 variable "log_retention_in_days" {
   description = "CloudWatch Logs retention for both Lambda functions. No secret value is ever logged (see the source repo's value-blind design), but request/response metadata still should not be retained indefinitely."
   type        = number
-  default     = 30
+  default     = 14
 }
 
 variable "slack_channel_id" {
