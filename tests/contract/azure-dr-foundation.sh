@@ -82,11 +82,20 @@ for directory in "$MODULE_DIR" "$ROOT_DIR"; do
     pass "$relative leaves the registry admin user disabled"
   fi
 
-  if grep -Eq 'source[[:space:]]*=[[:space:]]*"hashicorp/azurerm"' <<<"$code" \
-    && grep -Eq "version[[:space:]]*=[[:space:]]*\"=?[[:space:]]*${AZURERM_VERSION//./\\.}\"" <<<"$code"; then
-    pass "$relative pins hashicorp/azurerm $AZURERM_VERSION"
+  # PC-IAC-006: a module declares a provider floor, a root pins the release
+  # exactly.
+  if [[ "$directory" == "$MODULE_DIR" ]]; then
+    expected_version=">=[[:space:]]*${AZURERM_VERSION//./\\.}"
+    expected_text=">= $AZURERM_VERSION"
   else
-    fail "$relative must pin hashicorp/azurerm exactly $AZURERM_VERSION (spec 009 research decision 9)"
+    expected_version="=?[[:space:]]*${AZURERM_VERSION//./\\.}"
+    expected_text="exactly $AZURERM_VERSION"
+  fi
+  if grep -Eq 'source[[:space:]]*=[[:space:]]*"hashicorp/azurerm"' <<<"$code" \
+    && grep -Eq "version[[:space:]]*=[[:space:]]*\"${expected_version}\"" <<<"$code"; then
+    pass "$relative requires hashicorp/azurerm $expected_text"
+  else
+    fail "$relative must require hashicorp/azurerm $expected_text (PC-IAC-006; spec 009 research decision 9)"
   fi
 done
 
