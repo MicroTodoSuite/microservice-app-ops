@@ -1,3 +1,10 @@
+## [1.40.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.40.0...v1.40.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **security:** stop the flow-log role from creating log groups ([#129](https://github.com/MicroTodoSuite/microservice-app-ops/issues/129)) ([013289d](https://github.com/MicroTodoSuite/microservice-app-ops/commit/013289d395c58a738f97782b39542873a725e648))
+
 # [1.40.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.39.0...v1.40.0) (2026-09-21)
 
 
