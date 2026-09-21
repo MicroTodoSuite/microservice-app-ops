@@ -56,6 +56,11 @@ run "networking_contract" {
   }
 
   assert {
+    condition     = local.egress_public_ip.name == "lex-mts-fprd-pip-egress" && local.egress_public_ip.resource_group_name == "lex-mts-fprd-rg-ingress" && local.egress_public_ip.domain_name_label == null
+    error_message = "The cluster's static egress address must live beside the ingress address, where the cluster identity already holds Network Contributor, and needs no DNS name."
+  }
+
+  assert {
     condition     = output.virtual_network_name == "lex-mts-fprd-vnet-dr" && output.ingress_public_ip_name == "lex-mts-fprd-pip-ingress" && output.ingress_public_ip_resource_group_name == "lex-mts-fprd-rg-ingress"
     error_message = "The root must output the VNet and the ingress address's name and resource group for GitOps (T129)."
   }

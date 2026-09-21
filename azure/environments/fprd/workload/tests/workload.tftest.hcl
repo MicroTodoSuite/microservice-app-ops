@@ -47,6 +47,13 @@ override_data {
   }
 }
 
+override_data {
+  target = data.azurerm_public_ip.egress
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-ingress/providers/Microsoft.Network/publicIPAddresses/lex-mts-fprd-pip-egress"
+  }
+}
+
 # Offline placeholders; T124 verifies the real values and the operator-owned
 # fprd.tfvars carries them (PC-IAC-024).
 variables {
@@ -102,9 +109,10 @@ run "cluster_contract" {
       local.cluster_network.pod_cidr == "192.168.0.0/16" &&
       local.cluster_network.service_cidr == "172.16.0.0/16" &&
       local.cluster_network.dns_service_ip == "172.16.0.10" &&
-      toset(local.cluster_network.reserved_cidrs) == toset(["10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16", "10.40.0.0/16", "10.50.0.0/16"])
+      toset(local.cluster_network.reserved_cidrs) == toset(["10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16", "10.40.0.0/16", "10.50.0.0/16"]) &&
+      local.cluster_network.outbound_public_ip_ids == ["/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-ingress/providers/Microsoft.Network/publicIPAddresses/lex-mts-fprd-pip-egress"]
     )
-    error_message = "The cluster must use the networking root's node subnet and VNet range, and ranges checked against every AWS VPC."
+    error_message = "The cluster must use the networking root's node subnet, VNet range, and static egress address, and ranges checked against every AWS VPC."
   }
 
   assert {
