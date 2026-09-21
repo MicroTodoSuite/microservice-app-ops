@@ -1,0 +1,53 @@
+# Copy to fprd.tfvars (gitignored) and fill the values the DR preflight
+# (spec 009 T124) verifies from the live account. The network ranges below are
+# partly preselected: the planned 10.50.0.0/16 VNet from research decision 8
+# belongs to the AWS shd hub VPC. The maintainer selected 10.60.0.0/16 and its
+# first /22 node subnet on 2026-09-21. T124 still verifies the subscription,
+# location, remaining cluster ranges, and quota from live evidence.
+client      = "lex"
+project     = "mts"
+environment = "fprd"
+
+subscription_id = ""
+location        = ""
+
+vnet_cidr        = "10.60.0.0/16"
+node_subnet_cidr = "10.60.0.0/22"
+pod_cidr         = ""
+service_cidr     = ""
+dns_service_ip   = ""
+
+# Every AWS VPC of the rebuilt estate: eco, fstg, fprd, fdev, shd.
+reserved_cidrs = [
+  "10.10.0.0/16",
+  "10.20.0.0/16",
+  "10.30.0.0/16",
+  "10.40.0.0/16",
+  "10.50.0.0/16",
+]
+
+# The four approved operator addresses (spec 009 FR-012, FR-016).
+api_server_authorized_cidrs = [
+  "181.50.102.191/32",
+  "186.112.71.16/32",
+  "190.108.77.190/32",
+  "200.3.193.225/32",
+]
+
+github_organization = "MicroTodoSuite"
+
+# Must fit the quota of the node VM family: max_count * vcpus <=
+# regional_vcpu_quota. A read-only probe on 2026-09-21 reported six regional
+# vCPUs, four in standardDSv4Family, and none in standardDSv5Family, so the
+# default is at most two Standard_D2s_v4 nodes (two vCPUs each). T124 confirms
+# the quota in the approved location before any plan.
+system_node_pool = {
+  vm_size   = "Standard_D2s_v4"
+  vcpus     = 2
+  min_count = 1
+  max_count = 2
+}
+regional_vcpu_quota = 4
+
+# Entra object IDs of the operators who administer the cluster.
+cluster_admin_principal_ids = []
