@@ -32,7 +32,9 @@ tf_files() {
 }
 
 # Terraform sources with comments stripped, so a comment that names a
-# forbidden construct to explain its absence is not mistaken for it.
+# forbidden construct to explain its absence is not mistaken for it. Callers
+# capture it once and grep the capture: under pipefail, grep -q exiting on its
+# first match would otherwise turn every positive match into a failure.
 tf_code() {
   local file
   while IFS= read -r file; do
@@ -47,40 +49,41 @@ for directory in "$MODULE_DIR" "$ROOT_DIR"; do
     continue
   fi
   pass "$relative has Terraform sources"
+  code="$(tf_code "$directory")"
 
-  if tf_code "$directory" | grep -Eq '(resource|data|ephemeral)[[:space:]]+"azurerm_key_vault_secret"'; then
+  if grep -Eq '(resource|data|ephemeral)[[:space:]]+"azurerm_key_vault_secret"' <<<"$code"; then
     fail "$relative declares an azurerm_key_vault_secret; the vault stays empty and only the seed workflow writes values"
   else
     pass "$relative declares no azurerm_key_vault_secret"
   fi
 
-  if tf_code "$directory" | grep -Eq 'resource[[:space:]]+"azurerm_key_vault_access_policy"|^[[:space:]]*access_policy[[:space:]]*\{'; then
+  if grep -Eq 'resource[[:space:]]+"azurerm_key_vault_access_policy"|^[[:space:]]*access_policy[[:space:]]*\{' <<<"$code"; then
     fail "$relative grants Key Vault access through an access policy; the vault authorizes with Azure RBAC only"
   else
     pass "$relative grants no Key Vault access policy"
   fi
 
   forbidden='(^|[^a-z_])(client_secret|client_secret_file_path|client_certificate|client_certificate_password|client_certificate_path|access_key|sas_token|primary_access_key|secondary_access_key|admin_password|kube_config|kube_config_raw|kube_admin_config|kube_admin_config_raw|primary_connection_string|secondary_connection_string)([^a-z_]|$)'
-  if tf_code "$directory" | grep -Eq "$forbidden"; then
-    fail "$relative references a static credential or credential-bearing attribute: $(tf_code "$directory" | grep -Eo "$forbidden" | sort -u | tr -d ' \n')"
+  if grep -Eq "$forbidden" <<<"$code"; then
+    fail "$relative references a static credential or credential-bearing attribute: $(grep -Eo "$forbidden" <<<"$code" | sort -u | tr -d ' \n')"
   else
     pass "$relative references no static credential or credential-bearing attribute"
   fi
 
-  if tf_code "$directory" | grep -Eq '^[[:space:]]*sensitive[[:space:]]*=[[:space:]]*true'; then
+  if grep -Eq '^[[:space:]]*sensitive[[:space:]]*=[[:space:]]*true' <<<"$code"; then
     fail "$relative declares a sensitive value; this foundation outputs non-secret identifiers only"
   else
     pass "$relative declares no sensitive value"
   fi
 
-  if tf_code "$directory" | grep -Eq 'admin_enabled[[:space:]]*=[[:space:]]*true'; then
+  if grep -Eq 'admin_enabled[[:space:]]*=[[:space:]]*true' <<<"$code"; then
     fail "$relative enables the registry admin user"
   else
     pass "$relative leaves the registry admin user disabled"
   fi
 
-  if tf_code "$directory" | grep -Eq "source[[:space:]]*=[[:space:]]*\"hashicorp/azurerm\"" \
-    && tf_code "$directory" | grep -Eq "version[[:space:]]*=[[:space:]]*\"=?[[:space:]]*${AZURERM_VERSION//./\\.}\""; then
+  if grep -Eq 'source[[:space:]]*=[[:space:]]*"hashicorp/azurerm"' <<<"$code" \
+    && grep -Eq "version[[:space:]]*=[[:space:]]*\"=?[[:space:]]*${AZURERM_VERSION//./\\.}\"" <<<"$code"; then
     pass "$relative pins hashicorp/azurerm $AZURERM_VERSION"
   else
     fail "$relative must pin hashicorp/azurerm exactly $AZURERM_VERSION (spec 009 research decision 9)"
@@ -88,13 +91,14 @@ for directory in "$MODULE_DIR" "$ROOT_DIR"; do
 done
 
 if [[ -n "$(tf_files "$MODULE_DIR")" ]]; then
-  if tf_code "$MODULE_DIR" | grep -Eq 'backend[[:space:]]+"'; then
+  code="$(tf_code "$MODULE_DIR")"
+  if grep -Eq 'backend[[:space:]]+"' <<<"$code"; then
     fail "the module declares a backend; only the root owns state"
   fi
-  if tf_code "$MODULE_DIR" | grep -Eq '^[[:space:]]*provider[[:space:]]+"azurerm"'; then
+  if grep -Eq '^[[:space:]]*provider[[:space:]]+"azurerm"' <<<"$code"; then
     fail "the module configures a provider; it must declare azurerm.project and receive it from the root (MTS-IAC-104)"
   fi
-  if tf_code "$MODULE_DIR" | grep -Eq 'configuration_aliases[[:space:]]*=[[:space:]]*\[[^]]*azurerm\.project'; then
+  if grep -Eq 'configuration_aliases[[:space:]]*=[[:space:]]*\[[^]]*azurerm\.project' <<<"$code"; then
     pass "the module declares the azurerm.project configuration alias"
   else
     fail "the module must declare configuration_aliases = [azurerm.project] (MTS-IAC-104)"
@@ -102,26 +106,27 @@ if [[ -n "$(tf_files "$MODULE_DIR")" ]]; then
 fi
 
 if [[ -n "$(tf_files "$ROOT_DIR")" ]]; then
-  backend_count="$(tf_code "$ROOT_DIR" | grep -Ec 'backend[[:space:]]+"' || true)"
-  azurerm_backend_count="$(tf_code "$ROOT_DIR" | grep -Ec 'backend[[:space:]]+"azurerm"' || true)"
+  code="$(tf_code "$ROOT_DIR")"
+  backend_count="$(grep -Ec 'backend[[:space:]]+"' <<<"$code" || true)"
+  azurerm_backend_count="$(grep -Ec 'backend[[:space:]]+"azurerm"' <<<"$code" || true)"
   if [[ "$backend_count" == "1" && "$azurerm_backend_count" == "1" ]]; then
     pass "the root declares exactly one backend, azurerm, locked by Azure Blob leases"
   else
     fail "the root must declare exactly one backend and it must be azurerm (found $backend_count backends, $azurerm_backend_count azurerm)"
   fi
 
-  if tf_code "$ROOT_DIR" | grep -Eq '^[[:space:]]*provider[[:space:]]+"azurerm"' \
-    && tf_code "$ROOT_DIR" | grep -Eq 'alias[[:space:]]*=[[:space:]]*"principal"'; then
+  if grep -Eq '^[[:space:]]*provider[[:space:]]+"azurerm"' <<<"$code" \
+    && grep -Eq 'alias[[:space:]]*=[[:space:]]*"principal"' <<<"$code"; then
     pass "the root configures azurerm with alias principal"
   else
     fail "the root must configure provider \"azurerm\" with alias = \"principal\" (MTS-IAC-104)"
   fi
 
-  if tf_code "$ROOT_DIR" | grep -Eq 'use_oidc[[:space:]]*=[[:space:]]*false|use_msi[[:space:]]*=[[:space:]]*true'; then
+  if grep -Eq 'use_oidc[[:space:]]*=[[:space:]]*false|use_msi[[:space:]]*=[[:space:]]*true' <<<"$code"; then
     fail "the root must not turn OIDC off or authenticate through a managed identity of its own"
   fi
 
-  if tf_code "$ROOT_DIR" | grep -Eq 'azurerm\.project[[:space:]]*=[[:space:]]*azurerm\.principal'; then
+  if grep -Eq 'azurerm\.project[[:space:]]*=[[:space:]]*azurerm\.principal' <<<"$code"; then
     pass "the root passes azurerm.principal to the module as azurerm.project"
   else
     fail "the root must pass azurerm.principal to the module as azurerm.project"
