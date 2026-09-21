@@ -2,8 +2,9 @@
 # (gitops specs/009-full-platform-rollout T118; implemented by T125).
 #
 # Every run plans offline against a mock AzureRM provider: no credentials, no
-# subscription, and no Azure API call. Mocked computed values are generated at
-# plan time so identity, scope, and issuer wiring can be compared exactly.
+# subscription, and no Azure API call. The override_resource blocks below give
+# the compared resources known identifiers at plan time, so identity, scope,
+# and issuer wiring can be compared exactly.
 #
 # The module declares the `azurerm.project` configuration alias (MTS-IAC-104),
 # so every run passes that provider explicitly.
@@ -93,7 +94,7 @@ override_resource {
 }
 
 override_resource {
-  target          = azurerm_kubernetes_cluster.main
+  target          = azurerm_kubernetes_cluster.this
   override_during = plan
   values = {
     id                  = "/subscriptions/00000000-0000-0000-0000-00000000d0d0/resourceGroups/lex-mts-fprd-rg-dr/providers/Microsoft.ContainerService/managedClusters/lex-mts-fprd-aks-dr"
@@ -139,6 +140,10 @@ override_resource {
 }
 
 variables {
+  client      = "lex"
+  project     = "mts"
+  environment = "fprd"
+
   subscription_id = "00000000-0000-0000-0000-00000000d0d0"
   location        = "eastus2"
 
@@ -160,6 +165,18 @@ variables {
   }
 
   kubernetes_version = "1.35"
+
+  # Bounded cluster autoscaler within the subscription's regional vCPU quota
+  # (MTS-IAC-104 records six vCPUs per region).
+  system_node_pool = {
+    vm_size   = "Standard_D2s_v5"
+    vcpus     = 2
+    min_count = 1
+    max_count = 3
+  }
+  regional_vcpu_quota = 6
+
+  cluster_admin_principal_ids = ["66666666-6666-6666-6666-666666666666"]
 
   # Placeholder ranges for the offline contract only. T124 selects the real
   # ranges from live Azure evidence; none of these is a selection.
@@ -203,6 +220,13 @@ variables {
 
   github_seed_subjects = ["repo:MicroTodoSuite/.github:environment:azure-dr"]
 
+  key_vault_allowed_cidrs = [
+    "181.50.102.191/32",
+    "186.112.71.16/32",
+    "190.108.77.190/32",
+    "200.3.193.225/32",
+  ]
+
   ingress_dns_label = "lex-mts-fprd-dr"
 
   common_tags = {
@@ -238,7 +262,7 @@ run "network_cluster_and_identity_contract" {
     condition = alltrue([
       for located in [
         azurerm_virtual_network.main,
-        azurerm_kubernetes_cluster.main,
+        azurerm_kubernetes_cluster.this,
         azurerm_user_assigned_identity.cluster,
         azurerm_user_assigned_identity.kubelet,
         azurerm_user_assigned_identity.key_vault_reader,
@@ -275,51 +299,56 @@ run "network_cluster_and_identity_contract" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vnet_subnet_id == azurerm_subnet.nodes.id
+    condition     = toset([for endpoint in azurerm_subnet.nodes.service_endpoint : endpoint.service]) == toset(["Microsoft.KeyVault", "Microsoft.Storage"])
+    error_message = "The node subnet must reach Key Vault and Storage through service endpoints, so both can deny public access by default."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this.default_node_pool[0].vnet_subnet_id == azurerm_subnet.nodes.id
     error_message = "The system node pool must run in the private node subnet."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].node_public_ip_enabled != true
+    condition     = azurerm_kubernetes_cluster.this.default_node_pool[0].node_public_ip_enabled != true
     error_message = "Nodes must never receive a public IP address."
   }
 
   # AKS 1.35, Azure CNI Overlay, Cilium data plane and policy.
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubernetes_version == "1.35"
+    condition     = azurerm_kubernetes_cluster.this.kubernetes_version == "1.35"
     error_message = "AKS must run Kubernetes 1.35 (spec 009 research decision 9)."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin == "azure" && azurerm_kubernetes_cluster.main.network_profile[0].network_plugin_mode == "overlay"
+    condition     = azurerm_kubernetes_cluster.this.network_profile[0].network_plugin == "azure" && azurerm_kubernetes_cluster.this.network_profile[0].network_plugin_mode == "overlay"
     error_message = "AKS must use Azure CNI in overlay mode."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium" && azurerm_kubernetes_cluster.main.network_profile[0].network_policy == "cilium"
+    condition     = azurerm_kubernetes_cluster.this.network_profile[0].network_data_plane == "cilium" && azurerm_kubernetes_cluster.this.network_profile[0].network_policy == "cilium"
     error_message = "AKS must use the Cilium data plane and enforce network policy with Cilium."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.network_profile[0].pod_cidr == var.pod_cidr && azurerm_kubernetes_cluster.main.network_profile[0].service_cidr == var.service_cidr && azurerm_kubernetes_cluster.main.network_profile[0].dns_service_ip == var.dns_service_ip
+    condition     = azurerm_kubernetes_cluster.this.network_profile[0].pod_cidr == var.pod_cidr && azurerm_kubernetes_cluster.this.network_profile[0].service_cidr == var.service_cidr && azurerm_kubernetes_cluster.this.network_profile[0].dns_service_ip == var.dns_service_ip
     error_message = "AKS must use exactly the verified pod, service, and DNS ranges."
   }
 
   # Workload identity and OIDC issuer.
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true && azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    condition     = azurerm_kubernetes_cluster.this.oidc_issuer_enabled == true && azurerm_kubernetes_cluster.this.workload_identity_enabled == true
     error_message = "AKS must enable the OIDC issuer and Microsoft Entra Workload ID."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "UserAssigned" && toset(azurerm_kubernetes_cluster.main.identity[0].identity_ids) == toset([azurerm_user_assigned_identity.cluster.id])
+    condition     = azurerm_kubernetes_cluster.this.identity[0].type == "UserAssigned" && toset(azurerm_kubernetes_cluster.this.identity[0].identity_ids) == toset([azurerm_user_assigned_identity.cluster.id])
     error_message = "The cluster must run as exactly the module's user-assigned cluster identity, never a service principal."
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id == azurerm_user_assigned_identity.kubelet.id && azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id == azurerm_user_assigned_identity.kubelet.client_id && azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id == azurerm_user_assigned_identity.kubelet.principal_id
+    condition     = azurerm_kubernetes_cluster.this.kubelet_identity[0].user_assigned_identity_id == azurerm_user_assigned_identity.kubelet.id && azurerm_kubernetes_cluster.this.kubelet_identity[0].client_id == azurerm_user_assigned_identity.kubelet.client_id && azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id == azurerm_user_assigned_identity.kubelet.principal_id
     error_message = "Nodes must pull images as the module's own pre-created kubelet identity, so its registry access is declared here rather than inherited from an AKS-created identity."
   }
 
@@ -331,13 +360,47 @@ run "network_cluster_and_identity_contract" {
   # API server allowlist.
 
   assert {
-    condition     = toset(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges) == toset(var.api_server_authorized_ip_ranges)
+    condition     = toset(azurerm_kubernetes_cluster.this.api_server_access_profile[0].authorized_ip_ranges) == toset(var.api_server_authorized_ip_ranges)
     error_message = "The API server allowlist must equal the approved operator CIDRs exactly."
   }
 
   assert {
-    condition     = !contains(tolist(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges), "0.0.0.0/0")
+    condition     = !contains(tolist(azurerm_kubernetes_cluster.this.api_server_access_profile[0].authorized_ip_ranges), "0.0.0.0/0")
     error_message = "The API server allowlist must never contain 0.0.0.0/0."
+  }
+
+  # Kubernetes RBAC through Microsoft Entra ID, no local accounts.
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this.role_based_access_control_enabled == true && azurerm_kubernetes_cluster.this.local_account_disabled == true
+    error_message = "AKS must enforce Kubernetes RBAC and disable local accounts, so every API call carries an Entra identity."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this.azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true && azurerm_kubernetes_cluster.this.azure_active_directory_role_based_access_control[0].tenant_id == data.azurerm_client_config.current.tenant_id
+    error_message = "AKS must authorize Kubernetes access with Azure RBAC in the authenticated tenant."
+  }
+
+  assert {
+    condition = length(azurerm_role_assignment.cluster_admin) == length(var.cluster_admin_principal_ids) && alltrue([
+      for principal in var.cluster_admin_principal_ids :
+      azurerm_role_assignment.cluster_admin[principal].scope == azurerm_kubernetes_cluster.this.id &&
+      azurerm_role_assignment.cluster_admin[principal].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin" &&
+      azurerm_role_assignment.cluster_admin[principal].principal_id == principal
+    ])
+    error_message = "Exactly the named operators, and no one else, must hold cluster administration, scoped to this cluster only."
+  }
+
+  # Bounded cluster autoscaler, no node auto-provisioning.
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this.node_provisioning_profile[0].mode == "Manual"
+    error_message = "Node auto-provisioning must stay off; capacity is the bounded cluster autoscaler only."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this.default_node_pool[0].auto_scaling_enabled == true && azurerm_kubernetes_cluster.this.default_node_pool[0].min_count == var.system_node_pool.min_count && azurerm_kubernetes_cluster.this.default_node_pool[0].max_count == var.system_node_pool.max_count && azurerm_kubernetes_cluster.this.default_node_pool[0].vm_size == var.system_node_pool.vm_size
+    error_message = "The system node pool must autoscale between the reviewed bounds on the reviewed size."
   }
 
   # Dedicated ingress resource group and narrowly scoped cluster identity.
@@ -348,7 +411,7 @@ run "network_cluster_and_identity_contract" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.node_resource_group != azurerm_resource_group.ingress.name
+    condition     = azurerm_kubernetes_cluster.this.node_resource_group != azurerm_resource_group.ingress.name
     error_message = "The AKS-managed node resource group must not be the ingress resource group; AKS must not own the address."
   }
 
@@ -414,6 +477,11 @@ run "network_cluster_and_identity_contract" {
   }
 
   assert {
+    condition     = azurerm_storage_account.backup.network_rules[0].default_action == "Deny" && toset(azurerm_storage_account.backup.network_rules[0].virtual_network_subnet_ids) == toset([azurerm_subnet.nodes.id]) && length(coalesce(azurerm_storage_account.backup.network_rules[0].ip_rules, [])) == 0
+    error_message = "The recovery storage account must deny network access by default and admit only the node subnet."
+  }
+
+  assert {
     condition     = azurerm_storage_account.backup.blob_properties[0].versioning_enabled == true && azurerm_storage_account.backup.blob_properties[0].delete_retention_policy[0].days >= 7
     error_message = "The recovery storage account must keep blob versions and soft-delete blobs for at least seven days."
   }
@@ -426,7 +494,7 @@ run "network_cluster_and_identity_contract" {
         azurerm_resource_group.main,
         azurerm_resource_group.ingress,
         azurerm_virtual_network.main,
-        azurerm_kubernetes_cluster.main,
+        azurerm_kubernetes_cluster.this,
         azurerm_user_assigned_identity.cluster,
         azurerm_user_assigned_identity.kubelet,
         azurerm_user_assigned_identity.key_vault_reader,
@@ -445,7 +513,7 @@ run "network_cluster_and_identity_contract" {
       azurerm_resource_group.main.tags["Name"] == var.names.resource_group,
       azurerm_resource_group.ingress.tags["Name"] == var.names.ingress_resource_group,
       azurerm_virtual_network.main.tags["Name"] == var.names.virtual_network,
-      azurerm_kubernetes_cluster.main.tags["Name"] == var.names.cluster,
+      azurerm_kubernetes_cluster.this.tags["Name"] == var.names.cluster,
       azurerm_user_assigned_identity.cluster.tags["Name"] == var.names.cluster_identity,
       azurerm_user_assigned_identity.kubelet.tags["Name"] == var.names.kubelet_identity,
       azurerm_user_assigned_identity.key_vault_reader.tags["Name"] == var.names.key_vault_reader_identity,
@@ -466,22 +534,22 @@ run "network_cluster_and_identity_contract" {
   }
 
   assert {
-    condition     = output.ingress_public_ip_address == azurerm_public_ip.ingress.ip_address && output.ingress_public_ip_fqdn == azurerm_public_ip.ingress.fqdn
+    condition     = output.ingress_public_ip_endpoint == azurerm_public_ip.ingress.ip_address && output.ingress_public_ip_dns_name == azurerm_public_ip.ingress.fqdn
     error_message = "The module must output the ingress public IP's address and provider FQDN for DNS."
   }
 
   assert {
-    condition     = output.cluster_name == azurerm_kubernetes_cluster.main.name && output.oidc_issuer_url == azurerm_kubernetes_cluster.main.oidc_issuer_url && output.kubernetes_version == azurerm_kubernetes_cluster.main.kubernetes_version
+    condition     = output.cluster_name == azurerm_kubernetes_cluster.this.name && output.oidc_issuer_url == azurerm_kubernetes_cluster.this.oidc_issuer_url && output.kubernetes_version == azurerm_kubernetes_cluster.this.kubernetes_version
     error_message = "The module must output the cluster name, OIDC issuer URL, and Kubernetes version."
   }
 
   assert {
-    condition     = toset(output.api_server_authorized_ip_ranges) == toset(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges)
+    condition     = toset(output.api_server_authorized_cidrs) == toset(azurerm_kubernetes_cluster.this.api_server_access_profile[0].authorized_ip_ranges)
     error_message = "The module must output the allowlist the cluster actually carries, not a copy of the input."
   }
 
   assert {
-    condition     = output.resource_group_name == azurerm_resource_group.main.name && output.container_registry_name == azurerm_container_registry.main.name && output.container_registry_login_server == azurerm_container_registry.main.login_server && output.storage_account_name == azurerm_storage_account.backup.name
+    condition     = output.resource_group_name == azurerm_resource_group.main.name && output.container_registry_name == azurerm_container_registry.main.name && output.container_registry_endpoint == azurerm_container_registry.main.login_server && output.storage_account_name == azurerm_storage_account.backup.name
     error_message = "The module must output the resource group, registry, and storage account identifiers."
   }
 }
@@ -513,6 +581,11 @@ run "empty_key_vault_and_access_boundaries" {
     error_message = "The Key Vault must trust the authenticated tenant only."
   }
 
+  assert {
+    condition     = azurerm_key_vault.main.network_acls[0].default_action == "Deny" && azurerm_key_vault.main.network_acls[0].bypass == "AzureServices" && toset(azurerm_key_vault.main.network_acls[0].virtual_network_subnet_ids) == toset([azurerm_subnet.nodes.id]) && toset(azurerm_key_vault.main.network_acls[0].ip_rules) == toset(var.key_vault_allowed_cidrs)
+    error_message = "The Key Vault must deny network access by default and admit only the node subnet and the reviewed operator addresses."
+  }
+
   # AKS workload reader: read-only, one vault, exact service-account subjects.
 
   assert {
@@ -528,7 +601,7 @@ run "empty_key_vault_and_access_boundaries" {
   assert {
     condition = alltrue([
       for key, account in var.key_vault_reader_service_accounts :
-      azurerm_federated_identity_credential.key_vault_reader[key].issuer == azurerm_kubernetes_cluster.main.oidc_issuer_url &&
+      azurerm_federated_identity_credential.key_vault_reader[key].issuer == azurerm_kubernetes_cluster.this.oidc_issuer_url &&
       azurerm_federated_identity_credential.key_vault_reader[key].subject == "system:serviceaccount:${account.namespace}:${account.name}" &&
       tolist(azurerm_federated_identity_credential.key_vault_reader[key].audience) == tolist(["api://AzureADTokenExchange"]) &&
       azurerm_federated_identity_credential.key_vault_reader[key].user_assigned_identity_id == azurerm_user_assigned_identity.key_vault_reader.id
@@ -577,7 +650,7 @@ run "empty_key_vault_and_access_boundaries" {
   # Non-secret identifiers only.
 
   assert {
-    condition     = output.key_vault_name == azurerm_key_vault.main.name && output.key_vault_uri == azurerm_key_vault.main.vault_uri
+    condition     = output.key_vault_name == azurerm_key_vault.main.name && output.key_vault_url == azurerm_key_vault.main.vault_uri
     error_message = "The module must output the vault's name and URI, both non-secret."
   }
 
@@ -876,4 +949,113 @@ run "rejects_common_tags_without_the_required_keys" {
   }
 
   expect_failures = [var.common_tags]
+}
+
+run "rejects_an_unknown_environment" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    environment = "prod"
+  }
+
+  expect_failures = [var.environment]
+}
+
+run "rejects_a_name_outside_the_governance_prefix" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    names = {
+      resource_group            = "lex-mts-fprd-rg-dr"
+      ingress_resource_group    = "lex-mts-fprd-rg-ingress"
+      virtual_network           = "lex-mts-fprd-vnet-dr"
+      node_subnet               = "lex-mts-fprd-snet-nodes"
+      cluster                   = "aks-dr"
+      cluster_identity          = "lex-mts-fprd-id-aks"
+      kubelet_identity          = "lex-mts-fprd-id-kubelet"
+      key_vault                 = "lex-mts-fprd-kv-dr"
+      key_vault_reader_identity = "lex-mts-fprd-id-kvreader"
+      github_seed_identity      = "lex-mts-fprd-id-drseed"
+      github_seed_role          = "lex-mts-fprd-role-drseed"
+      container_registry        = "lexmtsfprdacrdr"
+      storage_account           = "lexmtsfprdstbackup"
+      ingress_public_ip         = "lex-mts-fprd-pip-ingress"
+    }
+  }
+
+  expect_failures = [var.names]
+}
+
+run "rejects_an_autoscaler_beyond_the_vcpu_quota" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    system_node_pool = {
+      vm_size   = "Standard_D2s_v5"
+      vcpus     = 2
+      min_count = 1
+      max_count = 4
+    }
+  }
+
+  expect_failures = [var.system_node_pool]
+}
+
+run "rejects_an_autoscaler_minimum_above_its_maximum" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    system_node_pool = {
+      vm_size   = "Standard_D2s_v5"
+      vcpus     = 2
+      min_count = 3
+      max_count = 2
+    }
+  }
+
+  expect_failures = [var.system_node_pool]
+}
+
+run "rejects_an_empty_cluster_admin_set" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    cluster_admin_principal_ids = []
+  }
+
+  expect_failures = [var.cluster_admin_principal_ids]
+}
+
+run "rejects_an_open_key_vault_allowlist" {
+  command = plan
+
+  providers = {
+    azurerm.project = azurerm.project
+  }
+
+  variables {
+    key_vault_allowed_cidrs = ["0.0.0.0/0"]
+  }
+
+  expect_failures = [var.key_vault_allowed_cidrs]
 }
