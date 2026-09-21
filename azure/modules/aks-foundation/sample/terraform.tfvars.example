@@ -1,0 +1,30 @@
+# Example configuration: copy to terraform.tfvars (gitignored) and fill the
+# identifiers the operator looks up. The node pool fits the verified
+# standardDSv4Family quota of four vCPUs (two Standard_D2s_v4 nodes at most).
+client              = "lex"
+project             = "mts"
+environment         = "fprd"
+subscription_id     = ""
+location            = "eastus2"
+regional_vcpu_quota = 4
+
+network = {
+  vnet_cidr        = "10.70.0.0/16"
+  node_subnet_cidr = "10.70.0.0/22"
+  pod_cidr         = "192.168.0.0/16"
+  service_cidr     = "172.16.0.0/16"
+  dns_service_ip   = "172.16.0.10"
+  reserved_cidrs   = ["10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16", "10.40.0.0/16", "10.50.0.0/16"]
+}
+
+operator_cidrs = []
+
+system_node_pool = {
+  vm_size   = "Standard_D2s_v4"
+  vcpus     = 2
+  min_count = 1
+  max_count = 2
+}
+
+cluster_admin_principal_ids = []
+github_seed_subjects        = []
