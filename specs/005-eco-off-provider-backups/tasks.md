@@ -63,9 +63,22 @@ any non-OIDC or destructive copy path.
 
 ### Red contracts
 
-- [ ] T011 [P] [US1] Add failing mock-provider, plan-only contracts for the workload and security roots in `azure/environments/eco/workload/tests/workload.tftest.hcl` and `azure/environments/eco/security/tests/security.tftest.hcl`
-- [ ] T012 [P] [US1] Add a failing source contract for module pins, backend/provider policy, private containers, storage hardening, and credential absence in `tests/contract/azure-eco-backups.sh`
-- [ ] T013 [P] [US1] Add a failing workflow contract for schedule, OIDC, prefix coverage, manifest integrity, and non-destructive behavior in `tests/workflows/eco-state-replication.bats`
+- [X] T011 [P] [US1] Add failing mock-provider, plan-only contracts for the workload and security roots in `azure/environments/eco/workload/tests/workload.tftest.hcl` and `azure/environments/eco/security/tests/security.tftest.hcl`
+- [X] T012 [P] [US1] Add a failing source contract for module pins, backend/provider policy, private containers, storage hardening, and credential absence in `tests/contract/azure-eco-backups.sh`
+- [X] T013 [P] [US1] Add a failing workflow contract for schedule, OIDC, prefix coverage, manifest integrity, and non-destructive behavior in `tests/workflows/eco-state-replication.bats`
+
+**Red evidence (2026-09-22)**:
+
+- `terraform -chdir=azure/environments/eco/workload test -no-color` exits 1
+  before a plan because the unimplemented root declares no AzureRM provider:
+  `Error: unknown provider registry.terraform.io/hashicorp/azurerm`.
+- `terraform -chdir=azure/environments/eco/security test -no-color` exits 1
+  for the same missing-root condition. Both files contain only `command = plan`
+  runs against `mock_provider "azurerm"`; neither initializes a backend.
+- `./tests/contract/azure-eco-backups.sh` exits 1 with
+  `FAIL: 12 economical Azure backup contract violation(s)`.
+- `./tests/workflows/eco-state-replication.bats` exits 1 with
+  `FAIL: 25 state-replication workflow contract violation(s)`.
 
 ### Implementation
 
