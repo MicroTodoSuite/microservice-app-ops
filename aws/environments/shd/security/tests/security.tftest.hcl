@@ -11,15 +11,13 @@ mock_provider "aws" {
     defaults = { arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
   }
 
+  mock_resource "aws_iam_openid_connect_provider" {
+    defaults = { arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" }
+  }
+
   mock_data "aws_s3_bucket" {
     defaults = { arn = "arn:aws:s3:::lex-mts-shd-s3-tfstate-123456789012" }
   }
-}
-
-# A mock provider cannot import, so the adopted OIDC provider is overridden instead.
-override_resource {
-  target = module.github_oidc.aws_iam_openid_connect_provider.this
-  values = { arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" }
 }
 
 variables {
@@ -33,7 +31,37 @@ variables {
   image_publisher_repositories = ["microservice-app-frontend", "microservice-app-auth-api"]
   service_image_keys           = ["frontend", "authapi"]
   deploy_role_operator_arns    = ["arn:aws:iam::123456789012:user/operator-b", "arn:aws:iam::123456789012:user/operator-a"]
+  adopt_existing_github_oidc   = false
   dr_seed_github_environment   = "azure-dr"
+}
+
+run "creates_the_github_oidc_provider_when_adoption_is_disabled" {
+  command = plan
+
+  assert {
+    condition     = var.adopt_existing_github_oidc == false && module.github_oidc.provider_url == "https://token.actions.githubusercontent.com"
+    error_message = "A fresh account must plan the configured GitHub OIDC provider when adoption is disabled."
+  }
+}
+
+# A mock provider cannot read a remote import, so only the adoption path overrides the
+# object that the enabled import block adopts.
+run "adopts_the_github_oidc_provider_when_adoption_is_enabled" {
+  command = plan
+
+  variables {
+    adopt_existing_github_oidc = true
+  }
+
+  override_resource {
+    target = module.github_oidc.aws_iam_openid_connect_provider.this
+    values = { arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" }
+  }
+
+  assert {
+    condition     = var.adopt_existing_github_oidc == true && module.github_oidc.provider_arn == "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+    error_message = "An account that already has the GitHub OIDC provider must select the adoption path."
+  }
 }
 
 run "lets_only_named_operators_with_mfa_assume_the_deploy_role" {

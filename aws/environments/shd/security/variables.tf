@@ -70,6 +70,17 @@ variable "github_organization" {
   }
 }
 
+variable "adopt_existing_github_oidc" {
+  type        = bool
+  description = "Whether to adopt the account's existing GitHub Actions OIDC provider. False creates it in a fresh account; true imports it by its account-derived ARN."
+  default     = false
+
+  validation {
+    condition     = var.adopt_existing_github_oidc != null
+    error_message = "The GitHub OIDC adoption choice must be true or false, not null."
+  }
+}
+
 variable "image_publisher_repositories" {
   type        = list(string)
   description = "Repositories of github_organization whose main-branch workflows may push service images."

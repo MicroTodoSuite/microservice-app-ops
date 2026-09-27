@@ -1,10 +1,12 @@
-# The shd/dns root: the account's public hosted zones (PC-IAC-022). The legacy zone already
-# exists and its name servers are delegated at the registrar, so it is adopted, not created
-# (ops spec 004 FR-005); the canonical zone is created here. Records belong to the roots
-# that own their targets.
+# The shd/dns root: the account's public hosted zones (PC-IAC-022). An existing legacy
+# zone is adopted so its delegated name servers do not change; a fresh account creates it
+# (ops spec 001 T066, ops spec 004 FR-005). The canonical zone is always created here.
+# Records belong to the roots that own their targets.
 import {
+  for_each = var.adopt_existing_public_dns ? toset([var.public_zone_id]) : toset([])
+
   to = module.public_zone.aws_route53_zone.this
-  id = var.public_zone_id
+  id = each.value
 }
 
 module "public_zone" {

@@ -299,6 +299,19 @@ organization settings remain explicit human follow-up work.
 
 ---
 
+## Phase 11: Third Account Migration
+
+**Purpose**: Let account-level resources be created in a fresh account while
+preserving an explicit adoption path for resources that already exist. The
+maintainer delegated the create-versus-adopt decision to the lead on 2026-09-27.
+
+- [X] T066 Add tested, default-off adoption switches to
+  `aws/environments/shd/security` for the GitHub Actions OIDC provider and
+  `aws/environments/shd/dns` for the public hosted zone, with fresh-account and
+  existing-account examples
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
