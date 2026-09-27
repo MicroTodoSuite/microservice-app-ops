@@ -134,3 +134,60 @@ run "rejects_a_repeated_environment_code" {
 
   expect_failures = [var.jwt_environment_codes]
 }
+
+# The full-dev tooling secret containers (ops spec 004 T034): Terraform owns the containers only.
+run "builds_the_tooling_secret_containers" {
+  command = plan
+
+  assert {
+    condition     = { for key, secret in local.tooling_secrets : key => secret.name } == { grafanaadm = "lex-mts-fdev-sm-grafanaadm", sonardb = "lex-mts-fdev-sm-sonardb", sonaradm = "lex-mts-fdev-sm-sonaradm" }
+    error_message = "The Grafana administrator and the two SonarQube secrets must carry their standard names (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = { for key, secret in module.tooling_secrets : key => secret.secret_name } == { grafanaadm = "lex-mts-fdev-sm-grafanaadm", sonardb = "lex-mts-fdev-sm-sonardb", sonaradm = "lex-mts-fdev-sm-sonaradm" }
+    error_message = "The root must create the three containers through the secret module."
+  }
+}
+
+# No value may reach the code, the plan, or the state: no root file passes the secret module a
+# value, and none generates one.
+run "writes_no_secret_value" {
+  command = plan
+
+  assert {
+    condition     = length(module.tooling_secrets) == 3 && !anytrue([for name in fileset(".", "*.tf") : can(regex("secret_value|secret_string|random_password", file(name)))])
+    error_message = "The three containers must exist while no file of the root passes a secret value, writes a secret string, or generates a password."
+  }
+}
+
+# With no value passed, the pinned secret module writes no version at all. This plans that exact
+# release as `terraform init` installed it for module.tooling_secrets; it needs the default data
+# directory, which the iac-checks workflow uses.
+run "leaves_the_tooling_containers_empty" {
+  command = plan
+
+  module {
+    source = "./.terraform/modules/tooling_secrets/secret"
+  }
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  variables {
+    secret_name = "lex-mts-fdev-sm-sonardb"
+    description = "SonarQube database credential."
+    kms_key_arn = ""
+  }
+
+  assert {
+    condition     = length(aws_secretsmanager_secret_version.this) == 0
+    error_message = "A container created without a value must have no secret version."
+  }
+
+  assert {
+    condition     = aws_secretsmanager_secret.this.recovery_window_in_days == 30
+    error_message = "A deleted container must stay recoverable for thirty days."
+  }
+}
