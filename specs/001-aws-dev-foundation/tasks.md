@@ -264,7 +264,7 @@ maintainer-confirmed third AWS account without planning, applying, or creating
 cloud resources. Operator-owned inputs, companion repositories, and
 organization settings remain explicit human follow-up work.
 
-- [ ] T066 Run `scripts/set-aws-account.sh 376784708420`, retire account
+- [X] T066 Run `scripts/set-aws-account.sh 376784708420`, retire account
   `575172595729`, pass `tests/contract/aws-account-parameter.sh`, and document
   every gitignored operator input, companion-repository literal, and
   organization setting that still requires a reviewed update
