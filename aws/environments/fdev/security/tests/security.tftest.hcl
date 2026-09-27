@@ -161,33 +161,16 @@ run "writes_no_secret_value" {
   }
 }
 
-# With no value passed, the pinned secret module writes no version at all. This plans that exact
-# release as `terraform init` installed it for module.tooling_secrets; it needs the default data
-# directory, which the iac-checks workflow uses.
-run "leaves_the_tooling_containers_empty" {
+# With no value passed, the pinned secret release writes no version at all, keeps a 30-day
+# recovery window, and uses the aws/secretsmanager key; its own tests prove it
+# (terraform-aws-modules secret/tests, run "creates_the_container_without_a_value"). Terraform 1.15
+# cannot validate a run that plans that module directly, because it declares
+# configuration_aliases, so this run pins the call to that release instead.
+run "keeps_the_tooling_containers_on_the_valueless_module_release" {
   command = plan
 
-  module {
-    source = "./.terraform/modules/tooling_secrets/secret"
-  }
-
-  providers = {
-    aws.project = aws.principal
-  }
-
-  variables {
-    secret_name = "lex-mts-fdev-sm-sonardb"
-    description = "SonarQube database credential."
-    kms_key_arn = ""
-  }
-
   assert {
-    condition     = length(aws_secretsmanager_secret_version.this) == 0
-    error_message = "A container created without a value must have no secret version."
-  }
-
-  assert {
-    condition     = aws_secretsmanager_secret.this.recovery_window_in_days == 30
-    error_message = "A deleted container must stay recoverable for thirty days."
+    condition     = length(module.tooling_secrets) == 3 && strcontains(file("main.tf"), "module \"tooling_secrets\" {\n  source   = \"git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//secret?ref=secret-v1.0.0\"\n")
+    error_message = "The tooling containers must be created by the secret-v1.0.0 release, whose tests prove that a container without a value has no version."
   }
 }

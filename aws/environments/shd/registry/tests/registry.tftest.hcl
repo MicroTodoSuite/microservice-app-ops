@@ -93,37 +93,22 @@ run "rejects_platform_as_a_service_key" {
   expect_failures = [var.service_image_keys]
 }
 
-# The protection comes from the pinned module release, so this run plans that exact release as
-# `terraform init` installed it for module.platform_mirror, with the inputs the root passes it.
-# It needs the default data directory, which the iac-checks workflow uses.
-run "keeps_the_platform_mirror_immutable_scanned_and_undeletable" {
+# The protection comes from the pinned ecr-repository release, whose own tests prove it
+# (terraform-aws-modules ecr-repository/tests, run "creates_immutable_scanned_repositories"):
+# immutable tags, scan on push, AES-256, no force delete, and one lifecycle rule that expires
+# only untagged images after 30 days. Terraform 1.15 cannot validate a run that plans that
+# module directly, because it declares configuration_aliases, so this run pins the call to that
+# release and to the release's default expiry instead.
+run "keeps_the_platform_mirror_on_the_immutable_module_release" {
   command = plan
 
-  module {
-    source = "./.terraform/modules/platform_mirror/ecr-repository"
-  }
-
-  providers = {
-    aws.project = aws.principal
-  }
-
-  variables {
-    repositories    = { platform = { name = "lex-mts-shd-ecr-platform" } }
-    additional_tags = { Content = "third-party-platform-images" }
+  assert {
+    condition     = length(module.platform_mirror.repository_names) == 1 && strcontains(file("main.tf"), "module \"platform_mirror\" {\n  source = \"git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//ecr-repository?ref=ecr-repository-v1.0.0\"\n")
+    error_message = "The platform mirror must be created by the ecr-repository-v1.0.0 release, whose tests prove the immutable, scanned, undeletable repository."
   }
 
   assert {
-    condition     = aws_ecr_repository.this["platform"].image_tag_mutability == "IMMUTABLE" && aws_ecr_repository.this["platform"].force_delete == false
-    error_message = "A mirrored digest must never be overwritten by a re-tag, and the repository must not be force-deletable."
-  }
-
-  assert {
-    condition     = aws_ecr_repository.this["platform"].image_scanning_configuration[0].scan_on_push == true && aws_ecr_repository.this["platform"].encryption_configuration[0].encryption_type == "AES256"
-    error_message = "Every mirrored image must be scanned on push and encrypted at rest."
-  }
-
-  assert {
-    condition     = [for rule in jsondecode(aws_ecr_lifecycle_policy.this["platform"].policy).rules : rule.selection] == [{ tagStatus = "untagged", countType = "sinceImagePushed", countUnit = "days", countNumber = 30 }]
-    error_message = "The lifecycle policy may reclaim only untagged layers after 30 days; a pinned mirrored image must never expire."
+    condition     = length(module.platform_mirror.repository_names) == 1 && !strcontains(file("main.tf"), "untagged_image_expiry_days")
+    error_message = "The mirror must keep the release's lifecycle policy: only untagged images expire, after 30 days; a pinned mirrored image never does."
   }
 }
