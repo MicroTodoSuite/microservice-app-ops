@@ -1,0 +1,10 @@
+# Terraform working files, state, plans, and variable files. A module commits
+# no lock file (PC-IAC-006) and no variable file; the sample commits only
+# terraform.tfvars.example.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan*
+*.tfvars

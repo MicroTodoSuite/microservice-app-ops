@@ -1,0 +1,9 @@
+# Copy to foundation.azurerm.tfbackend (gitignored) and replace the storage
+# coordinates with the approved backend the DR preflight verifies (spec 009
+# T124: scripts/preflight/azure-dr.sh --backend-config). Entra ID
+# authentication only; never an access key or SAS token.
+resource_group_name  = "lex-mts-fprd-rg-tfstate"
+storage_account_name = "lexmtsfprdsttfstate"
+container_name       = "tfstate"
+key                  = "fprd/dr-foundation/terraform.tfstate"
+use_azuread_auth     = true
