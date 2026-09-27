@@ -285,6 +285,18 @@ invalid, without introducing a long-lived repository secret.
   - [X] Run the release contract in the required pull-request workflow
   - [X] Verify merged `Release` run `34612308727` publishes `v1.5.0` successfully on `main`
 
+## Phase 11: Third-Account Repointing
+
+**Purpose**: Repoint repository-owned account configuration to the
+maintainer-confirmed third AWS account without planning, applying, or creating
+cloud resources. Operator-owned inputs, companion repositories, and
+organization settings remain explicit human follow-up work.
+
+- [X] T066 Run `scripts/set-aws-account.sh 376784708420`, retire account
+  `575172595729`, pass `tests/contract/aws-account-parameter.sh`, and document
+  every gitignored operator input, companion-repository literal, and
+  organization setting that still requires a reviewed update
+
 ---
 
 ## Dependencies & Execution Order

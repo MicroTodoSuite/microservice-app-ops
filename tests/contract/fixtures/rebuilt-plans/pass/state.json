@@ -20,7 +20,7 @@
         "actions": ["create"],
         "before": null,
         "after": {
-          "bucket": "lex-mts-shd-s3-tfstate-575172595729",
+          "bucket": "lex-mts-shd-s3-tfstate-376784708420",
           "tags_all": {
             "Name": "lex-mts-shd-s3-tfstate",
             "Client": "lex",
