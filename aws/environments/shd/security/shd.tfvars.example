@@ -16,3 +16,4 @@ image_publisher_repositories = [
 ]
 service_image_keys        = ["authapi", "frontend", "logmsgproc", "todosapi", "usersapi"]
 deploy_role_operator_arns = ["arn:aws:iam::123456789012:user/<operator>"]
+dr_secret_seed_environment = "azure-dr"

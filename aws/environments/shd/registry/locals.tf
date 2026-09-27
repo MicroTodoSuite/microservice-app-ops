@@ -6,6 +6,11 @@ locals {
     for key in var.service_image_keys : key => { name = "${local.governance_prefix}-ecr-${key}" }
   }
 
+  # The platform key is reserved for the mirror; var.service_image_keys rejects it.
+  platform_mirror_repositories = {
+    platform = { name = "${local.governance_prefix}-ecr-platform" }
+  }
+
   common_tags = {
     Client      = var.client
     Project     = var.project

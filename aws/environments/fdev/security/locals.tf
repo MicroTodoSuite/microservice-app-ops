@@ -163,6 +163,15 @@ locals {
     slacksec = { name = "${local.governance_prefix}-sm-slacksec", description = "Slack incoming-webhook URL for Falcosidekick security alerts on ${local.cluster_name}. The value is supplied by a person, never by Terraform." }
   }
 
+  # The full-profile tooling secrets (ops spec 004 T034), successors of the legacy
+  # microtodosuite/{observability/grafana-admin,tooling/sonarqube-db,tooling/sonarqube-admin}.
+  # Terraform owns only the containers; no value is generated, written, or stored by Terraform.
+  tooling_secrets = {
+    grafanaadm = { name = "${local.governance_prefix}-sm-grafanaadm", description = "Grafana administrator credential of the full profile on ${local.cluster_name}; also a DR seed source. The value is supplied outside Terraform, never by it." }
+    sonardb    = { name = "${local.governance_prefix}-sm-sonardb", description = "SonarQube database credential on ${local.cluster_name}, read by the SonarQube External Secrets reader. The value is supplied outside Terraform, never by it." }
+    sonaradm   = { name = "${local.governance_prefix}-sm-sonaradm", description = "SonarQube administrator credential on ${local.cluster_name}, read by the SonarQube External Secrets reader. The value is supplied outside Terraform, never by it." }
+  }
+
   common_tags = {
     Client      = var.client
     Project     = var.project

@@ -16,6 +16,7 @@ needs before it can create the cluster.
 | Node security group | `security-group-v1.0.0` | `lex-mts-fdev-sg-node` |
 | JWT signing secrets, one per application environment | `secret-v1.0.0` | `lex-mts-fdev-sm-jwt{dev,stg,prd,dmo}` |
 | Slack webhook secrets | `secret-v1.0.0` | `lex-mts-fdev-sm-slackobs`, `lex-mts-fdev-sm-slacksec` |
+| Full-profile tooling secrets: the Grafana administrator, the SonarQube database, the SonarQube administrator | `secret-v1.0.0` | `lex-mts-fdev-sm-grafanaadm`, `lex-mts-fdev-sm-sonardb`, `lex-mts-fdev-sm-sonaradm` |
 
 **The security groups** keep the rules the legacy upstream EKS module gave
 its groups, now written out.
@@ -36,6 +37,20 @@ its groups, now written out.
 **The secrets.** Terraform owns only the containers. The values are copied or
 regenerated in the approved cutover (ops spec 004 T014), and the Slack
 webhooks are supplied by a person.
+
+**The tooling secrets** (ops spec 004 T034) succeed the legacy
+`microtodosuite/observability/grafana-admin`,
+`microtodosuite/tooling/sonarqube-db`, and
+`microtodosuite/tooling/sonarqube-admin` of `aws/modules/environment-foundation`
+(`tooling-secrets.tf`), which no rebuilt root created (audit 2026-09-27, D8).
+They are containers only. The legacy module generated each value with an
+ephemeral `random_password` and wrote it through `secret_string_wo`; here no
+file of the root passes, writes, or generates a value, a test holds that line,
+and the pinned `secret-v1.0.0` release writes no version when none is passed.
+The values are supplied outside Terraform. `lex-mts-fdev-role-sonarread` in
+`fdev/security-irsa` reads the two SonarQube secrets, and
+`lex-mts-shd-role-drseed` in `shd/security` reads the Grafana administrator as
+one of its four disaster-recovery sources.
 
 **The VPC** is read from `fdev/networking` by its standard name.
 
@@ -74,3 +89,4 @@ records a `no-prior-state` receipt.
 - `secrets_key_arn`, `logs_key_arn`
 - `cluster_security_group_id`, `node_security_group_id`
 - `jwt_secret_arns`, `webhook_secret_arns`
+- `tooling_secret_arns`, keyed by `grafanaadm`, `sonardb`, and `sonaradm`

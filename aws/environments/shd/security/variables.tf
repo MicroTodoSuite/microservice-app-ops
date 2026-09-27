@@ -88,6 +88,21 @@ variable "service_image_keys" {
     condition     = length(var.service_image_keys) > 0 && alltrue([for key in var.service_image_keys : can(regex("^[a-z0-9]{1,10}$", key))])
     error_message = "Every key must be 1 to 10 lowercase letters or digits (MTS-IAC-101)."
   }
+
+  validation {
+    condition     = !contains(var.service_image_keys, "platform")
+    error_message = "The platform key belongs to the platform image mirror, which the publisher role must never reach."
+  }
+}
+
+variable "dr_secret_seed_environment" {
+  type        = string
+  description = "GitHub environment of the organization's .github repository that the reviewed DR secret-seed workflow runs in; the seed role's subject names it, so the environment's protection rules gate every seed."
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]{1,255}$", var.dr_secret_seed_environment))
+    error_message = "The environment must be one exact name of letters, digits, dots, underscores, or hyphens, with no wildcard."
+  }
 }
 
 variable "deploy_role_operator_arns" {

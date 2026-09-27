@@ -73,6 +73,11 @@ variable "service_image_keys" {
     condition     = alltrue([for key in var.service_image_keys : can(regex("^[a-z][a-z0-9-]{0,27}$", "${var.client}-${var.project}-${var.environment}-ecr-${key}"))])
     error_message = "Every repository name must start with a letter, as ECR requires, and stay within the 28 characters of MTS-IAC-101."
   }
+
+  validation {
+    condition     = !contains(var.service_image_keys, "platform")
+    error_message = "The platform key belongs to the platform image mirror, which the publisher role must never reach."
+  }
 }
 
 variable "owner" {
