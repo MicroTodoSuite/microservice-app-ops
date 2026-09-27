@@ -33,6 +33,7 @@ variables {
   image_publisher_repositories = ["microservice-app-frontend", "microservice-app-auth-api"]
   service_image_keys           = ["frontend", "authapi"]
   deploy_role_operator_arns    = ["arn:aws:iam::123456789012:user/operator-b", "arn:aws:iam::123456789012:user/operator-a"]
+  dr_seed_github_environment   = "azure-dr"
 }
 
 run "lets_only_named_operators_with_mfa_assume_the_deploy_role" {
@@ -247,4 +248,132 @@ run "rejects_a_github_organization_with_spaces" {
   }
 
   expect_failures = [var.github_organization]
+}
+
+# The platform-mirror role (ops spec 004 T033). AWS STS offers only aud, sub, amr, email, and oaud
+# as GitHub condition keys, so the workflow file is pinned through a customized subject that
+# carries job_workflow_ref, not through a job_workflow_ref condition, which STS rejects.
+run "trusts_only_the_reviewed_mirror_workflow_subject" {
+  command = plan
+
+  assert {
+    condition     = local.platform_mirror_role_name == "lex-mts-shd-role-platmirror"
+    error_message = "The mirror role must carry its standard name (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = length(jsondecode(local.platform_mirror_trust_policy).Statement) == 1 && jsondecode(local.platform_mirror_trust_policy).Statement[0].Principal.Federated == "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" && jsondecode(local.platform_mirror_trust_policy).Statement[0].Action == "sts:AssumeRoleWithWebIdentity"
+    error_message = "Only the GitHub OIDC provider may assume the mirror role, through one statement."
+  }
+
+  assert {
+    condition     = keys(jsondecode(local.platform_mirror_trust_policy).Statement[0].Condition) == ["StringEquals"] && jsondecode(local.platform_mirror_trust_policy).Statement[0].Condition.StringEquals == { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:MicroTodoSuite/.github:ref:refs/heads/main:job_workflow_ref:MicroTodoSuite/.github/.github/workflows/mirror-platform-images.yml@refs/heads/main" }
+    error_message = "The mirror role must trust exactly the STS audience and the one subject of the reviewed mirror workflow on main, compared with StringEquals and nothing else."
+  }
+
+  assert {
+    condition     = !can(regex("[*?]", jsondecode(local.platform_mirror_trust_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]))
+    error_message = "The mirror role's subject must contain no wildcard."
+  }
+}
+
+run "lets_the_mirror_role_push_only_to_the_platform_mirror" {
+  command = plan
+
+  assert {
+    condition     = keys(local.platform_mirror_policies) == ["mirror-platform-images"] && [for statement in jsondecode(local.platform_mirror_policies["mirror-platform-images"]).Statement : statement.Sid] == ["AuthenticateToEcr", "MirrorPlatformImages"]
+    error_message = "The mirror role must carry one inline policy with exactly the ECR authentication and mirror statements."
+  }
+
+  assert {
+    condition     = [for statement in jsondecode(local.platform_mirror_policies["mirror-platform-images"]).Statement : statement.Resource if statement.Sid == "MirrorPlatformImages"][0] == ["arn:aws:ecr:us-east-1:123456789012:repository/lex-mts-shd-ecr-platform"]
+    error_message = "The mirror role may write only to lex-mts-shd-ecr-platform."
+  }
+
+  assert {
+    condition     = sort([for statement in jsondecode(local.platform_mirror_policies["mirror-platform-images"]).Statement : statement.Action if statement.Sid == "MirrorPlatformImages"][0]) == tolist(["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:CompleteLayerUpload", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer", "ecr:InitiateLayerUpload", "ecr:ListImages", "ecr:PutImage", "ecr:UploadLayerPart"])
+    error_message = "The mirror role keeps exactly the legacy push, pull, and describe actions a copy and a signature need, no more."
+  }
+
+  assert {
+    condition     = alltrue([for statement in jsondecode(local.platform_mirror_policies["mirror-platform-images"]).Statement : statement.Resource != "*" || statement.Action == "ecr:GetAuthorizationToken"])
+    error_message = "Only ecr:GetAuthorizationToken, which takes no resource, may name every resource."
+  }
+
+  assert {
+    condition     = !contains(local.service_repository_arns, "arn:aws:ecr:us-east-1:123456789012:repository/lex-mts-shd-ecr-platform") && !contains(jsondecode(local.ecr_publisher_trust_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"], local.platform_mirror_subject)
+    error_message = "The service publisher and the mirror must stay apart: neither may reach the other's repositories or trust."
+  }
+}
+
+# The DR secret-seed role (ops spec 004 T033): the only identity in the account that reads secret
+# values, so it trusts one environment of one workflow file and names its four sources exactly.
+run "trusts_only_the_reviewed_seed_workflow_in_its_environment" {
+  command = plan
+
+  assert {
+    condition     = local.dr_secret_seed_role_name == "lex-mts-shd-role-drseed"
+    error_message = "The seed role must carry its standard name (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = length(jsondecode(local.dr_secret_seed_trust_policy).Statement) == 1 && jsondecode(local.dr_secret_seed_trust_policy).Statement[0].Principal.Federated == "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com" && jsondecode(local.dr_secret_seed_trust_policy).Statement[0].Action == "sts:AssumeRoleWithWebIdentity"
+    error_message = "Only the GitHub OIDC provider may assume the seed role, through one statement."
+  }
+
+  assert {
+    condition     = keys(jsondecode(local.dr_secret_seed_trust_policy).Statement[0].Condition) == ["StringEquals"] && jsondecode(local.dr_secret_seed_trust_policy).Statement[0].Condition.StringEquals == { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:MicroTodoSuite/.github:environment:azure-dr:job_workflow_ref:MicroTodoSuite/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main" }
+    error_message = "The seed role must trust exactly the STS audience and the one subject that pins repository, GitHub environment, and workflow file."
+  }
+
+  assert {
+    condition     = !can(regex("[*?]", jsondecode(local.dr_secret_seed_trust_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]))
+    error_message = "The seed role's subject must contain no wildcard."
+  }
+}
+
+run "lets_the_seed_role_read_only_the_four_approved_sources" {
+  command = plan
+
+  assert {
+    condition     = keys(local.dr_secret_seed_policies) == ["read-exact-dr-seed-secrets"] && length(jsondecode(local.dr_secret_seed_policies["read-exact-dr-seed-secrets"]).Statement) == 1
+    error_message = "The seed role must carry one inline policy with one statement."
+  }
+
+  assert {
+    condition     = sort(jsondecode(local.dr_secret_seed_policies["read-exact-dr-seed-secrets"]).Statement[0].Action) == tolist(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
+    error_message = "The seed role may only describe and read a secret; it may not list, write, or delete one."
+  }
+
+  # Secrets Manager appends a hyphen and six random characters to every ARN; the six ? match
+  # exactly those and nothing longer (Secrets Manager User Guide, identity-based policies).
+  assert {
+    condition     = jsondecode(local.dr_secret_seed_policies["read-exact-dr-seed-secrets"]).Statement[0].Resource == ["arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-grafanaadm-??????", "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fprd-sm-jwtprd-??????", "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fprd-sm-slackobs-??????", "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fprd-sm-slacksec-??????"]
+    error_message = "The seed role may read exactly the production JWT, the two production Slack webhooks, and the full-profile Grafana administrator."
+  }
+
+  assert {
+    condition     = !anytrue([for arn in jsondecode(local.dr_secret_seed_policies["read-exact-dr-seed-secrets"]).Statement[0].Resource : strcontains(arn, "*")])
+    error_message = "No source ARN may use *, which would match any secret sharing the prefix."
+  }
+}
+
+run "rejects_a_seed_environment_with_a_wildcard" {
+  command = plan
+
+  variables {
+    dr_seed_github_environment = "azure-*"
+  }
+
+  expect_failures = [var.dr_seed_github_environment]
+}
+
+run "rejects_platform_as_a_service_key" {
+  command = plan
+
+  variables {
+    service_image_keys = ["frontend", "platform"]
+  }
+
+  expect_failures = [var.service_image_keys]
 }

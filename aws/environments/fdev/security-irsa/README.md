@@ -14,6 +14,7 @@ trusts that cluster's OIDC issuer.
 | Kyverno image verifier | `iam-role-v1.0.0` | `lex-mts-fdev-role-kyvernoecr` |
 | Karpenter controller | `iam-role-v1.0.0` | `lex-mts-fdev-role-karpenter` |
 | AWS Load Balancer Controller | `iam-role-v1.0.0` | `lex-mts-fdev-role-lbcontrol` |
+| SonarQube secrets reader | `iam-role-v1.0.0` | `lex-mts-fdev-role-sonarread` |
 
 **Trust.** Every role trusts only this cluster's OIDC provider, with the
 `sts.amazonaws.com` audience and one exact service account:
@@ -27,10 +28,18 @@ trusts that cluster's OIDC issuer.
 | `kyvernoecr` | `kyverno/kyverno-admission-controller` | ECR authentication; `BatchCheckLayerAvailability`, `BatchGetImage`, `DescribeImages`, and `GetDownloadUrlForLayer` on `lex-mts-shd-ecr-<key>` |
 | `karpenter` | `kube-system/karpenter` | the eighteen statements of Karpenter's reference template, scoped to this cluster |
 | `lbcontrol` | `kube-system/aws-load-balancer-controller` | the sixteen statements of the upstream v3.5.0 IAM policy, every cluster-tag condition naming this cluster |
+| `sonarread` | `sonarqube/sonarqube-external-secrets-jwt` | `DescribeSecret` and `GetSecretValue` on `lex-mts-fdev-sm-sonardb` and `lex-mts-fdev-sm-sonaradm` |
 
 The secrets are `fdev/security`'s and the image repositories are
 `shd/registry`'s, both read by their standard names. This root creates no
 secret and no repository.
+
+**The SonarQube reader** (ops spec 004 T035) succeeds the legacy
+`microtodosuite-sonarqube-secrets-reader` (`tooling-secrets.tf`), which no
+rebuilt root created (audit 2026-09-27, D8). SonarQube runs only on the
+full-development cluster, so only this environment's IRSA pass has the role.
+It lives here, not in `fdev/security`, because it trusts this cluster's issuer.
+It cannot read the Grafana administrator secret, which sits in the same root.
 
 **Why a second pass.** An IRSA role trusts the cluster's OIDC provider, which
 exists only after `fdev/workload`. The directory name is not a domain name the
@@ -119,5 +128,5 @@ going up and first going down (`docs/aws-profile-lifecycle.md`).
 
 - `oidc_provider_arn`
 - `irsa_role_arns`, keyed by `jwt<code>`, `obssecret`, `secsecret`,
-  `trivyecr`, `kyvernoecr`, `karpenter`, and `lbcontrol`: the values the GitOps annotations
-  take
+  `trivyecr`, `kyvernoecr`, `karpenter`, `lbcontrol`, and `sonarread`: the values the GitOps
+  annotations take

@@ -31,6 +31,13 @@ locals {
     }
   }
 
+  # The SonarQube secrets its External Secrets store reads (ops spec 004 T035); the Grafana
+  # administrator secret stays out of its reach.
+  sonarqube_secret_names = {
+    sonardb  = "${local.governance_prefix}-sm-sonardb"
+    sonaradm = "${local.governance_prefix}-sm-sonaradm"
+  }
+
   service_repository_arns = sort([
     for key in var.service_image_keys :
     "arn:${local.partition}:ecr:${var.aws_region}:${var.aws_account_id}:repository/${local.shared_prefix}-ecr-${key}"
@@ -599,6 +606,21 @@ locals {
         policy = jsonencode({
           Version   = "2012-10-17"
           Statement = local.karpenter_statements
+        })
+      }
+    },
+    {
+      sonarread = {
+        subject     = "system:serviceaccount:sonarqube:sonarqube-external-secrets-jwt"
+        description = "Reads only the SonarQube database and administrator secrets, for sonarqube/sonarqube-external-secrets-jwt on ${local.cluster_name}."
+        policy = jsonencode({
+          Version = "2012-10-17"
+          Statement = [{
+            Sid      = "ReadExactSonarQubeSecrets"
+            Effect   = "Allow"
+            Action   = ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
+            Resource = sort([for secret in data.aws_secretsmanager_secret.sonarqube : secret.arn])
+          }]
         })
       }
     },

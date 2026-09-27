@@ -153,3 +153,19 @@ module "webhook_secrets" {
   description = each.value.description
   kms_key_arn = ""
 }
+
+module "tooling_secrets" {
+  source   = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//secret?ref=secret-v1.0.0"
+  for_each = local.tooling_secrets
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client      = var.client
+  project     = var.project
+  environment = var.environment
+  secret_name = each.value.name
+  description = each.value.description
+  kms_key_arn = ""
+}

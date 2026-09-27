@@ -345,6 +345,112 @@ locals {
     ]
   })
 
+  # The platform image mirror (ops spec 004 T032, T033). AWS STS offers only aud, sub, amr,
+  # email, and oaud as GitHub condition keys (IAM User Guide, condition keys for OIDC
+  # federation), so the legacy job_workflow_ref condition could never match. The workflow file is
+  # pinned through the subject instead: the .github repository's OIDC subject template includes
+  # job_workflow_ref, and each role trusts one exact subject with StringEquals.
+  reviewed_workflow_prefix       = "${var.github_organization}/.github/.github/workflows"
+  platform_mirror_role_name      = "${local.governance_prefix}-role-platmirror"
+  platform_mirror_subject        = "repo:${var.github_organization}/.github:ref:refs/heads/main:job_workflow_ref:${local.reviewed_workflow_prefix}/mirror-platform-images.yml@refs/heads/main"
+  platform_mirror_repository_arn = "arn:${local.partition}:ecr:${var.aws_region}:${var.aws_account_id}:repository/${local.governance_prefix}-ecr-platform"
+
+  platform_mirror_trust_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowTheReviewedMirrorWorkflow"
+      Effect    = "Allow"
+      Principal = { Federated = module.github_oidc.provider_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.github_oidc_host}:aud" = "sts.amazonaws.com"
+          "${local.github_oidc_host}:sub" = local.platform_mirror_subject
+        }
+      }
+    }]
+  })
+
+  # The legacy mirror role's grant: push, pull, and describe on the mirror alone, so neither the
+  # mirror nor the service publisher can reach the other's images.
+  platform_mirror_policies = {
+    mirror-platform-images = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid      = "AuthenticateToEcr"
+          Effect   = "Allow"
+          Action   = "ecr:GetAuthorizationToken"
+          Resource = "*"
+        },
+        {
+          Sid    = "MirrorPlatformImages"
+          Effect = "Allow"
+          Action = [
+            "ecr:BatchCheckLayerAvailability",
+            "ecr:BatchGetImage",
+            "ecr:CompleteLayerUpload",
+            "ecr:DescribeImages",
+            "ecr:GetDownloadUrlForLayer",
+            "ecr:InitiateLayerUpload",
+            "ecr:ListImages",
+            "ecr:PutImage",
+            "ecr:UploadLayerPart",
+          ]
+          Resource = [local.platform_mirror_repository_arn]
+        },
+      ]
+    })
+  }
+
+  # The DR secret seed (ops spec 004 T033): the only identity in the account that reads secret
+  # values. Its subject pins the .github repository, one GitHub environment, and the seed
+  # workflow file; its policy names the four approved sources: the production JWT and Slack
+  # webhooks of fprd, and the full-profile Grafana administrator of fdev.
+  dr_secret_seed_role_name = "${local.governance_prefix}-role-drseed"
+  dr_secret_seed_subject   = "repo:${var.github_organization}/.github:environment:${var.dr_seed_github_environment}:job_workflow_ref:${local.reviewed_workflow_prefix}/sync-dr-secrets.yml@refs/heads/main"
+  dr_secret_seed_source_names = [
+    "${var.client}-${var.project}-fdev-sm-grafanaadm",
+    "${var.client}-${var.project}-fprd-sm-jwtprd",
+    "${var.client}-${var.project}-fprd-sm-slackobs",
+    "${var.client}-${var.project}-fprd-sm-slacksec",
+  ]
+  # Secrets Manager appends a hyphen and six random characters to every secret ARN; six ? match
+  # exactly those, where * would also match any longer name (Secrets Manager User Guide).
+  dr_secret_seed_source_arns = sort([
+    for name in local.dr_secret_seed_source_names :
+    "arn:${local.partition}:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${name}-??????"
+  ])
+
+  dr_secret_seed_trust_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowTheReviewedSeedWorkflowInItsEnvironment"
+      Effect    = "Allow"
+      Principal = { Federated = module.github_oidc.provider_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.github_oidc_host}:aud" = "sts.amazonaws.com"
+          "${local.github_oidc_host}:sub" = local.dr_secret_seed_subject
+        }
+      }
+    }]
+  })
+
+  # The sources use the account's aws/secretsmanager key, so no KMS grant is needed.
+  dr_secret_seed_policies = {
+    read-exact-dr-seed-secrets = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Sid      = "ReadExactDisasterRecoverySources"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
+        Resource = local.dr_secret_seed_source_arns
+      }]
+    })
+  }
+
   common_tags = {
     Client      = var.client
     Project     = var.project

@@ -24,6 +24,14 @@ data "aws_secretsmanager_secret" "webhook" {
   name = each.value.secret_name
 }
 
+# The two SonarQube containers fdev/security creates (ops spec 004 T034).
+data "aws_secretsmanager_secret" "sonarqube" {
+  for_each = local.sonarqube_secret_names
+  provider = aws.principal
+
+  name = each.value
+}
+
 # The Karpenter prerequisites the workload root created and the node role the security root
 # created: the controller polls that queue, and passes that role to the instance profiles it
 # generates for the nodes it launches.
