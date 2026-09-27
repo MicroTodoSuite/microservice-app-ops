@@ -9,23 +9,23 @@ mock_provider "aws" {
 }
 
 variables {
-  client                     = "lex"
-  project                    = "mts"
-  environment                = "shd"
-  aws_account_id             = "123456789012"
-  aws_region                 = "us-east-1"
-  deploy_role_arn            = "arn:aws:iam::123456789012:role/terraform-deploy"
-  public_zone_name           = "microtodosuite.abrdns.com"
-  public_zone_id             = null
-  adopt_existing_public_zone = false
-  canonical_zone_name        = "microtodosuite.online"
+  client                    = "lex"
+  project                   = "mts"
+  environment               = "shd"
+  aws_account_id            = "123456789012"
+  aws_region                = "us-east-1"
+  deploy_role_arn           = "arn:aws:iam::123456789012:role/terraform-deploy"
+  public_zone_name          = "microtodosuite.abrdns.com"
+  public_zone_id            = null
+  adopt_existing_public_dns = false
+  canonical_zone_name       = "microtodosuite.online"
 }
 
 run "creates_the_public_zone_when_adoption_is_disabled" {
   command = plan
 
   assert {
-    condition     = var.adopt_existing_public_zone == false && var.public_zone_id == null && module.public_zone.zone_name == "microtodosuite.abrdns.com"
+    condition     = var.adopt_existing_public_dns == false && var.public_zone_id == null && module.public_zone.zone_name == "microtodosuite.abrdns.com"
     error_message = "A fresh account must plan the configured public zone when adoption is disabled."
   }
 }
@@ -36,8 +36,8 @@ run "adopts_the_public_zone_when_adoption_is_enabled" {
   command = plan
 
   variables {
-    adopt_existing_public_zone = true
-    public_zone_id             = "Z0000000000000000000"
+    adopt_existing_public_dns = true
+    public_zone_id            = "Z0000000000000000000"
   }
 
   override_resource {
@@ -46,7 +46,7 @@ run "adopts_the_public_zone_when_adoption_is_enabled" {
   }
 
   assert {
-    condition     = var.adopt_existing_public_zone == true && module.public_zone.zone_id == var.public_zone_id
+    condition     = var.adopt_existing_public_dns == true && module.public_zone.zone_id == var.public_zone_id
     error_message = "An account that already has the public zone must select the adoption path with its hosted-zone ID."
   }
 }
@@ -128,8 +128,8 @@ run "rejects_a_zone_id_with_the_hostedzone_prefix" {
   command = plan
 
   variables {
-    adopt_existing_public_zone = true
-    public_zone_id             = "/hostedzone/Z0000000000000000000"
+    adopt_existing_public_dns = true
+    public_zone_id            = "/hostedzone/Z0000000000000000000"
   }
 
   expect_failures = [var.public_zone_id]

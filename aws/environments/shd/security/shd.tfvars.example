@@ -7,6 +7,10 @@ aws_account_id      = "123456789012"
 aws_region          = "us-east-1"
 deploy_role_arn     = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
 github_organization = "MicroTodoSuite"
+# A fresh account creates the GitHub OIDC provider. If the provider already exists in
+# this account, change this to true so Terraform adopts it instead of duplicating it.
+adopt_existing_github_oidc = false
+# adopt_existing_github_oidc = true
 image_publisher_repositories = [
   "microservice-app-auth-api",
   "microservice-app-frontend",

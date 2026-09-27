@@ -72,11 +72,22 @@ variable "public_zone_name" {
 
 variable "public_zone_id" {
   type        = string
-  description = "Hosted zone ID of the existing public zone, the ID the import block adopts."
+  description = "Hosted zone ID to adopt when adopt_existing_public_dns is true; null when Terraform creates the zone in a fresh account."
 
   validation {
-    condition     = can(regex("^Z[A-Z0-9]{1,31}$", var.public_zone_id))
-    error_message = "The zone ID must be a Route 53 hosted zone ID such as Z1D633PJN98FT9, without the /hostedzone/ prefix."
+    condition     = var.adopt_existing_public_dns ? can(regex("^Z[A-Z0-9]{1,31}$", var.public_zone_id)) : var.public_zone_id == null
+    error_message = "Set public_zone_id to a Route 53 hosted zone ID without the /hostedzone/ prefix when adoption is enabled; leave it null when Terraform creates the zone."
+  }
+}
+
+variable "adopt_existing_public_dns" {
+  type        = bool
+  description = "Whether to adopt an existing public hosted zone. False creates it in a fresh account; true imports public_zone_id."
+  default     = false
+
+  validation {
+    condition     = var.adopt_existing_public_dns != null
+    error_message = "The public DNS adoption choice must be true or false, not null."
   }
 }
 

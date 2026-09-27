@@ -2,11 +2,13 @@
 # that publishes service images, and the key and role every environment's VPC flow logs use
 # (PC-IAC-022). The Kyverno image verifier lives in each environment's IRSA pass.
 
-# The GitHub OIDC provider already exists in the account; it is adopted, not created
-# (ops spec 004 T010).
+# Accounts that already have the GitHub OIDC provider adopt it; fresh accounts create it
+# (ops spec 001 T066, ops spec 004 T010).
 import {
+  for_each = var.adopt_existing_github_oidc ? toset([local.github_oidc_host]) : toset([])
+
   to = module.github_oidc.aws_iam_openid_connect_provider.this
-  id = "arn:${local.partition}:iam::${var.aws_account_id}:oidc-provider/${local.github_oidc_host}"
+  id = "arn:${local.partition}:iam::${var.aws_account_id}:oidc-provider/${each.value}"
 }
 
 module "github_oidc" {
