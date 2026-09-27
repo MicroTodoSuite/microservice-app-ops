@@ -408,7 +408,7 @@ locals {
   # workflow file; its policy names the four approved sources: the production JWT and Slack
   # webhooks of fprd, and the full-profile Grafana administrator of fdev.
   dr_secret_seed_role_name = "${local.governance_prefix}-role-drseed"
-  dr_secret_seed_subject   = "repo:${var.github_organization}/.github:environment:${var.dr_secret_seed_environment}:job_workflow_ref:${local.reviewed_workflow_prefix}/sync-dr-secrets.yml@refs/heads/main"
+  dr_secret_seed_subject   = "repo:${var.github_organization}/.github:environment:${var.dr_seed_github_environment}:job_workflow_ref:${local.reviewed_workflow_prefix}/sync-dr-secrets.yml@refs/heads/main"
   dr_secret_seed_source_names = [
     "${var.client}-${var.project}-fdev-sm-grafanaadm",
     "${var.client}-${var.project}-fprd-sm-jwtprd",

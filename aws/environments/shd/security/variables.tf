@@ -95,12 +95,12 @@ variable "service_image_keys" {
   }
 }
 
-variable "dr_secret_seed_environment" {
+variable "dr_seed_github_environment" {
   type        = string
   description = "GitHub environment of the organization's .github repository that the reviewed DR secret-seed workflow runs in; the seed role's subject names it, so the environment's protection rules gate every seed."
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9._-]{1,255}$", var.dr_secret_seed_environment))
+    condition     = can(regex("^[A-Za-z0-9._-]{1,255}$", var.dr_seed_github_environment))
     error_message = "The environment must be one exact name of letters, digits, dots, underscores, or hyphens, with no wildcard."
   }
 }

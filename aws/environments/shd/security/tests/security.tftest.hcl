@@ -33,7 +33,7 @@ variables {
   image_publisher_repositories = ["microservice-app-frontend", "microservice-app-auth-api"]
   service_image_keys           = ["frontend", "authapi"]
   deploy_role_operator_arns    = ["arn:aws:iam::123456789012:user/operator-b", "arn:aws:iam::123456789012:user/operator-a"]
-  dr_secret_seed_environment   = "azure-dr"
+  dr_seed_github_environment   = "azure-dr"
 }
 
 run "lets_only_named_operators_with_mfa_assume_the_deploy_role" {
@@ -362,10 +362,10 @@ run "rejects_a_seed_environment_with_a_wildcard" {
   command = plan
 
   variables {
-    dr_secret_seed_environment = "azure-*"
+    dr_seed_github_environment = "azure-*"
   }
 
-  expect_failures = [var.dr_secret_seed_environment]
+  expect_failures = [var.dr_seed_github_environment]
 }
 
 run "rejects_platform_as_a_service_key" {

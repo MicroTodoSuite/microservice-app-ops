@@ -105,7 +105,7 @@ one exact subject compared with `StringEquals`. No subject holds a wildcard.
 | Role | Workflow | Subject | Grants |
 | --- | --- | --- | --- |
 | `lex-mts-shd-role-platmirror` | `mirror-platform-images.yml` on `main` | `repo:<org>/.github:ref:refs/heads/main:job_workflow_ref:<org>/.github/.github/workflows/mirror-platform-images.yml@refs/heads/main` | ECR authentication; push, pull, and describe on `lex-mts-shd-ecr-platform` only |
-| `lex-mts-shd-role-drseed` | `sync-dr-secrets.yml` on `main`, in the GitHub environment `dr_secret_seed_environment` | `repo:<org>/.github:environment:<environment>:job_workflow_ref:<org>/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main` | `DescribeSecret` and `GetSecretValue` on four secrets only |
+| `lex-mts-shd-role-drseed` | `sync-dr-secrets.yml` on `main`, in the GitHub environment `dr_seed_github_environment` | `repo:<org>/.github:environment:<environment>:job_workflow_ref:<org>/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main` | `DescribeSecret` and `GetSecretValue` on four secrets only |
 
 **Why the workflow file is in the subject.** The legacy roles pinned the
 workflow file with a `token.actions.githubusercontent.com:job_workflow_ref`
