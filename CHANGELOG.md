@@ -1,3 +1,11 @@
+# [1.42.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.41.0...v1.42.0) (2026-09-27)
+
+
+### Features
+
+* **account:** support conditional resource adoption ([d597164](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d597164a852a3b0f0f64a23101fb42466a2487ba))
+* **account:** support conditional resource adoption ([#135](https://github.com/MicroTodoSuite/microservice-app-ops/issues/135)) ([486a3b5](https://github.com/MicroTodoSuite/microservice-app-ops/commit/486a3b55cc3d3129121228fc6c0d996ea279a47e))
+
 # [1.41.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.40.1...v1.41.0) (2026-09-27)
 
 
