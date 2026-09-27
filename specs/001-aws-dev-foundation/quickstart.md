@@ -16,7 +16,7 @@ Before the four-command flow, an approved platform operator provides:
 - An already provisioned and migrated dev state backend that satisfies
   [the remote-state contract](./contracts/remote-state.md).
 - The committed, human-approved dev values in each root's `dev.tfvars`. Dev uses
-  account `575172595729`, `us-east-1`, three named AZs, `10.10.0.0/16`, the
+  account `376784708420`, `us-east-1`, three named AZs, `10.10.0.0/16`, the
   explicit global dev API CIDR, and the approved EKS access-entry role.
 
 Confirm authentication through the team's normal identity flow. Do not export,
