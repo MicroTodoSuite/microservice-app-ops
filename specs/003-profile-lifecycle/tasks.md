@@ -39,7 +39,7 @@
   - [ ] Review a refresh-backed enabled migration plan with no physical replacements
   - [X] Review economical down plan JSON and persistent-data disposition — bundle `economical-down-20260915T215026Z` contains no durable deletion, and volume record `volumes-economical-20260915T164648Z` retains four completed snapshots
   - [X] Apply the approved shutdown bundle — `economical-down-20260915T214743Z` removed protection and `economical-down-20260915T215026Z` removed the economical runtime on 2026-09-15
-  - [ ] Restore through a separately reviewed economical up bundle
+  - [X] Restore through a separately reviewed economical up bundle — delivered 2026-09-21 in T016's live cycle, under the maintainer's standing authorization recorded there: `economical-up-20260921T024428Z` (`cluster-first`, 23 creates, `apply-up-024428Z.log` ends `EXIT=0`) and then `economical-up-20260921T030101Z` (`complete`, from `main` at `316cd90`; the plan JSON holds 19 `eco/security-irsa` creates and 30 plus 17 no-ops, and `apply-up-030101Z.log` ends `Apply complete! Resources: 19 added, 0 changed, 0 destroyed.` and `EXIT=0`); the re-plan `economical-up-20260921T030228Z` is all `no-op` from its plan JSON (30/17/19). Located on 2026-09-27 under `~/backups-microtodosuite/t016-economical-cycle-20260921T0230Z/`, where every bundle's `checksums.sha256` verifies; the account is now unreachable, so the restored state itself cannot be re-observed. T007 stays open for the migration-plan review and the full-profile migration
   - [ ] Migrate and accept full-profile roots before their first replacement-account apply
 
 - [X] **T008 Make the operator lifecycle portable on the documented workstation**

@@ -41,6 +41,16 @@ override_data {
   values = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-slacksec-AbCdEf" }
 }
 
+override_data {
+  target = data.aws_secretsmanager_secret.sonarqube["sonardb"]
+  values = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-sonardb-AbCdEf" }
+}
+
+override_data {
+  target = data.aws_secretsmanager_secret.sonarqube["sonaradm"]
+  values = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-sonaradm-GhIjKl" }
+}
+
 variables {
   client                = "lex"
   project               = "mts"
@@ -56,7 +66,7 @@ run "builds_the_irsa_names" {
   command = plan
 
   assert {
-    condition     = local.oidc_provider_name == "lex-mts-fdev-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fdev-role-jwtdev", jwtstg = "lex-mts-fdev-role-jwtstg", obssecret = "lex-mts-fdev-role-obssecret", secsecret = "lex-mts-fdev-role-secsecret", trivyecr = "lex-mts-fdev-role-trivyecr", kyvernoecr = "lex-mts-fdev-role-kyvernoecr", karpenter = "lex-mts-fdev-role-karpenter", lbcontrol = "lex-mts-fdev-role-lbcontrol" }
+    condition     = local.oidc_provider_name == "lex-mts-fdev-oidc-eks" && local.irsa_role_names == { jwtdev = "lex-mts-fdev-role-jwtdev", jwtstg = "lex-mts-fdev-role-jwtstg", obssecret = "lex-mts-fdev-role-obssecret", secsecret = "lex-mts-fdev-role-secsecret", trivyecr = "lex-mts-fdev-role-trivyecr", kyvernoecr = "lex-mts-fdev-role-kyvernoecr", karpenter = "lex-mts-fdev-role-karpenter", lbcontrol = "lex-mts-fdev-role-lbcontrol", sonarread = "lex-mts-fdev-role-sonarread" }
     error_message = "The root must build the spec 004 IRSA names, one role per application identity (MTS-IAC-101)."
   }
 
@@ -205,4 +215,25 @@ run "rejects_an_image_key_that_breaks_the_naming_rule" {
   }
 
   expect_failures = [var.service_image_keys]
+}
+
+# The SonarQube secrets reader (ops spec 004 T035): it needs this cluster's issuer, so it lives in
+# the IRSA pass, and it reads only the two SonarQube containers fdev/security creates.
+run "lets_only_the_sonarqube_external_secrets_account_read_the_two_sonarqube_secrets" {
+  command = plan
+
+  assert {
+    condition     = jsondecode(local.irsa_trust_policies["sonarread"]).Statement[0].Principal.Federated == "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF" && jsondecode(local.irsa_trust_policies["sonarread"]).Statement[0].Condition.StringEquals == { "oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF:aud" = "sts.amazonaws.com", "oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF:sub" = "system:serviceaccount:sonarqube:sonarqube-external-secrets-jwt" }
+    error_message = "The SonarQube reader must admit only sonarqube/sonarqube-external-secrets-jwt on this cluster, with the STS audience."
+  }
+
+  assert {
+    condition     = length(jsondecode(local.irsa_roles["sonarread"].policy).Statement) == 1 && sort(jsondecode(local.irsa_roles["sonarread"].policy).Statement[0].Action) == tolist(["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"])
+    error_message = "The SonarQube reader may only describe and read a secret."
+  }
+
+  assert {
+    condition     = jsondecode(local.irsa_roles["sonarread"].policy).Statement[0].Resource == ["arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-sonaradm-GhIjKl", "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fdev-sm-sonardb-AbCdEf"]
+    error_message = "The SonarQube reader may read exactly the database and administrator secrets, by their full ARNs, and not the Grafana administrator."
+  }
 }

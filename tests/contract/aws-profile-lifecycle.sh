@@ -483,7 +483,7 @@ printf '%s\n' \
   $'format\t1' \
   $'profile\teconomical' \
   $'direction\tup' \
-  $'account\t575172595729' \
+  $'account\t376784708420' \
   $'commit\tabcdef1' \
   $'root\teco-networking\taws/environments/eco/networking\teco-networking.tfplan' \
   >"$fixture_bundle/metadata.tsv"
@@ -523,7 +523,7 @@ printf '%s\n' \
   'if [[ "${1:-}" == --version ]]; then' \
   '  printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n"' \
   'else' \
-  '  printf "575172595729\n"' \
+  '  printf "376784708420\n"' \
   'fi' \
   >"$fake_bin/aws"
 printf '%s\n' \
@@ -575,14 +575,14 @@ terraform_log="$volume_sandbox/terraform.log"
 mkdir -p "$sandbox_ops/scripts" "$sandbox_ops/config" "$sandbox_gitops"
 cp "$ENTRYPOINT" "$DURABLE_DELETE_FILTER" "$EGRESS_DELETE_FILTER" "$sandbox_ops/scripts/"
 cp "$ROOT/.terraform-version" "$ROOT/.gitignore" "$sandbox_ops/"
-printf 'AWS_ACCOUNT_ID=575172595729\n' >"$sandbox_ops/config/aws-account.env"
+printf 'AWS_ACCOUNT_ID=376784708420\n' >"$sandbox_ops/config/aws-account.env"
 for root in eco/networking eco/workload eco/security-irsa shd/networking \
   fdev/networking fdev/workload fdev/security-irsa fstg/networking fstg/workload fstg/security-irsa \
   fprd/networking fprd/workload fprd/security-irsa; do
   environment="${root%%/*}"
   domain="${root##*/}"
   mkdir -p "$sandbox_ops/aws/environments/$root"
-  printf '%s\n' 'aws_account_id = "575172595729"' 'aws_region     = "us-east-1"' \
+  printf '%s\n' 'aws_account_id = "376784708420"' 'aws_region     = "us-east-1"' \
     'client           = "lex"' 'project          = "mts"' "environment      = \"$environment\"" \
     >"$sandbox_ops/aws/environments/$root/$environment.tfvars"
   printf 'bucket = "contract"\n' >"$sandbox_ops/aws/environments/$root/$domain.s3.tfbackend"
@@ -604,7 +604,7 @@ printf '%s\n' \
   '  printf "An error occurred (Throttling) when calling the Describe operation: rate exceeded\n" >&2; exit 254; fi' \
   'case "$*" in' \
   '  --version) printf "aws-cli/2.31.0 Python/3.13 Linux/amd64\n" ;;' \
-  '  "sts get-caller-identity"*) printf "575172595729\n" ;;' \
+  '  "sts get-caller-identity"*) printf "376784708420\n" ;;' \
   '  *"ec2 describe-volumes"*--output\ text*)' \
   '    printf "vol-0aaa\t10\tpvc-prometheus\nvol-0bbb\t2\tpvc-grafana\n"' \
   '    if [[ -n "${EXTRA_VOLUME:-}" ]]; then printf "%s\t5\tpvc-new\n" "$EXTRA_VOLUME"; fi ;;' \
@@ -617,7 +617,7 @@ printf '%s\n' \
   '  *"service-quotas get-service-quota"*) printf "5.0\n" ;;' \
   '  *"elbv2 describe-load-balancers"*--output\ json*)' \
   '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"LoadBalancers\":[]}\n";' \
-  '    else printf "{\"LoadBalancers\":[{\"LoadBalancerArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\",\"Type\":\"application\"}]}\n"; fi ;;' \
+  '    else printf "{\"LoadBalancers\":[{\"LoadBalancerArn\":\"arn:aws:elasticloadbalancing:us-east-1:376784708420:loadbalancer/app/k8s-eco-alb/1234567890abcdef\",\"Type\":\"application\"}]}\n"; fi ;;' \
   '  *"elbv2 describe-tags"*--output\ json*)' \
   '    if [[ -n "${SWEEP_GONE:-}" ]]; then printf "{\"TagDescriptions\":[]}\n";' \
   '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
@@ -628,9 +628,9 @@ printf '%s\n' \
   '        *) tag_value="lex-mts-eco-eks-main" ;;' \
   '      esac;' \
   '      case "$*" in' \
-  '        *loadbalancer/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ;;' \
-  '        *listener/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ;;' \
-  '        *targetgroup*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef" ;;' \
+  '        *loadbalancer/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:376784708420:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ;;' \
+  '        *listener/app*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:376784708420:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ;;' \
+  '        *targetgroup*) resource_arn="arn:aws:elasticloadbalancing:us-east-1:376784708420:targetgroup/k8s-eco-tg/1234567890abcdef" ;;' \
   '        *) resource_arn="unknown" ;;' \
   '      esac;' \
   '      if [[ -z "$tag_value" ]]; then printf "{\"TagDescriptions\":[{\"ResourceArn\":\"%s\",\"Tags\":[]}]}\n" "$resource_arn";' \
@@ -638,10 +638,10 @@ printf '%s\n' \
   '    fi ;;' \
   '  *"elbv2 describe-listeners"*--output\ json*)' \
   '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"Listeners\":[]}\n";' \
-  '    else printf "{\"Listeners\":[{\"ListenerArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\"}]}\n"; fi ;;' \
+  '    else printf "{\"Listeners\":[{\"ListenerArn\":\"arn:aws:elasticloadbalancing:us-east-1:376784708420:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\"}]}\n"; fi ;;' \
   '  *"elbv2 describe-target-groups"*--output\ json*)' \
   '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"TargetGroups\":[]}\n";' \
-  '    else printf "{\"TargetGroups\":[{\"TargetGroupArn\":\"arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\",\"TargetGroupName\":\"k8s-eco-tg\"}]}\n"; fi ;;' \
+  '    else printf "{\"TargetGroups\":[{\"TargetGroupArn\":\"arn:aws:elasticloadbalancing:us-east-1:376784708420:targetgroup/k8s-eco-tg/1234567890abcdef\",\"TargetGroupName\":\"k8s-eco-tg\"}]}\n"; fi ;;' \
   '  *"ec2 describe-security-groups"*--output\ json*)' \
   '    if [[ -n "${SWEEP_EMPTY:-}" ]]; then printf "{\"SecurityGroups\":[]}\n";' \
   '    elif [[ "${TAG_MODE:-normal}" == "malformed" ]]; then printf "{{{not json\n";' \
@@ -684,15 +684,15 @@ printf '%s\n' \
   '      printf "{\"Volumes\":[{\"VolumeId\":\"vol-0aaa\",\"State\":\"%s\",\"Tags\":[%s]},{\"VolumeId\":\"vol-0bbb\",\"State\":\"in-use\",\"Tags\":[%s]}]}\n" "${VOL_STATE:-available}" "$volume_tags" "$volume_tags";' \
   '    fi ;;' \
   '  *"elbv2 describe-load-balancers"*)' \
-  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n" ;;' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:376784708420:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n" ;;' \
   '  *"elbv2 describe-tags"*loadbalancer*)' \
-  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
+  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:376784708420:loadbalancer/app/k8s-eco-alb/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
   '  *"elbv2 describe-listeners"*)' \
-  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\n" ;;' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:376784708420:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba\n" ;;' \
   '  *"elbv2 describe-target-groups"*)' \
-  '    printf "arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\n" ;;' \
+  '    printf "arn:aws:elasticloadbalancing:us-east-1:376784708420:targetgroup/k8s-eco-tg/1234567890abcdef\n" ;;' \
   '  *"elbv2 describe-tags"*targetgroup*)' \
-  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
+  '    printf "TagDescriptions:\n- ResourceArn: arn:aws:elasticloadbalancing:us-east-1:376784708420:targetgroup/k8s-eco-tg/1234567890abcdef\n  Tags:\n  - Key: elbv2.k8s.aws/cluster\n    Value: lex-mts-eco-eks-main\n" ;;' \
   '  *"ec2 describe-security-groups"*)' \
   '    printf "sg-0123456789abcdef0\tk8s-elb-eco\telbv2.k8s.aws/cluster=lex-mts-eco-eks-main\n" ;;' \
   '  *"ec2 describe-network-interfaces"*)' \
@@ -836,7 +836,7 @@ quiescence_receipt="$(find "$sandbox_ops/.aws-profile-plans" -maxdepth 1 -type d
   fail "quiescence receipt must have format 1"
 [[ "$(jq -r '.profile' "$quiescence_receipt/receipt.json")" == "economical" ]] || \
   fail "quiescence receipt must record profile"
-[[ "$(jq -r '.account' "$quiescence_receipt/receipt.json")" == "575172595729" ]] || \
+[[ "$(jq -r '.account' "$quiescence_receipt/receipt.json")" == "376784708420" ]] || \
   fail "quiescence receipt must record account"
 [[ "$(jq -r '.region' "$quiescence_receipt/receipt.json")" == "us-east-1" ]] || \
   fail "quiescence receipt must record region"
@@ -981,13 +981,13 @@ reject_text "scripts/aws-profile-lifecycle.sh" 'record_epoch + 1' \
 # has no Route 53 target type at all.
 sweep_type_function="$(sed -n '/^sweep_target_type() {/,/^}/p' scripts/aws-profile-lifecycle.sh)"
 for protected_runtime_id in \
-  'arn:aws:acm:us-east-1:575172595729:certificate/example' \
+  'arn:aws:acm:us-east-1:376784708420:certificate/example' \
   'route53-record:ZEXAMPLE:_acme-challenge.example.com' \
-  'arn:aws:ecr:us-east-1:575172595729:repository/microtodosuite' \
-  'arn:aws:secretsmanager:us-east-1:575172595729:secret:microtodosuite/example' \
-  'arn:aws:kms:us-east-1:575172595729:key/example' \
+  'arn:aws:ecr:us-east-1:376784708420:repository/microtodosuite' \
+  'arn:aws:secretsmanager:us-east-1:376784708420:secret:microtodosuite/example' \
+  'arn:aws:kms:us-east-1:376784708420:key/example' \
   'arn:aws:s3:::microtodosuite-terraform-state' \
-  'arn:aws:iam::575172595729:oidc-provider/token.actions.githubusercontent.com'; do
+  'arn:aws:iam::376784708420:oidc-provider/token.actions.githubusercontent.com'; do
   if bash -c "$sweep_type_function; sweep_target_type \"\$1\"" -- "$protected_runtime_id" >/dev/null 2>&1; then
     fail "protected runtime resource $protected_runtime_id must be unreachable by the sweep"
   fi
@@ -999,11 +999,11 @@ done
 # consented volume stays out of the sweep inventory.
 [[ "$(jq -r '.clusters[0]' "$quiescence_receipt/receipt.json")" == "lex-mts-eco-eks-main" ]] || \
   fail "quiescence receipt must record the economical cluster set"
-[[ "$(jq -r '.inventory.load_balancers[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ]] || \
+[[ "$(jq -r '.inventory.load_balancers[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:376784708420:loadbalancer/app/k8s-eco-alb/1234567890abcdef" ]] || \
   fail "quiescence receipt must inventory the cluster-owned load balancer"
-[[ "$(jq -r '.inventory.listeners[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ]] || \
+[[ "$(jq -r '.inventory.listeners[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:376784708420:listener/app/k8s-eco-alb/1234567890abcdef/9876543210fedcba" ]] || \
   fail "quiescence receipt must inventory the listener behind its own exact cluster tag"
-[[ "$(jq -r '.inventory.target_groups[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:575172595729:targetgroup/k8s-eco-tg/1234567890abcdef" ]] || \
+[[ "$(jq -r '.inventory.target_groups[0]' "$quiescence_receipt/receipt.json")" == "arn:aws:elasticloadbalancing:us-east-1:376784708420:targetgroup/k8s-eco-tg/1234567890abcdef" ]] || \
   fail "quiescence receipt must inventory the cluster-owned target group"
 [[ "$(jq -c '.inventory.security_groups' "$quiescence_receipt/receipt.json")" == '["sg-0123456789abcdef0"]' ]] || \
   fail "quiescence receipt must inventory the controller security group"

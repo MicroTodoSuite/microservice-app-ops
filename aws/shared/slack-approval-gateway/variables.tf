@@ -9,8 +9,8 @@ variable "expected_account_id" {
   type        = string
 
   validation {
-    condition     = var.expected_account_id == "575172595729"
-    error_message = "This shared tooling belongs to the dev-owned account 575172595729. Applying it elsewhere would create an unreviewed second copy rather than fail."
+    condition     = var.expected_account_id == "376784708420"
+    error_message = "This shared tooling belongs to the dev-owned account 376784708420. Applying it elsewhere would create an unreviewed second copy rather than fail."
   }
 }
 

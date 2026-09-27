@@ -131,3 +131,43 @@ module "state_trail" {
   s3_object_arn_prefixes = local.cloudtrail_object_arn_prefixes
   log_retention          = local.cloudtrail_log_retention
 }
+
+# The role the reviewed platform-image mirror workflow assumes to copy every locked third-party
+# image into shd/registry's lex-mts-shd-ecr-platform (ops spec 004 T033).
+module "platform_mirror_role" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//iam-role?ref=iam-role-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client                   = var.client
+  project                  = var.project
+  environment              = var.environment
+  role_name                = local.platform_mirror_role_name
+  description              = "Mirrors reviewed third-party platform images into lex-mts-shd-ecr-platform, only from the reviewed mirror workflow on main."
+  assume_role_policy       = local.platform_mirror_trust_policy
+  inline_policies          = local.platform_mirror_policies
+  managed_policy_arns      = []
+  permissions_boundary_arn = ""
+}
+
+# The role the reviewed DR secret-seed workflow assumes to copy exactly four secrets to the Azure
+# recovery Key Vault (ops spec 004 T033).
+module "dr_secret_seed_role" {
+  source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//iam-role?ref=iam-role-v1.0.0"
+
+  providers = {
+    aws.project = aws.principal
+  }
+
+  client                   = var.client
+  project                  = var.project
+  environment              = var.environment
+  role_name                = local.dr_secret_seed_role_name
+  description              = "Reads exactly the four approved disaster-recovery secrets, only from the reviewed seed workflow in its GitHub environment."
+  assume_role_policy       = local.dr_secret_seed_trust_policy
+  inline_policies          = local.dr_secret_seed_policies
+  managed_policy_arns      = []
+  permissions_boundary_arn = ""
+}

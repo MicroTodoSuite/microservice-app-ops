@@ -134,3 +134,43 @@ run "rejects_a_repeated_environment_code" {
 
   expect_failures = [var.jwt_environment_codes]
 }
+
+# The full-dev tooling secret containers (ops spec 004 T034): Terraform owns the containers only.
+run "builds_the_tooling_secret_containers" {
+  command = plan
+
+  assert {
+    condition     = { for key, secret in local.tooling_secrets : key => secret.name } == { grafanaadm = "lex-mts-fdev-sm-grafanaadm", sonardb = "lex-mts-fdev-sm-sonardb", sonaradm = "lex-mts-fdev-sm-sonaradm" }
+    error_message = "The Grafana administrator and the two SonarQube secrets must carry their standard names (MTS-IAC-101)."
+  }
+
+  assert {
+    condition     = { for key, secret in module.tooling_secrets : key => secret.secret_name } == { grafanaadm = "lex-mts-fdev-sm-grafanaadm", sonardb = "lex-mts-fdev-sm-sonardb", sonaradm = "lex-mts-fdev-sm-sonaradm" }
+    error_message = "The root must create the three containers through the secret module."
+  }
+}
+
+# No value may reach the code, the plan, or the state: no root file passes the secret module a
+# value, and none generates one.
+run "writes_no_secret_value" {
+  command = plan
+
+  assert {
+    condition     = length(module.tooling_secrets) == 3 && !anytrue([for name in fileset(".", "*.tf") : can(regex("secret_value|secret_string|random_password", file(name)))])
+    error_message = "The three containers must exist while no file of the root passes a secret value, writes a secret string, or generates a password."
+  }
+}
+
+# With no value passed, the pinned secret release writes no version at all, keeps a 30-day
+# recovery window, and uses the aws/secretsmanager key; its own tests prove it
+# (terraform-aws-modules secret/tests, run "creates_the_container_without_a_value"). Terraform 1.15
+# cannot validate a run that plans that module directly, because it declares
+# configuration_aliases, so this run pins the call to that release instead.
+run "keeps_the_tooling_containers_on_the_valueless_module_release" {
+  command = plan
+
+  assert {
+    condition     = length(module.tooling_secrets) == 3 && strcontains(file("main.tf"), "module \"tooling_secrets\" {\n  source   = \"git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//secret?ref=secret-v1.0.0\"\n")
+    error_message = "The tooling containers must be created by the secret-v1.0.0 release, whose tests prove that a container without a value has no version."
+  }
+}

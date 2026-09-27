@@ -12,6 +12,8 @@ ai-agents specs/001 T025). It holds what every environment shares:
 | Role that delivers VPC flow logs | `iam-role-v1.0.0` | `lex-mts-shd-role-flowlogs` |
 | Key that encrypts the state trail's logs | `kms-key-v1.0.0` | `alias/lex-mts-shd-kms-cloudtrail` |
 | Trail recording every read and write of the Terraform state, and its log bucket | `cloudtrail-trail-v1.0.0` | `lex-mts-shd-ct-tfstate`; bucket `lex-mts-shd-s3-cloudtrail-<account>` |
+| Role the reviewed platform-image mirror workflow assumes | `iam-role-v1.0.0` | `lex-mts-shd-role-platmirror` |
+| Role the reviewed DR secret-seed workflow assumes | `iam-role-v1.0.0` | `lex-mts-shd-role-drseed` |
 
 **The publisher role** trusts only tokens with the STS audience from the
 `main` branch of the listed repositories of `github_organization`. It may push
@@ -40,6 +42,12 @@ A reader of the logs needs `kms:Decrypt` on the key, granted in IAM. Why a
 trail and not CloudTrail Lake, and why its log bucket carries no access logs,
 is recorded in the `cloudtrail-trail` module and in terraform-aws-modules
 `docs/iac-exceptions.md`.
+
+**The mirror and seed roles** (ops spec 004 T033) succeed the legacy
+`microtodosuite-github-platform-mirror` and
+`microtodosuite-github-dr-secret-seed` of `aws/modules/environment-foundation`
+(`platform-mirror.tf`, `dr-secret-seed.tf`), which no rebuilt root created
+(audit 2026-09-27, D8). See [The workflow roles](#the-workflow-roles).
 
 **The Kyverno image verifier** is not here. It trusts a cluster's OIDC issuer,
 so each environment's IRSA pass holds its own (`<env>/security-irsa`).
@@ -88,6 +96,66 @@ the rebuilt roots use: managed-policy attachments, role updates, and instance
 profile listing before a role is deleted. The first real plan and apply at
 T029 is its test. Any `AccessDenied` is added narrowly, in a reviewed change.
 
+## The workflow roles
+
+Two roles serve reviewed workflows of the organization's `.github` repository,
+each through the GitHub OIDC provider, the `sts.amazonaws.com` audience, and
+one exact subject compared with `StringEquals`. No subject holds a wildcard.
+
+| Role | Workflow | Subject | Grants |
+| --- | --- | --- | --- |
+| `lex-mts-shd-role-platmirror` | `mirror-platform-images.yml` on `main` | `repo:<org>/.github:ref:refs/heads/main:job_workflow_ref:<org>/.github/.github/workflows/mirror-platform-images.yml@refs/heads/main` | ECR authentication; push, pull, and describe on `lex-mts-shd-ecr-platform` only |
+| `lex-mts-shd-role-drseed` | `sync-dr-secrets.yml` on `main`, in the GitHub environment `dr_seed_github_environment` | `repo:<org>/.github:environment:<environment>:job_workflow_ref:<org>/.github/.github/workflows/sync-dr-secrets.yml@refs/heads/main` | `DescribeSecret` and `GetSecretValue` on four secrets only |
+
+**Why the workflow file is in the subject.** The legacy roles pinned the
+workflow file with a `token.actions.githubusercontent.com:job_workflow_ref`
+condition. AWS STS offers only `aud`, `sub`, `amr`, `email`, and `oaud` as
+condition keys for a GitHub token (IAM User Guide, "Available keys for AWS
+OIDC federation"), so that condition could never match. GitHub can put
+`job_workflow_ref` into the subject itself through the repository's OIDC
+subject template; these roles trust that subject.
+
+**Precondition.** Until the `.github` repository's subject template includes
+`repo`, `context`, and `job_workflow_ref`, its tokens carry the default
+subject, and both roles refuse every request. The template is a repository
+setting a maintainer changes:
+
+```bash
+gh api -X PUT repos/MicroTodoSuite/.github/actions/oidc/customization/sub \
+  -F use_default=false \
+  -f 'include_claim_keys[]=repo' -f 'include_claim_keys[]=context' -f 'include_claim_keys[]=job_workflow_ref'
+```
+
+The template changes the subject of every workflow run in that repository.
+Any other identity that trusts a `.github` subject must be checked first.
+
+**The mirror role** may write only to `shd/registry`'s
+`lex-mts-shd-ecr-platform`, and the service publisher may not. Neither can
+reach the other's images.
+
+**The seed role** is the only identity in the account that reads secret
+values. It reads exactly the four sources the Azure recovery Key Vault
+receives:
+
+| Source | Root |
+| --- | --- |
+| `lex-mts-fprd-sm-jwtprd`, the production JWT signing secret | `fprd/security` |
+| `lex-mts-fprd-sm-slackobs`, the production Alertmanager webhook | `fprd/security` |
+| `lex-mts-fprd-sm-slacksec`, the production Falcosidekick webhook | `fprd/security` |
+| `lex-mts-fdev-sm-grafanaadm`, the full-profile Grafana administrator | `fdev/security` |
+
+Each ARN ends in `-??????`, which matches exactly the six random characters
+Secrets Manager appends to the name, where `*` would also match any longer
+name. The four secrets use the account's `aws/secretsmanager` key, so the
+role needs no KMS grant. The GitHub environment should carry protection rules,
+as the IAM User Guide recommends for an environment named in a trust policy.
+
+**What the workflows still name.** On 2026-09-27, `mirror-platform-images.yml`
+and `sync-dr-secrets.yml` still default to the legacy role names, the legacy
+repository path `microtodosuite/platform`, and the legacy secret names. They
+take the role ARNs as inputs (`mirror-role-arn`, `seed-role-arn`). Their
+repository path and seed mapping change in the `.github` repository, not here.
+
 ## Plan and apply
 
 ```bash
@@ -104,4 +172,6 @@ after a timestamped state backup (MTS-IAC-107).
 ## Outputs
 
 `github_oidc_provider_arn`, `deploy_role_arn`, `ecr_publisher_role_arn`,
-`flow_log_key_arn`, and `flow_log_role_arn`.
+`flow_log_key_arn`, `flow_log_role_arn`, `state_trail_arn`,
+`state_trail_bucket_name`, `cloudtrail_key_arn`, `platform_mirror_role_arn`,
+and `dr_secret_seed_role_arn`.

@@ -8,3 +8,13 @@ output "service_repository_arns" {
   description = "Repository ARNs keyed by service key, for pull permissions in the environment roots."
   value       = module.service_images.repository_arns
 }
+
+output "platform_mirror_repository_url" {
+  description = "URL of the platform image mirror, the repository the mirror workflow copies every locked platform image to."
+  value       = module.platform_mirror.repository_urls["platform"]
+}
+
+output "platform_mirror_repository_arn" {
+  description = "ARN of the platform image mirror, for pull permissions in the environment roots."
+  value       = module.platform_mirror.repository_arns["platform"]
+}

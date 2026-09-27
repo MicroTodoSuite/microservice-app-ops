@@ -43,3 +43,8 @@ output "webhook_secret_arns" {
   description = "Slack webhook secret ARNs keyed by slackobs and slacksec."
   value       = { for key, secret in module.webhook_secrets : key => secret.secret_arn }
 }
+
+output "tooling_secret_arns" {
+  description = "Tooling secret ARNs keyed by grafanaadm, sonardb, and sonaradm."
+  value       = { for key, secret in module.tooling_secrets : key => secret.secret_arn }
+}

@@ -6,9 +6,9 @@
 mock_provider "aws" {
   mock_data "aws_caller_identity" {
     defaults = {
-      account_id = "575172595729"
-      arn        = "arn:aws:iam::575172595729:role/test"
-      id         = "575172595729"
+      account_id = "376784708420"
+      arn        = "arn:aws:iam::376784708420:role/test"
+      id         = "376784708420"
       user_id    = "test"
     }
   }
@@ -40,21 +40,21 @@ mock_provider "aws" {
 override_resource {
   target = aws_iam_role.github_webhook_handler
   values = {
-    arn = "arn:aws:iam::575172595729:role/mock-github-webhook-handler"
+    arn = "arn:aws:iam::376784708420:role/mock-github-webhook-handler"
   }
 }
 
 override_resource {
   target = aws_iam_role.slack_interaction_handler
   values = {
-    arn = "arn:aws:iam::575172595729:role/mock-slack-interaction-handler"
+    arn = "arn:aws:iam::376784708420:role/mock-slack-interaction-handler"
   }
 }
 
 override_resource {
   target = aws_apigatewayv2_api.this
   values = {
-    execution_arn = "arn:aws:execute-api:us-east-1:575172595729:mockapiid"
+    execution_arn = "arn:aws:execute-api:us-east-1:376784708420:mockapiid"
   }
 }
 
@@ -78,7 +78,7 @@ override_data {
 }
 
 variables {
-  expected_account_id = "575172595729"
+  expected_account_id = "376784708420"
   slack_channel_id    = "C0000000000"
 
   slack_approver_app_id = "123456"

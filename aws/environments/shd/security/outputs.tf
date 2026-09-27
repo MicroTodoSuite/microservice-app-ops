@@ -38,3 +38,13 @@ output "cloudtrail_key_arn" {
   description = "ARN of the key that encrypts the state trail's logs; a reader needs kms:Decrypt on it in IAM."
   value       = module.cloudtrail_key.key_arn
 }
+
+output "platform_mirror_role_arn" {
+  description = "ARN of the role the reviewed mirror workflow assumes, the mirror-role-arn input of mirror-platform-images.yml."
+  value       = module.platform_mirror_role.role_arn
+}
+
+output "dr_secret_seed_role_arn" {
+  description = "ARN of the role the reviewed DR seed workflow assumes, the seed-role-arn input of sync-dr-secrets.yml."
+  value       = module.dr_secret_seed_role.role_arn
+}

@@ -1,3 +1,16 @@
+# [1.41.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.40.1...v1.41.0) (2026-09-27)
+
+
+### Bug Fixes
+
+* **aws:** name the seed environment input without the secret marker ([81c1e7d](https://github.com/MicroTodoSuite/microservice-app-ops/commit/81c1e7dbc7d3bc9ddb64d711068e3fd10850ad94))
+
+
+### Features
+
+* **aws:** implement the platform mirror, disaster-recovery seed, and tooling secret owners ([#134](https://github.com/MicroTodoSuite/microservice-app-ops/issues/134)) ([ca1ab81](https://github.com/MicroTodoSuite/microservice-app-ops/commit/ca1ab8126c33bbe2e376e2013e31e16878c85add)), closes [ops#128](https://github.com/ops/issues/128)
+* **aws:** implement the platform mirror, DR seed, and tooling secret owners ([d0e06b8](https://github.com/MicroTodoSuite/microservice-app-ops/commit/d0e06b8a5c4c81d1c04e3dffeee495584aa78d8b))
+
 ## [1.40.1](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.40.0...v1.40.1) (2026-09-21)
 
 
