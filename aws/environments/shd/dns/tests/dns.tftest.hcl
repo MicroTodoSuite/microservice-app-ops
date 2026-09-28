@@ -15,7 +15,7 @@ variables {
   aws_account_id            = "123456789012"
   aws_region                = "us-east-1"
   deploy_role_arn           = "arn:aws:iam::123456789012:role/terraform-deploy"
-  manage_legacy_public_zone = false
+  manage_legacy_public_dns  = false
   public_zone_name          = "microtodosuite.abrdns.com"
   public_zone_id            = null
   adopt_existing_public_dns = false
@@ -42,7 +42,7 @@ run "adopts_the_public_zone_when_adoption_is_enabled" {
   command = plan
 
   variables {
-    manage_legacy_public_zone = true
+    manage_legacy_public_dns  = true
     adopt_existing_public_dns = true
     public_zone_id            = "Z0000000000000000000"
   }
@@ -62,7 +62,7 @@ run "rejects_adoption_when_legacy_management_is_disabled" {
   command = plan
 
   variables {
-    manage_legacy_public_zone = false
+    manage_legacy_public_dns  = false
     adopt_existing_public_dns = true
     public_zone_id            = "Z0000000000000000000"
   }
@@ -147,6 +147,7 @@ run "rejects_a_zone_id_with_the_hostedzone_prefix" {
   command = plan
 
   variables {
+    manage_legacy_public_dns  = true
     adopt_existing_public_dns = true
     public_zone_id            = "/hostedzone/Z0000000000000000000"
   }

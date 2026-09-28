@@ -6,10 +6,12 @@ aws_account_id   = "123456789012"
 aws_region       = "us-east-1"
 deploy_role_arn  = "arn:aws:iam::123456789012:role/<terraform-deploy-role>"
 public_zone_name = "microtodosuite.abrdns.com"
-# A fresh account creates the public zone and therefore has no zone ID to import.
+# A fresh account manages only the canonical zone.
+manage_legacy_public_dns  = false
 adopt_existing_public_dns = false
 public_zone_id             = null
-# If this zone already exists in the account, adopt it instead of creating a duplicate.
+# If the legacy zone already exists in the account, manage and adopt it together.
+# manage_legacy_public_dns  = true
 # adopt_existing_public_dns = true
 # public_zone_id             = "Z0000000000000000000"
 canonical_zone_name = "microtodosuite.online"

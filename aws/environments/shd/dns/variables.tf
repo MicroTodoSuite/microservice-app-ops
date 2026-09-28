@@ -60,9 +60,20 @@ variable "deploy_role_arn" {
   }
 }
 
+variable "manage_legacy_public_dns" {
+  type        = bool
+  description = "Whether this root manages the legacy public hosted zone. False omits it; true enables the existing adoption path."
+  default     = false
+
+  validation {
+    condition     = var.manage_legacy_public_dns != null
+    error_message = "The legacy public-zone management choice must be true or false, not null."
+  }
+}
+
 variable "public_zone_name" {
   type        = string
-  description = "Domain of the existing public hosted zone, such as microtodosuite.abrdns.com. It is adopted, never renamed: a new name replaces the zone and its name servers (ops spec 004 FR-005)."
+  description = "Domain of the optional legacy public hosted zone, such as microtodosuite.abrdns.com. When managed, it is adopted and never renamed: a new name replaces the zone and its name servers (ops spec 004 FR-005)."
 
   validation {
     condition     = can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", var.public_zone_name))
@@ -72,7 +83,7 @@ variable "public_zone_name" {
 
 variable "public_zone_id" {
   type        = string
-  description = "Hosted zone ID to adopt when adopt_existing_public_dns is true; null when Terraform creates the zone in a fresh account."
+  description = "Hosted zone ID to adopt when adopt_existing_public_dns is true; null when adoption is disabled."
 
   validation {
     condition     = var.adopt_existing_public_dns ? can(regex("^Z[A-Z0-9]{1,31}$", var.public_zone_id)) : var.public_zone_id == null
@@ -82,12 +93,17 @@ variable "public_zone_id" {
 
 variable "adopt_existing_public_dns" {
   type        = bool
-  description = "Whether to adopt an existing public hosted zone. False creates it in a fresh account; true imports public_zone_id."
+  description = "Whether to adopt the managed legacy public hosted zone by public_zone_id. This must be false when legacy-zone management is disabled."
   default     = false
 
   validation {
     condition     = var.adopt_existing_public_dns != null
     error_message = "The public DNS adoption choice must be true or false, not null."
+  }
+
+  validation {
+    condition     = !var.adopt_existing_public_dns || var.manage_legacy_public_dns
+    error_message = "Legacy public DNS adoption requires manage_legacy_public_dns to be true."
   }
 }
 

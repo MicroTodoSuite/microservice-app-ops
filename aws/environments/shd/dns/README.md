@@ -1,19 +1,24 @@
 # shd/dns
 
-The account's public DNS root of the rebuilt layout (ops spec 004 T010,
-ai-agents specs/001 T025). It adopts the existing public hosted zone
-`microtodosuite.abrdns.com` through `route53-zone-v1.0.0` and an `import`
-block. The zone is never created or renamed here: its name servers are
-delegated at the registrar, and a new zone would get new ones (ops spec 004
-FR-005).
+The account's public DNS root of the rebuilt layout (ops spec 004 T010 and
+T037, ai-agents specs/001 T025). It always manages the canonical public hosted
+zone `microtodosuite.online`. Legacy-zone management defaults off, so a fresh
+account does not create or manage `microtodosuite.abrdns.com`.
+
+An account that still owns the legacy zone can set
+`manage_legacy_public_dns = true`, `adopt_existing_public_dns = true`, and its
+`public_zone_id` to adopt it through `route53-zone-v1.0.0`. Adoption is refused
+when management is disabled. The legacy zone MUST NOT be renamed or recreated:
+its name servers are delegated at the registrar, and a new zone would get new
+ones (ops spec 004 FR-005).
 
 | Resource | Module | Name |
 | --- | --- | --- |
-| Public hosted zone | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-public` |
+| Legacy public hosted zone, optional and adopted | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-public` |
 | Canonical public hosted zone, created | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-canonical` |
 
-**The comment** is the legacy root's, word for word, so the first plan changes
-only the zone's tags.
+**The legacy comment** is the legacy root's, word for word, so an adoption plan
+changes only the zone's tags.
 
 **Protection.** The module keeps `force_destroy = false` and
 `prevent_destroy`.
@@ -35,23 +40,26 @@ Unlike the legacy zone, it is created here, and gets new name servers. The
 registrar, Namecheap, must delegate the domain to the four names in
 `canonical_zone_name_server_names`, under **Nameservers → Custom DNS**. Until
 it does, nothing in the zone resolves publicly. The legacy zone is neither
-replaced nor used for new records.
+replaced nor used for new records. When its management is disabled, all three
+legacy outputs are `null`.
 
 ## Plan and apply
 
 ```bash
-cp shd.tfvars.example shd.tfvars                 # fill aws_account_id and public_zone_id
+cp shd.tfvars.example shd.tfvars                 # fill aws_account_id; legacy adoption is optional
 cp dns.s3.tfbackend.example dns.s3.tfbackend     # fill from shd/state's outputs
 terraform -chdir=aws/environments/shd/dns init -backend-config=dns.s3.tfbackend
 terraform -chdir=aws/environments/shd/dns plan -input=false -var-file=shd.tfvars -out=shd-dns.tfplan
 ```
 
-`public_zone_id` is the legacy dev root's `public_hosted_zone_id` output. An
-apply uses only the saved plan, after the maintainer approves it and after a
-timestamped state backup (MTS-IAC-107).
+When legacy management and adoption are enabled, `public_zone_id` is the legacy
+dev root's `public_hosted_zone_id` output. An apply uses only the saved plan,
+after the maintainer approves it and after a timestamped state backup
+(MTS-IAC-107).
 
 ## Outputs
 
 `public_zone_id`, `public_zone_arn`, and `public_zone_name_server_names` for
-the legacy zone; `canonical_zone_id`, `canonical_zone_arn`, and
+the legacy zone when managed (otherwise `null`); `canonical_zone_id`,
+`canonical_zone_arn`, and
 `canonical_zone_name_server_names` for the canonical one.
