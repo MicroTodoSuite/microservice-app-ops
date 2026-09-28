@@ -15,3 +15,12 @@ public_zone_id             = null
 # adopt_existing_public_dns = true
 # public_zone_id             = "Z0000000000000000000"
 canonical_zone_name = "microtodosuite.online"
+# No destination record, health check, or shared routing exists until its target is live.
+# T134 adds each reviewed provider FQDN only after verifying it against the live ingress,
+# for example:
+# destination_provider_fqdns = {
+#   full-prod-azure = "<label>.<region>.cloudapp.azure.com"
+# }
+destination_provider_fqdns = {}
+# Only T139's separately approved plan turns this on (T140).
+enable_active_active = false

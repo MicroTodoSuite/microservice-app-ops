@@ -154,3 +154,41 @@ variable "repository" {
     error_message = "The repository must be <owner>/<name>."
   }
 }
+
+variable "destination_provider_fqdns" {
+  type        = map(string)
+  description = "Reviewed provider FQDN of each live destination, keyed by its subdomain in the canonical zone: full-dev, full-staging, full-prod-aws, full-prod-azure, or sonar-full-dev (gitops spec 009 T134). Each key present creates its CNAME, and each workload destination its HTTPS health check; the empty default creates none."
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition     = alltrue([for key in keys(var.destination_provider_fqdns) : contains(["full-dev", "full-staging", "full-prod-aws", "full-prod-azure", "sonar-full-dev"], key)])
+    error_message = "Key each provider FQDN by full-dev, full-staging, full-prod-aws, full-prod-azure, or sonar-full-dev."
+  }
+
+  validation {
+    condition     = alltrue([for fqdn in values(var.destination_provider_fqdns) : length(fqdn) <= 253 && can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", fqdn))])
+    error_message = "Every provider FQDN must be a non-empty lowercase domain name without a trailing dot; a missing or malformed target fails the plan rather than publishing a broken record."
+  }
+
+  validation {
+    condition     = alltrue([for fqdn in values(var.destination_provider_fqdns) : fqdn != var.canonical_zone_name && !endswith(fqdn, ".${var.canonical_zone_name}")])
+    error_message = "A provider FQDN is the destination's own endpoint, never a name inside the canonical zone."
+  }
+}
+
+variable "enable_active_active" {
+  type        = bool
+  description = "Whether app.<canonical zone> routes by health-evaluated failover between the AWS-production primary and the Azure secondary. Only T139's separately approved plan turns it on (gitops spec 009 T140)."
+  default     = false
+
+  validation {
+    condition     = var.enable_active_active != null
+    error_message = "The shared routing choice must be true or false, not null."
+  }
+
+  validation {
+    condition     = !var.enable_active_active || alltrue([for key in ["full-prod-aws", "full-prod-azure"] : contains(keys(var.destination_provider_fqdns), key)])
+    error_message = "Shared routing needs both production destinations, full-prod-aws and full-prod-azure, and their health checks."
+  }
+}
