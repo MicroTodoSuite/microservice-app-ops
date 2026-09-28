@@ -32,8 +32,9 @@ mock_provider "aws" {
 }
 
 override_resource {
-  target = module.aks_oidc[0].aws_iam_openid_connect_provider.this
-  values = { arn = "arn:aws:iam::123456789012:oidc-provider/eastus.oic.prod-aks.azure.com/tenant-id/cluster-id" }
+  target          = module.aks_oidc[0].aws_iam_openid_connect_provider.this
+  override_during = plan
+  values          = { arn = "arn:aws:iam::123456789012:oidc-provider/eastus.oic.prod-aks.azure.com/tenant-id/cluster-id" }
 }
 
 override_data {
