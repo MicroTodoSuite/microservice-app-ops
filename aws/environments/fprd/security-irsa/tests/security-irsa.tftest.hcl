@@ -32,7 +32,7 @@ mock_provider "aws" {
 }
 
 override_resource {
-  target = module.aks_oidc.aws_iam_openid_connect_provider.this
+  target = module.aks_oidc[0].aws_iam_openid_connect_provider.this
   values = { arn = "arn:aws:iam::123456789012:oidc-provider/eastus.oic.prod-aks.azure.com/tenant-id/cluster-id" }
 }
 
@@ -57,19 +57,76 @@ variables {
   service_image_keys    = ["frontend", "authapi"]
   aks_oidc_issuer_url   = "https://eastus.oic.prod-aks.azure.com/tenant-id/cluster-id/"
   canonical_zone_id     = "Z1111111111111111111"
+  canonical_zone_name   = "microtodosuite.online"
+}
+
+# The AKS issuer exists only after T128, and the solver roles are T134's to turn on, so the
+# root's defaults plan neither the provider nor either role.
+run "plans_no_aks_oidc_provider_or_dns01_role_by_default" {
+  command = plan
+
+  assert {
+    condition     = var.enable_dns01_solvers == false && length(module.aks_oidc) == 0 && length(module.dns01_roles) == 0 && local.dns01_roles == {}
+    error_message = "The default plan must create no AKS OIDC provider and no DNS-01 role."
+  }
+
+  assert {
+    condition     = output.aks_oidc_provider_arn == null && output.dns01_role_arns == {}
+    error_message = "The DNS-01 outputs must be empty while the solvers are disabled."
+  }
+}
+
+run "rejects_enabling_the_solvers_without_the_aks_issuer" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+    aks_oidc_issuer_url  = null
+  }
+
+  expect_failures = [var.enable_dns01_solvers]
+}
+
+run "rejects_enabling_the_solvers_without_the_canonical_zone" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+    canonical_zone_id    = null
+  }
+
+  expect_failures = [var.enable_dns01_solvers]
+}
+
+run "rejects_a_canonical_zone_id_with_the_hostedzone_prefix" {
+  command = plan
+
+  variables {
+    canonical_zone_id = "/hostedzone/Z1111111111111111111"
+  }
+
+  expect_failures = [var.canonical_zone_id]
 }
 
 run "creates_one_aks_oidc_provider_for_sts" {
   command = plan
 
+  variables {
+    enable_dns01_solvers = true
+  }
+
   assert {
-    condition     = module.aks_oidc.provider_url == trimsuffix(var.aks_oidc_issuer_url, "/") && local.aks_oidc_client_ids == ["sts.amazonaws.com"]
+    condition     = module.aks_oidc[0].provider_url == trimsuffix(var.aks_oidc_issuer_url, "/") && local.aks_oidc_client_ids == ["sts.amazonaws.com"]
     error_message = "The root must create exactly one IAM OIDC provider from the AKS issuer with only sts.amazonaws.com as its audience."
   }
 }
 
 run "trusts_only_the_two_exact_cert_manager_subjects" {
   command = plan
+
+  variables {
+    enable_dns01_solvers = true
+  }
 
   assert {
     condition     = local.dns01_role_names == { dns01aws = "lex-mts-fprd-role-dns01aws", dns01aks = "lex-mts-fprd-role-dns01aks" }
@@ -107,6 +164,10 @@ run "trusts_only_the_two_exact_cert_manager_subjects" {
 
 run "limits_both_dns01_roles_to_the_common_hostname_txt_record" {
   command = plan
+
+  variables {
+    enable_dns01_solvers = true
+  }
 
   assert {
     condition = alltrue([

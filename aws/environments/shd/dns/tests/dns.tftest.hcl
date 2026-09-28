@@ -20,14 +20,6 @@ variables {
   public_zone_id            = null
   adopt_existing_public_dns = false
   canonical_zone_name       = "microtodosuite.online"
-  destination_provider_fqdns = {
-    full-dev        = "full-dev.example.net"
-    full-staging    = "full-staging.example.net"
-    full-prod-aws   = "full-prod-aws.example.net"
-    full-prod-azure = "full-prod-azure.example.net"
-    sonar-full-dev  = "sonar-full-dev.example.net"
-  }
-  enable_active_active = false
 }
 
 run "creates_only_the_canonical_zone_when_legacy_management_is_disabled" {
@@ -44,8 +36,34 @@ run "creates_only_the_canonical_zone_when_legacy_management_is_disabled" {
   }
 }
 
+# The records and health checks point at provider endpoints that do not exist until their
+# destinations are live, so the root's defaults plan none of them (gitops spec 009 T134).
+run "plans_no_destination_record_or_health_check_by_default" {
+  command = plan
+
+  assert {
+    condition     = var.destination_provider_fqdns == {} && length(aws_route53_record.destination) == 0 && length(aws_route53_health_check.destination) == 0
+    error_message = "The default plan must create no destination record and no health check until an operator supplies a reviewed provider FQDN."
+  }
+
+  assert {
+    condition     = output.destination_record_fqdns == {} && output.destination_health_check_ids == {}
+    error_message = "The destination outputs must be empty while no destination is enabled."
+  }
+}
+
 run "creates_the_exact_destination_records_and_https_health_checks" {
   command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-dev        = "full-dev.example.net"
+      full-staging    = "full-staging.example.net"
+      full-prod-aws   = "full-prod-aws.example.net"
+      full-prod-azure = "full-prod-azure.example.net"
+      sonar-full-dev  = "sonar-full-dev.example.net"
+    }
+  }
 
   assert {
     condition = {
@@ -107,6 +125,118 @@ run "rejects_an_empty_destination_provider_fqdn" {
   }
 
   expect_failures = [var.destination_provider_fqdns]
+}
+
+run "enables_one_destination_at_a_time" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-prod-azure = "full-prod-azure.example.net"
+    }
+  }
+
+  assert {
+    condition     = keys(aws_route53_record.destination) == ["full-prod-azure"] && keys(aws_route53_health_check.destination) == ["full-prod-azure"] && length(aws_route53_record.active_active) == 0
+    error_message = "Supplying one provider FQDN must enable only that destination's CNAME and health check, and no shared routing record."
+  }
+}
+
+run "rejects_an_unknown_destination" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-prod-gcp = "full-prod-gcp.example.net"
+    }
+  }
+
+  expect_failures = [var.destination_provider_fqdns]
+}
+
+run "rejects_a_provider_fqdn_with_a_trailing_dot" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-dev = "full-dev.example.net."
+    }
+  }
+
+  expect_failures = [var.destination_provider_fqdns]
+}
+
+run "rejects_a_provider_fqdn_inside_the_canonical_zone" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-dev = "full-staging.microtodosuite.online"
+    }
+  }
+
+  expect_failures = [var.destination_provider_fqdns]
+}
+
+# Failover routing for the common hostname is T139's plan and T140's apply. The root may
+# express it only when both production destinations are live and health-checked.
+run "routes_the_common_hostname_by_health_evaluated_failover_only_when_enabled" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-dev        = "full-dev.example.net"
+      full-staging    = "full-staging.example.net"
+      full-prod-aws   = "full-prod-aws.example.net"
+      full-prod-azure = "full-prod-azure.example.net"
+      sonar-full-dev  = "sonar-full-dev.example.net"
+    }
+    enable_active_active = true
+  }
+
+  assert {
+    condition = {
+      for key, record in aws_route53_record.active_active : key => {
+        name            = record.name
+        type            = record.type
+        records         = record.records
+        set_identifier  = record.set_identifier
+        failover        = record.failover_routing_policy[0].type
+        health_check_id = record.health_check_id
+      }
+      } == {
+      PRIMARY = {
+        name            = "app.microtodosuite.online"
+        type            = "CNAME"
+        records         = ["full-prod-aws.example.net"]
+        set_identifier  = "full-prod-aws"
+        failover        = "PRIMARY"
+        health_check_id = aws_route53_health_check.destination["full-prod-aws"].id
+      }
+      SECONDARY = {
+        name            = "app.microtodosuite.online"
+        type            = "CNAME"
+        records         = ["full-prod-azure.example.net"]
+        set_identifier  = "full-prod-azure"
+        failover        = "SECONDARY"
+        health_check_id = aws_route53_health_check.destination["full-prod-azure"].id
+      }
+    }
+    error_message = "Enabled routing must be a health-evaluated AWS primary and Azure secondary for app.microtodosuite.online, nothing else."
+  }
+}
+
+run "rejects_shared_routing_without_both_production_destinations" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-prod-aws = "full-prod-aws.example.net"
+    }
+    enable_active_active = true
+  }
+
+  expect_failures = [var.enable_active_active]
 }
 
 # A mock provider cannot read a remote import, so only the adoption path overrides the
