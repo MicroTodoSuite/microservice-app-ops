@@ -34,8 +34,8 @@ run "creates_only_the_canonical_zone_when_legacy_management_is_disabled" {
   command = plan
 
   assert {
-    condition     = length(module.public_zone) + 1 == 1 && module.canonical_zone.zone_name == "microtodosuite.online"
-    error_message = "A fresh account must plan exactly the canonical zone when legacy-zone management is disabled."
+    condition     = concat([for zone in module.public_zone : zone.zone_name], [module.canonical_zone.zone_name]) == ["microtodosuite.online"]
+    error_message = "A fresh account must plan exactly one zone, the canonical microtodosuite.online zone, when legacy-zone management is disabled."
   }
 
   assert {
