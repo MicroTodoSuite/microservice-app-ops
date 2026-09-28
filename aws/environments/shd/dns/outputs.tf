@@ -1,17 +1,17 @@
 # Outputs of the shd/dns root, read by the roots that own records in the zone.
 output "public_zone_id" {
-  description = "Hosted zone ID of the public zone."
-  value       = module.public_zone.zone_id
+  description = "Hosted zone ID of the legacy public zone, or null when it is unmanaged."
+  value       = try(module.public_zone[0].zone_id, null)
 }
 
 output "public_zone_arn" {
-  description = "ARN of the public zone."
-  value       = module.public_zone.zone_arn
+  description = "ARN of the legacy public zone, or null when it is unmanaged."
+  value       = try(module.public_zone[0].zone_arn, null)
 }
 
 output "public_zone_name_server_names" {
-  description = "Name servers of the public zone, the ones delegated at the registrar."
-  value       = module.public_zone.name_server_names
+  description = "Name servers of the legacy public zone, or null when it is unmanaged."
+  value       = try(module.public_zone[0].name_server_names, null)
 }
 
 output "canonical_zone_id" {

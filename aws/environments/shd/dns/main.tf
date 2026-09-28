@@ -1,16 +1,17 @@
-# The shd/dns root: the account's public hosted zones (PC-IAC-022). An existing legacy
-# zone is adopted so its delegated name servers do not change; a fresh account creates it
-# (ops spec 001 T066, ops spec 004 FR-005). The canonical zone is always created here.
-# Records belong to the roots that own their targets.
+# The shd/dns root: the account's public hosted zones (PC-IAC-022). An account that still
+# owns the legacy zone can manage and adopt it without changing its delegated name servers
+# (ops spec 001 T066, ops spec 004 FR-005). A fresh account omits it. The canonical zone is
+# always created here. Records belong to the roots that own their targets.
 import {
-  for_each = var.adopt_existing_public_dns ? toset([var.public_zone_id]) : toset([])
+  for_each = var.manage_legacy_public_dns && var.adopt_existing_public_dns ? toset([var.public_zone_id]) : toset([])
 
-  to = module.public_zone.aws_route53_zone.this
+  to = module.public_zone[0].aws_route53_zone.this
   id = each.value
 }
 
 module "public_zone" {
   source = "git::https://github.com/MicroTodoSuite/terraform-aws-modules.git//route53-zone?ref=route53-zone-v1.0.0"
+  count  = var.manage_legacy_public_dns ? 1 : 0
 
   providers = {
     aws.project = aws.principal
