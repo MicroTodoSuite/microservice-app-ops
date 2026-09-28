@@ -42,12 +42,12 @@ run "plans_no_destination_record_or_health_check_by_default" {
   command = plan
 
   assert {
-    condition     = var.destination_provider_fqdns == {} && length(aws_route53_record.destination) == 0 && length(aws_route53_health_check.destination) == 0
+    condition     = length(var.destination_provider_fqdns) == 0 && length(aws_route53_record.destination) == 0 && length(aws_route53_health_check.destination) == 0
     error_message = "The default plan must create no destination record and no health check until an operator supplies a reviewed provider FQDN."
   }
 
   assert {
-    condition     = output.destination_record_fqdns == {} && output.destination_health_check_ids == {}
+    condition     = length(output.destination_record_fqdns) == 0 && length(output.destination_health_check_ids) == 0
     error_message = "The destination outputs must be empty while no destination is enabled."
   }
 }
@@ -78,7 +78,7 @@ run "creates_the_exact_destination_records_and_https_health_checks" {
         name    = "${key}.microtodosuite.online"
         type    = "CNAME"
         zone_id = module.canonical_zone.zone_id
-        records = [target]
+        records = toset([target])
       }
     }
     error_message = "The one canonical zone must contain exactly the four destination CNAMEs and sonar-full-dev.microtodosuite.online, each targeting its reviewed provider FQDN."
@@ -194,6 +194,18 @@ run "routes_the_common_hostname_by_health_evaluated_failover_only_when_enabled" 
     enable_active_active = true
   }
 
+  override_resource {
+    target          = aws_route53_health_check.destination["full-prod-aws"]
+    override_during = plan
+    values          = { id = "11111111-1111-1111-1111-111111111111" }
+  }
+
+  override_resource {
+    target          = aws_route53_health_check.destination["full-prod-azure"]
+    override_during = plan
+    values          = { id = "22222222-2222-2222-2222-222222222222" }
+  }
+
   assert {
     condition = {
       for key, record in aws_route53_record.active_active : key => {
@@ -208,18 +220,18 @@ run "routes_the_common_hostname_by_health_evaluated_failover_only_when_enabled" 
       PRIMARY = {
         name            = "app.microtodosuite.online"
         type            = "CNAME"
-        records         = ["full-prod-aws.example.net"]
+        records         = toset(["full-prod-aws.example.net"])
         set_identifier  = "full-prod-aws"
         failover        = "PRIMARY"
-        health_check_id = aws_route53_health_check.destination["full-prod-aws"].id
+        health_check_id = "11111111-1111-1111-1111-111111111111"
       }
       SECONDARY = {
         name            = "app.microtodosuite.online"
         type            = "CNAME"
-        records         = ["full-prod-azure.example.net"]
+        records         = toset(["full-prod-azure.example.net"])
         set_identifier  = "full-prod-azure"
         failover        = "SECONDARY"
-        health_check_id = aws_route53_health_check.destination["full-prod-azure"].id
+        health_check_id = "22222222-2222-2222-2222-222222222222"
       }
     }
     error_message = "Enabled routing must be a health-evaluated AWS primary and Azure secondary for app.microtodosuite.online, nothing else."
