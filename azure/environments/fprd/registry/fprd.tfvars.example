@@ -1,0 +1,7 @@
+# Copy to fprd.tfvars (gitignored) and fill the values the DR preflight
+# (spec 009 T124) verifies from the live account (PC-IAC-024).
+client          = "lex"
+project         = "mts"
+environment     = "fprd"
+subscription_id = ""
+location        = ""

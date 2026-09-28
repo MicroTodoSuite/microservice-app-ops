@@ -1,0 +1,15 @@
+# Copy to fprd.tfvars (gitignored) and fill the values the DR preflight
+# (spec 009 T124) verifies from the live account (PC-IAC-024).
+client          = "lex"
+project         = "mts"
+environment     = "fprd"
+subscription_id = ""
+location        = ""
+
+# The four approved operator addresses (spec 009 FR-012, FR-016).
+operator_cidrs = [
+  "181.50.102.191/32",
+  "186.112.71.16/32",
+  "190.108.77.190/32",
+  "200.3.193.225/32",
+]
