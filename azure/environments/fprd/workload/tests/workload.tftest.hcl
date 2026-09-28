@@ -117,7 +117,7 @@ run "cluster_contract" {
       pod_cidr       = "192.168.0.0/16"
       service_cidr   = "172.16.0.0/16"
       dns_service_ip = "172.16.0.10"
-      reserved_cidrs = ["10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16", "10.40.0.0/16", "10.50.0.0/16"]
+      reserved_cidrs = tolist(["10.10.0.0/16", "10.20.0.0/16", "10.30.0.0/16", "10.40.0.0/16", "10.50.0.0/16"])
     }
     error_message = "The cluster must use the networking root's node subnet and VNet range, with pod and service ranges checked against every AWS VPC, and no extra outbound address."
   }
