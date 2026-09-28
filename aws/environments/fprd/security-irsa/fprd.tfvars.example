@@ -13,3 +13,13 @@ jwt_reader_namespaces = {
   dmo = "microtodo-demo"
 }
 service_image_keys = ["authapi", "frontend", "logmsgproc", "todosapi", "usersapi"]
+# The DNS-01 solvers stay off until T134. The two zone inputs take no default, so set them
+# to null until then, or to shd/dns's canonical zone.
+enable_dns01_solvers = false
+aks_oidc_issuer_url  = null
+canonical_zone_id    = null
+canonical_zone_name  = null
+# enable_dns01_solvers = true
+# aks_oidc_issuer_url  = "https://<region>.oic.prod-aks.azure.com/<tenant-id>/<issuer-id>/"
+# canonical_zone_id    = "Z0000000000000000000"
+# canonical_zone_name  = "microtodosuite.online"
