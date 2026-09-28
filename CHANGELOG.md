@@ -1,3 +1,11 @@
+# [1.43.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.42.0...v1.43.0) (2026-09-28)
+
+
+### Features
+
+* **dns:** make legacy public zone optional ([ebd1932](https://github.com/MicroTodoSuite/microservice-app-ops/commit/ebd19327756f79c9a0af1fb1f93ef65a86bdc0c9))
+* **dns:** make legacy public zone optional ([#136](https://github.com/MicroTodoSuite/microservice-app-ops/issues/136)) ([4fae573](https://github.com/MicroTodoSuite/microservice-app-ops/commit/4fae5732f6a298d5ff6b49996398df816ff06381))
+
 # [1.42.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.41.0...v1.42.0) (2026-09-27)
 
 
