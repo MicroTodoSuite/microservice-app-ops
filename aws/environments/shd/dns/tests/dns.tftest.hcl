@@ -20,13 +20,21 @@ variables {
   public_zone_id            = null
   adopt_existing_public_dns = false
   canonical_zone_name       = "microtodosuite.online"
+  destination_provider_fqdns = {
+    full-dev        = "full-dev.example.net"
+    full-staging    = "full-staging.example.net"
+    full-prod-aws   = "full-prod-aws.example.net"
+    full-prod-azure = "full-prod-azure.example.net"
+    sonar-full-dev  = "sonar-full-dev.example.net"
+  }
+  enable_active_active = false
 }
 
 run "creates_only_the_canonical_zone_when_legacy_management_is_disabled" {
   command = plan
 
   assert {
-    condition     = length(module.public_zone) == 0 && module.canonical_zone.zone_name == "microtodosuite.online"
+    condition     = length(module.public_zone) + 1 == 1 && module.canonical_zone.zone_name == "microtodosuite.online"
     error_message = "A fresh account must plan exactly the canonical zone when legacy-zone management is disabled."
   }
 
@@ -34,6 +42,71 @@ run "creates_only_the_canonical_zone_when_legacy_management_is_disabled" {
     condition     = output.public_zone_id == null && output.public_zone_arn == null && output.public_zone_name_server_names == null
     error_message = "Legacy-zone outputs must be null when the root does not manage the legacy zone."
   }
+}
+
+run "creates_the_exact_destination_records_and_https_health_checks" {
+  command = plan
+
+  assert {
+    condition = {
+      for key, record in aws_route53_record.destination : key => {
+        name    = record.name
+        type    = record.type
+        zone_id = record.zone_id
+        records = record.records
+      }
+      } == {
+      for key, target in var.destination_provider_fqdns : key => {
+        name    = "${key}.microtodosuite.online"
+        type    = "CNAME"
+        zone_id = module.canonical_zone.zone_id
+        records = [target]
+      }
+    }
+    error_message = "The one canonical zone must contain exactly the four destination CNAMEs and sonar-full-dev.microtodosuite.online, each targeting its reviewed provider FQDN."
+  }
+
+  assert {
+    condition = {
+      for key, check in aws_route53_health_check.destination : key => {
+        fqdn = check.fqdn
+        port = check.port
+        type = check.type
+      }
+      } == {
+      for key in ["full-dev", "full-staging", "full-prod-aws", "full-prod-azure"] : key => {
+        fqdn = var.destination_provider_fqdns[key]
+        port = 443
+        type = "HTTPS"
+      }
+    }
+    error_message = "Every workload destination must have its own HTTPS health check against the reviewed provider FQDN."
+  }
+}
+
+run "keeps_shared_production_routing_absent_by_default" {
+  command = plan
+
+  assert {
+    condition     = var.enable_active_active == false && length(aws_route53_record.active_active) == 0
+    error_message = "The default plan must contain zero app.microtodosuite.online routing records."
+  }
+}
+
+run "rejects_an_empty_destination_provider_fqdn" {
+  command = plan
+
+  variables {
+    destination_provider_fqdns = {
+      full-dev        = "full-dev.example.net"
+      full-staging    = "full-staging.example.net"
+      full-prod-aws   = "full-prod-aws.example.net"
+      full-prod-azure = ""
+      sonar-full-dev  = "sonar-full-dev.example.net"
+    }
+  }
+
+  expect_failures = [var.destination_provider_fqdns]
 }
 
 # A mock provider cannot read a remote import, so only the adoption path overrides the
