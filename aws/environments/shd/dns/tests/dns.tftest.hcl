@@ -47,7 +47,7 @@ run "plans_no_destination_record_or_health_check_by_default" {
   }
 
   assert {
-    condition     = length(output.destination_record_fqdns) == 0 && length(output.destination_health_check_ids) == 0
+    condition     = length(output.destination_record_names) == 0 && length(output.destination_health_check_ids) == 0
     error_message = "The destination outputs must be empty while no destination is enabled."
   }
 }
