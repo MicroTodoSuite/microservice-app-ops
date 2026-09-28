@@ -145,16 +145,16 @@ if [[ -f "$TOOLCHAIN_LOCK" ]]; then
     fail ".terraform-version pins $pinned_terraform but the rollout toolchain lock pins $locked_terraform"
 fi
 
-# Scope: the AWS foundation workflows this specification governs. The legacy
-# Azure Container Apps workflows are reported below but not gated here; their
-# stale paths and pinning are a separate migration task and this contract must
-# not be the thing that blocks unrelated work on them.
+# Scope: the AWS foundation workflows and the Azure disaster-recovery
+# foundation workflow this specification governs (T126). Any other Terraform
+# workflow, such as a leftover of the retired Azure Container Apps estate, is
+# reported below but not gated here; migrating it is a separate task.
 legacy_terraform_workflows=()
 
 for workflow in "${workflow_files[@]}"; do
   grep -q 'terraform' "$workflow" || continue
 
-  if ! grep -q 'aws/environments\|aws/modules' "$workflow"; then
+  if ! grep -q 'aws/environments\|aws/modules\|azure/environments\|azure/modules' "$workflow"; then
     legacy_terraform_workflows+=("$(basename "$workflow")")
     continue
   fi
@@ -190,7 +190,7 @@ for workflow in "${workflow_files[@]}"; do
 done
 
 if [[ "${#legacy_terraform_workflows[@]}" -gt 0 ]]; then
-  printf 'NOTE: %d legacy Azure Terraform workflow(s) are outside this contract and still need migration: %s\n' \
+  printf 'NOTE: %d legacy Terraform workflow(s) are outside this contract and still need migration: %s\n' \
     "${#legacy_terraform_workflows[@]}" "${legacy_terraform_workflows[*]}" >&2
 fi
 
