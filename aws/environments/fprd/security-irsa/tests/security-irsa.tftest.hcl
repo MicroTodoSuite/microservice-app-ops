@@ -31,6 +31,12 @@ mock_provider "aws" {
   }
 }
 
+override_resource {
+  target          = module.aks_oidc[0].aws_iam_openid_connect_provider.this
+  override_during = plan
+  values          = { arn = "arn:aws:iam::123456789012:oidc-provider/eastus.oic.prod-aks.azure.com/tenant-id/cluster-id" }
+}
+
 override_data {
   target = data.aws_secretsmanager_secret.jwt["dev"]
   values = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:lex-mts-fprd-sm-jwtdev-AbCdEf" }
@@ -50,6 +56,160 @@ variables {
   deploy_role_arn       = "arn:aws:iam::123456789012:role/terraform-deploy"
   jwt_reader_namespaces = { dev = "microtodo-dev", stg = "microtodo-staging" }
   service_image_keys    = ["frontend", "authapi"]
+  aks_oidc_issuer_url   = "https://eastus.oic.prod-aks.azure.com/tenant-id/cluster-id/"
+  canonical_zone_id     = "Z1111111111111111111"
+  canonical_zone_name   = "microtodosuite.online"
+}
+
+# The AKS issuer exists only after T128, and the solver roles are T134's to turn on, so the
+# root's defaults plan neither the provider nor either role.
+run "plans_no_aks_oidc_provider_or_dns01_role_by_default" {
+  command = plan
+
+  assert {
+    condition     = var.enable_dns01_solvers == false && length(module.aks_oidc) == 0 && length(module.dns01_roles) == 0 && local.dns01_roles == {}
+    error_message = "The default plan must create no AKS OIDC provider and no DNS-01 role."
+  }
+
+  assert {
+    condition     = output.aks_oidc_provider_arn == null && output.dns01_role_arns == {}
+    error_message = "The DNS-01 outputs must be empty while the solvers are disabled."
+  }
+}
+
+run "rejects_enabling_the_solvers_without_the_aks_issuer" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+    aks_oidc_issuer_url  = null
+  }
+
+  expect_failures = [var.enable_dns01_solvers]
+}
+
+run "rejects_enabling_the_solvers_without_the_canonical_zone" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+    canonical_zone_id    = null
+  }
+
+  expect_failures = [var.enable_dns01_solvers]
+}
+
+run "rejects_a_canonical_zone_id_with_the_hostedzone_prefix" {
+  command = plan
+
+  variables {
+    canonical_zone_id = "/hostedzone/Z1111111111111111111"
+  }
+
+  expect_failures = [var.canonical_zone_id]
+}
+
+run "creates_one_aks_oidc_provider_for_sts" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+  }
+
+  assert {
+    condition     = module.aks_oidc[0].provider_url == trimsuffix(var.aks_oidc_issuer_url, "/") && local.aks_oidc_client_ids == ["sts.amazonaws.com"]
+    error_message = "The root must create exactly one IAM OIDC provider from the AKS issuer with only sts.amazonaws.com as its audience."
+  }
+}
+
+run "trusts_only_the_two_exact_cert_manager_subjects" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+  }
+
+  assert {
+    condition     = local.dns01_role_names == { dns01aws = "lex-mts-fprd-role-dns01aws", dns01aks = "lex-mts-fprd-role-dns01aks" }
+    error_message = "DNS-01 must use separate AWS-production and AKS role names."
+  }
+
+  assert {
+    condition = jsondecode(local.dns01_trust_policies["dns01aws"]).Statement == [{
+      Sid       = "AllowExactCertManagerServiceAccount"
+      Effect    = "Allow"
+      Principal = { Federated = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF" }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = { StringEquals = {
+        "oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF:aud" = "sts.amazonaws.com"
+        "oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF:sub" = "system:serviceaccount:cert-manager:cert-manager"
+      } }
+    }]
+    error_message = "The AWS-production DNS-01 role must trust only its cert-manager service account with the STS audience."
+  }
+
+  assert {
+    condition = jsondecode(local.dns01_trust_policies["dns01aks"]).Statement == [{
+      Sid       = "AllowExactCertManagerServiceAccount"
+      Effect    = "Allow"
+      Principal = { Federated = "arn:aws:iam::123456789012:oidc-provider/eastus.oic.prod-aks.azure.com/tenant-id/cluster-id" }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = { StringEquals = {
+        "eastus.oic.prod-aks.azure.com/tenant-id/cluster-id:aud" = "sts.amazonaws.com"
+        "eastus.oic.prod-aks.azure.com/tenant-id/cluster-id:sub" = "system:serviceaccount:cert-manager:cert-manager"
+      } }
+    }]
+    error_message = "The AKS DNS-01 role must trust only its cert-manager service account with the STS audience."
+  }
+}
+
+run "limits_both_dns01_roles_to_the_common_hostname_txt_record" {
+  command = plan
+
+  variables {
+    enable_dns01_solvers = true
+  }
+
+  assert {
+    condition = alltrue([
+      for key in ["dns01aws", "dns01aks"] :
+      jsondecode(local.dns01_roles[key].policy).Statement == [
+        {
+          Sid      = "ChangeCommonHostnameAcmeTxtOnly"
+          Effect   = "Allow"
+          Action   = "route53:ChangeResourceRecordSets"
+          Resource = "arn:aws:route53:::hostedzone/Z1111111111111111111"
+          Condition = { "ForAllValues:StringEquals" = {
+            "route53:ChangeResourceRecordSetsNormalizedRecordNames" = ["_acme-challenge.app.microtodosuite.online"]
+            "route53:ChangeResourceRecordSetsRecordTypes"           = ["TXT"]
+          } }
+        },
+        {
+          Sid      = "ReadCanonicalZoneRecords"
+          Effect   = "Allow"
+          Action   = "route53:ListResourceRecordSets"
+          Resource = "arn:aws:route53:::hostedzone/Z1111111111111111111"
+        },
+        {
+          Sid      = "ReadChangeStatus"
+          Effect   = "Allow"
+          Action   = "route53:GetChange"
+          Resource = "arn:aws:route53:::change/*"
+        },
+      ]
+    ])
+    error_message = "Each DNS-01 role may change only the common hostname's ACME TXT record and perform the minimum zone-read/change-status calls."
+  }
+}
+
+run "rejects_an_empty_aks_oidc_issuer" {
+  command = plan
+
+  variables {
+    aks_oidc_issuer_url = ""
+  }
+
+  expect_failures = [var.aks_oidc_issuer_url]
 }
 
 run "builds_the_irsa_names" {

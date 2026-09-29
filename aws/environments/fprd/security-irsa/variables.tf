@@ -80,6 +80,53 @@ variable "service_image_keys" {
   }
 }
 
+variable "enable_dns01_solvers" {
+  type        = bool
+  description = "Whether the root creates the AKS-issuer IAM OIDC provider and the AWS-production and AKS cert-manager DNS-01 roles (gitops spec 009 T134). The AKS issuer exists only after T128, so the default is false and the plan creates none of them."
+  default     = false
+
+  validation {
+    condition     = var.enable_dns01_solvers != null
+    error_message = "The DNS-01 solver choice must be true or false, not null."
+  }
+
+  validation {
+    condition     = !var.enable_dns01_solvers || (var.aks_oidc_issuer_url != null && var.canonical_zone_id != null && var.canonical_zone_name != null)
+    error_message = "Enabling the DNS-01 solvers needs the AKS OIDC issuer URL, the canonical hosted zone ID, and the canonical zone name."
+  }
+}
+
+variable "aks_oidc_issuer_url" {
+  type        = string
+  description = "OIDC issuer URL of the AKS disaster-recovery cluster, the azure/environments/dr workload root's output after T128; null until then. A trailing slash is removed before IAM sees it."
+  default     = null
+
+  validation {
+    condition     = var.aks_oidc_issuer_url == null || can(regex("^https://[a-z0-9.-]+(/[A-Za-z0-9._/-]*)?$", var.aks_oidc_issuer_url))
+    error_message = "The AKS OIDC issuer must be null or an https URL without a query or fragment."
+  }
+}
+
+variable "canonical_zone_id" {
+  type        = string
+  description = "Hosted zone ID of the canonical zone, shd/dns's canonical_zone_id output, the only zone the DNS-01 roles may change; null while the solvers are disabled."
+
+  validation {
+    condition     = var.canonical_zone_id == null || can(regex("^Z[A-Z0-9]{1,31}$", var.canonical_zone_id))
+    error_message = "Set canonical_zone_id to a Route 53 hosted zone ID without the /hostedzone/ prefix, or null."
+  }
+}
+
+variable "canonical_zone_name" {
+  type        = string
+  description = "Domain of the canonical zone, microtodosuite.online (gitops spec 009 FR-044); the DNS-01 roles may change only _acme-challenge.app.<domain>. Null while the solvers are disabled."
+
+  validation {
+    condition     = var.canonical_zone_name == null || can(regex("^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", var.canonical_zone_name))
+    error_message = "The canonical zone name must be null or a lowercase domain name without a trailing dot."
+  }
+}
+
 variable "owner" {
   type        = string
   description = "Owning team, recorded in the Owner tag."

@@ -16,6 +16,9 @@ ones (ops spec 004 FR-005).
 | --- | --- | --- |
 | Legacy public hosted zone, optional and adopted | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-public` |
 | Canonical public hosted zone, created | `route53-zone-v1.0.0` | the domain; `Name` tag `lex-mts-shd-dns-canonical` |
+| Destination CNAMEs, off by default | `aws_route53_record.destination` | `<destination>.microtodosuite.online` |
+| Destination HTTPS health checks, off by default | `aws_route53_health_check.destination` | `Name` tag `lex-mts-shd-hc-<destination>` |
+| Shared failover pair, off by default | `aws_route53_record.active_active` | `app.microtodosuite.online` |
 
 **The legacy comment** is the legacy root's, word for word, so an adoption plan
 changes only the zone's tags.
@@ -23,7 +26,23 @@ changes only the zone's tags.
 **Protection.** The module keeps `force_destroy = false` and
 `prevent_destroy`.
 
-**Records** belong to the roots that own their targets. This root holds none.
+**Destination records** (gitops spec 009 T122 and T134) are inert by default.
+`destination_provider_fqdns` maps each destination's subdomain to its reviewed
+provider FQDN; its default is empty, so a plan creates no record and no health
+check. Each key an operator adds creates exactly one CNAME
+`<key>.microtodosuite.online` to that FQDN, and each workload destination
+(`full-dev`, `full-staging`, `full-prod-aws`, `full-prod-azure`, not
+`sonar-full-dev`) one Route 53 HTTPS health check on port 443 against the
+provider FQDN. The input fails closed: an unknown key, an empty or malformed
+FQDN, a trailing dot, or a target inside the canonical zone fails the plan.
+
+**The shared hostname** `app.microtodosuite.online` has no record while
+`enable_active_active = false`, the default. When T139's separately approved
+plan turns it on, it becomes a failover pair: the AWS-production provider FQDN
+as the health-evaluated primary and the Azure one as the secondary, and the
+variable refuses to turn on unless both production destinations are present.
+Latency-based active-active stays unavailable until a replicated data store
+exists.
 
 **The canonical zone** `microtodosuite.online` is the only public domain for
 new records (gitops spec 009 FR-044), and every profile's subdomains live in
@@ -62,4 +81,6 @@ after the maintainer approves it and after a timestamped state backup
 `public_zone_id`, `public_zone_arn`, and `public_zone_name_server_names` for
 the legacy zone when managed (otherwise `null`); `canonical_zone_id`,
 `canonical_zone_arn`, and
-`canonical_zone_name_server_names` for the canonical one.
+`canonical_zone_name_server_names` for the canonical one;
+`destination_record_names` and `destination_health_check_ids` for the enabled
+destinations, empty by default.

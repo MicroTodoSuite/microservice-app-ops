@@ -634,6 +634,88 @@ locals {
     })
   }
 
+  # The AKS disaster-recovery cluster's issuer (gitops spec 009 T134). IAM names the provider by
+  # the issuer URL without its trailing slash, and condition keys by the URL without its scheme.
+  aks_oidc_provider_name = "${local.governance_prefix}-oidc-aks"
+  aks_oidc_client_ids    = ["sts.amazonaws.com"]
+  aks_oidc_issuer_url    = var.aks_oidc_issuer_url == null ? null : trimsuffix(var.aks_oidc_issuer_url, "/")
+  aks_oidc_issuer_host   = local.aks_oidc_issuer_url == null ? null : trimprefix(local.aks_oidc_issuer_url, "https://")
+
+  # The cert-manager DNS-01 solvers of the common hostname: one role per cluster, each trusting
+  # only that cluster's cert-manager service account, so neither cluster can assume the other's.
+  # Both may change only the common hostname's ACME TXT record in the canonical zone, list that
+  # zone's records, and read change status; cert-manager's issuer names the zone, so no role
+  # lists hosted zones. Nothing is built until the solvers are enabled.
+  cert_manager_subject = "system:serviceaccount:cert-manager:cert-manager"
+
+  dns01_identities = {
+    dns01aws = {
+      issuer_host  = local.oidc_issuer_host
+      provider_arn = module.eks_oidc.provider_arn
+      description  = "Solves DNS-01 for the common hostname, for cert-manager/cert-manager on ${local.cluster_name}."
+    }
+    dns01aks = {
+      issuer_host  = local.aks_oidc_issuer_host
+      provider_arn = one(module.aks_oidc[*].provider_arn)
+      description  = "Solves DNS-01 for the common hostname, for cert-manager/cert-manager on the AKS disaster-recovery cluster."
+    }
+  }
+
+  dns01_roles = {
+    for key, identity in local.dns01_identities : key => {
+      description = identity.description
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid      = "ChangeCommonHostnameAcmeTxtOnly"
+            Effect   = "Allow"
+            Action   = "route53:ChangeResourceRecordSets"
+            Resource = "arn:${local.partition}:route53:::hostedzone/${var.canonical_zone_id}"
+            Condition = {
+              "ForAllValues:StringEquals" = {
+                "route53:ChangeResourceRecordSetsNormalizedRecordNames" = ["_acme-challenge.app.${var.canonical_zone_name}"]
+                "route53:ChangeResourceRecordSetsRecordTypes"           = ["TXT"]
+              }
+            }
+          },
+          {
+            Sid      = "ReadCanonicalZoneRecords"
+            Effect   = "Allow"
+            Action   = "route53:ListResourceRecordSets"
+            Resource = "arn:${local.partition}:route53:::hostedzone/${var.canonical_zone_id}"
+          },
+          {
+            Sid      = "ReadChangeStatus"
+            Effect   = "Allow"
+            Action   = "route53:GetChange"
+            Resource = "arn:${local.partition}:route53:::change/*"
+          },
+        ]
+      })
+    } if var.enable_dns01_solvers
+  }
+
+  dns01_role_names = { for key in keys(local.dns01_roles) : key => "${local.governance_prefix}-role-${key}" }
+
+  dns01_trust_policies = {
+    for key in keys(local.dns01_roles) : key => jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Sid       = "AllowExactCertManagerServiceAccount"
+        Effect    = "Allow"
+        Principal = { Federated = local.dns01_identities[key].provider_arn }
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${local.dns01_identities[key].issuer_host}:aud" = "sts.amazonaws.com"
+            "${local.dns01_identities[key].issuer_host}:sub" = local.cert_manager_subject
+          }
+        }
+      }]
+    })
+  }
+
   common_tags = {
     Client      = var.client
     Project     = var.project

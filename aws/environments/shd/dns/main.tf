@@ -1,7 +1,8 @@
 # The shd/dns root: the account's public hosted zones (PC-IAC-022). An account that still
 # owns the legacy zone can manage and adopt it without changing its delegated name servers
 # (ops spec 001 T066, ops spec 004 FR-005). A fresh account omits it. The canonical zone is
-# always created here. Records belong to the roots that own their targets.
+# always created here, with the destination CNAMEs, their health checks, and the shared app
+# hostname of gitops spec 009 T122, every one of which stays off until an operator enables it.
 import {
   for_each = var.manage_legacy_public_dns && var.adopt_existing_public_dns ? toset([var.public_zone_id]) : toset([])
 
@@ -41,4 +42,55 @@ module "canonical_zone" {
   zone_name     = var.canonical_zone_name
   standard_name = local.canonical_zone_standard_name
   comment       = local.canonical_zone_comment
+}
+
+# The destination CNAMEs (gitops spec 009 FR-044, T134). Each exists only once the operator
+# supplies its destination's reviewed provider FQDN, so the default plan creates none.
+resource "aws_route53_record" "destination" {
+  for_each = var.destination_provider_fqdns
+  provider = aws.principal
+
+  zone_id = module.canonical_zone.zone_id
+  name    = "${each.key}.${var.canonical_zone_name}"
+  type    = "CNAME"
+  ttl     = 300
+  records = [each.value]
+}
+
+# One HTTPS health check per workload destination, against its provider FQDN. Route 53
+# resolves the FQDN, sends it as the Host header, and, by the HTTPS default, as the SNI name.
+resource "aws_route53_health_check" "destination" {
+  for_each = local.health_checked_destinations
+  provider = aws.principal
+
+  fqdn              = each.value
+  port              = 443
+  type              = "HTTPS"
+  resource_path     = "/"
+  request_interval  = 30
+  failure_threshold = 3
+
+  tags = {
+    Name = "${local.governance_prefix}-hc-${each.key}"
+  }
+}
+
+# The shared app hostname. The records are failover, not latency, records; the resource keeps
+# the enable_active_active name the task register uses. Zero records unless T139's plan is
+# separately approved.
+resource "aws_route53_record" "active_active" {
+  for_each = local.shared_routing
+  provider = aws.principal
+
+  zone_id         = module.canonical_zone.zone_id
+  name            = local.shared_hostname
+  type            = "CNAME"
+  ttl             = 60
+  records         = [var.destination_provider_fqdns[each.value]]
+  set_identifier  = each.value
+  health_check_id = aws_route53_health_check.destination[each.value].id
+
+  failover_routing_policy {
+    type = each.key
+  }
 }

@@ -102,6 +102,40 @@ test holds that line.
 `lex-mts-fprd-eks-main` into the controller's `--cluster-name`. A different
 cluster name would make every create call fail, which is the intent.
 
+## The DNS-01 solver roles (off by default)
+
+Gitops spec 009 T122 and T134 give cert-manager on each production cluster its
+own role for the DNS-01 challenge of the common hostname
+`app.microtodosuite.online`. `enable_dns01_solvers` defaults to `false`, so the
+default plan creates none of the three resources below; T134 turns it on after
+T128 has created the AKS cluster and its issuer exists.
+
+| Resource | Module | Name |
+| --- | --- | --- |
+| IAM OIDC provider of the AKS cluster's issuer, audience `sts.amazonaws.com` | `iam-oidc-provider-v1.0.0` | the issuer URL without its trailing slash; `Name` tag `lex-mts-fprd-oidc-aks` |
+| AWS-production DNS-01 solver | `iam-role-v1.0.0` | `lex-mts-fprd-role-dns01aws` |
+| AKS DNS-01 solver | `iam-role-v1.0.0` | `lex-mts-fprd-role-dns01aks` |
+
+`dns01aws` trusts only this cluster's provider and `dns01aks` only the AKS one,
+each with the `sts.amazonaws.com` audience and the exact subject
+`system:serviceaccount:cert-manager:cert-manager`; no condition uses a
+wildcard. Both may call `route53:ChangeResourceRecordSets` on the canonical zone
+only when every changed record is `_acme-challenge.app.microtodosuite.online`
+of type `TXT` (`route53:ChangeResourceRecordSetsNormalizedRecordNames` and
+`route53:ChangeResourceRecordSetsRecordTypes`), `route53:ListResourceRecordSets`
+on that zone, and `route53:GetChange`. They cannot list hosted zones, so each
+cert-manager issuer must name the zone by `hostedZoneID`.
+
+Turning it on needs `aks_oidc_issuer_url`, `canonical_zone_id` (shd/dns's
+`canonical_zone_id` output), and `canonical_zone_name`; the variable refuses
+`true` without them. The two zone inputs take no default (PC-IAC-002), so an
+existing `fprd.tfvars` must add them, as `null` while the solvers stay off.
+
+**Open question for T134.** IAM gets the issuer without its trailing slash,
+while the AKS issuer URL, and so the token's `iss` claim, ends in `/`. T134
+must confirm against the live issuer that STS accepts tokens for the trimmed
+provider before applying.
+
 ## Plan and apply
 
 ```bash
@@ -121,3 +155,6 @@ going up and first going down (`docs/aws-profile-lifecycle.md`).
 - `irsa_role_arns`, keyed by `jwt<code>`, `obssecret`, `secsecret`,
   `trivyecr`, `kyvernoecr`, `karpenter`, and `lbcontrol`: the values the GitOps annotations
   take
+- `aks_oidc_provider_arn`, `null` while the DNS-01 solvers are off
+- `dns01_role_arns`, keyed by `dns01aws` and `dns01aks`, empty while they are
+  off
