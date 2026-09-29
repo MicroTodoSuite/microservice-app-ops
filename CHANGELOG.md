@@ -1,3 +1,11 @@
+# [1.44.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.43.0...v1.44.0) (2026-09-29)
+
+
+### Features
+
+* **dns:** add inert destination records, health checks, and shared routing ([91ec48c](https://github.com/MicroTodoSuite/microservice-app-ops/commit/91ec48c553303dc73f619cb8ded42fc84a67c8e8))
+* **security-irsa:** add inert aks oidc provider and dns-01 solver roles ([b938631](https://github.com/MicroTodoSuite/microservice-app-ops/commit/b938631b2c251d3a07be78e9784678eb6a837b96))
+
 # [1.43.0](https://github.com/MicroTodoSuite/microservice-app-ops/compare/v1.42.0...v1.43.0) (2026-09-28)
 
 
